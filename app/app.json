@@ -77,6 +77,9 @@
       ]
     ],
     "extra": {
+      "eas": {
+        "projectId": "69914c87-6d4a-4e30-b526-13b36e4258f9"
+      },
       "supabaseUrl": "https://vainkbvlruoebfgnuzea.supabase.co",
       "supabaseAnonKey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZhaW5rYnZscnVvZWJmZ251emVhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAxMjUxMTcsImV4cCI6MjEwNTcwMTExN30.8x6U8XCcjQcrO1Ld9devWFQFPgCpxStmLgL11DB0Tv0",
       "trackUrl": "https://USERNAME.github.io/mishwar/track.html"
