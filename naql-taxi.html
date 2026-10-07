@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>نقل - تكسي</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+function showToast(msg, isError=false){
+  const t=document.getElementById('toast');
+  if(!t) return;
+  t.textContent=msg;
+  t.className='toast'+(isError?' error':'');
+  t.style.display='block';
+  clearTimeout(window._toastTimer);
+  window._toastTimer=setTimeout(()=> t.style.display='none', 2500);
+}
+
+</script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,-apple-system,'Segoe UI',sans-serif;background:#f8fafc;color:#0f172a;max-width:520px;margin:0 auto;height:100vh;display:flex;flex-direction:column}
+.header{position:sticky;top:0;z-index:10;background:#fff;border-bottom:1px solid #e2e8f0;padding:10px 14px;display:flex;align-items:center;gap:10px}
+.header h1{font-size:16px;font-weight:900}
+.back{width:36px;height:36px;border-radius:10px;border:1px solid #e2e8f0;background:#fff;display:grid;place-items:center;cursor:pointer}
+.modeBar{display:flex;gap:8px;padding:8px 10px;background:#fff;border-bottom:1px solid #e2e8f0}
+.modeBar button{flex:1;height:40px;border-radius:12px;border:1.5px solid #e2e8f0;background:#fff;font-weight:800;font-size:12px;cursor:pointer}
+.modeBar button.active{background:#4F46E5;color:#fff;border-color:#4F46E5}
+#map{flex:1;min-height:300px;margin:0 10px;border-radius:14px;border:1px solid #e2e8f0;overflow:hidden;position:relative}
+.mapHint{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);background:rgba(15,23,42,.85);color:#fff;padding:6px 12px;border-radius:999px;font-size:11px;z-index:400;pointer-events:none}
+.sliderWrap{background:#fff;border-top:1px solid #e2e8f0;padding:10px 0 12px}
+.sliderWrap h3{font-size:12px;font-weight:900;padding:0 14px;margin-bottom:8px;display:flex;justify-content:space-between}
+.slider{display:flex;gap:10px;overflow-x:auto;padding:0 14px 6px;scroll-snap-type:x mandatory}
+.slider::-webkit-scrollbar{display:none}
+.card{flex:0 0 150px;scroll-snap-align:start;border:1.5px solid #e2e8f0;border-radius:14px;padding:10px;background:#fff;cursor:pointer;position:relative}
+.card.active{border-color:#4F46E5;background:#eef2ff}
+.card .icon{font-size:22px;text-align:center}
+.card b{display:block;font-size:12px;font-weight:900;text-align:center;margin-top:4px}
+.card .price{font-size:16px;font-weight:900;text-align:center;color:#4F46E5;margin:6px 0}
+.card .perkm{font-size:10px;color:#64748b;text-align:center}
+.publish{padding:10px 14px}
+.publish button{width:100%;height:46px;border-radius:14px;border:none;background:#4F46E5;color:#fff;font-weight:900;font-size:14px;cursor:pointer}
+.publish button:disabled{background:#cbd5e1;color:#64748b}
+
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#065f46;color:#fff;padding:12px 20px;border-radius:999px;font-weight:800;font-size:13px;box-shadow:0 8px 24px rgba(0,0,0,.2);z-index:9999;display:none;max-width:90%;text-align:center}
+.toast.error{background:#991b1b}
+
+</style>
+</head>
+<body>
+<div class="header">
+<div class="back" onclick="history.back()">→</div>
+<div><h1>🚕 طلب تكسي</h1><p style="font-size:11px;color:#64748b">اضغط على الخريطة لتحديد الانطلاق والوصول — بدون كتابة</p></div>
+</div>
+
+<div style="margin:8px 10px"><button onclick="location.href='naql-taxi-shared.html'" style="width:100%;height:42px;border-radius:12px;border:1.5px solid #4F46E5;background:#eef2ff;color:#4F46E5;font-weight:900;cursor:pointer">👥 رحلات راكب مشتركة — تصفح على طول المسار</button></div>
+<div class="modeBar">
+<button id="modePick" class="active" onclick="setMode('pick')">📍 الانطلاق</button>
+<button id="modeDrop" onclick="setMode('drop')">🏁 الوصول</button>
+<button onclick="useMyLocation()" style="max-width:100px;background:#f1f5f9">📍 موقعي</button>
+</div>
+
+<div id="map"><div class="mapHint" id="mapHint">اضغط على الخريطة لتحديد الانطلاق</div></div>
+
+<div class="sliderWrap" id="sliderWrap" style="display:none">
+<h3><span>اختر الفئة — اسحب يمين/يسار</span><span id="distBadge" style="font-size:11px;background:#eef2ff;color:#4F46E5;padding:2px 8px;border-radius:999px"></span></h3>
+<div class="slider" id="slider"></div>
+<div class="publish">
+<button id="publishBtn" onclick="publish()" disabled>حدد الوصول على الخريطة</button>
+<div id="rangeNote" style="font-size:11px;color:#64748b;text-align:center;margin-top:6px"></div>
+</div>
+</div>
+
+<script>
+let map, markerPick=null, markerDrop=null, mode='pick', pickup=null, dropoff=null, distanceKm=0, selectedCat='ordinary', radius=5
+const rates={
+ ordinary:{name:'عادية', icon:'🚗', base:1.0, perKm:0.60},
+ economy:{name:'اقتصادية / كهربائية', icon:'⚡', base:0.8, perKm:0.50},
+ luxury:{name:'فاخرة', icon:'✨', base:2.0, perKm:1.20},
+ van_8:{name:'فان حديث 8', icon:'🚐', base:1.5, perKm:0.85},
+ van_11:{name:'فان حديث 11', icon:'🚐', base:2.0, perKm:1.00},
+}
+// ===== توجيه حقيقي على الطرق (OSRM) — بديل الخط المستقيم =====
+const ROUTE_CACHE={}
+async function getRoute(points){
+ const key=points.map(p=>p[0].toFixed(5)+','+p[1].toFixed(5)).join(';')
+ if(ROUTE_CACHE[key]) return ROUTE_CACHE[key]
+ const coords=points.map(p=>p[1]+','+p[0]).join(';')
+ const ctrl=new AbortController(); const tm=setTimeout(()=>ctrl.abort(),10000)
+ try{
+   const r=await fetch('https://router.project-osrm.org/route/v1/driving/'+coords+'?overview=full&geometries=geojson',{signal:ctrl.signal})
+   const j=await r.json()
+   if(j.code!=='Ok'||!j.routes||!j.routes.length) throw new Error('no route')
+   const rt=j.routes[0]
+   const res={ok:true, km:rt.distance/1000, min:rt.duration/60, latlngs:rt.geometry.coordinates.map(c=>[c[1],c[0]])}
+   ROUTE_CACHE[key]=res; return res
+ }catch(e){ return {ok:false} } finally{ clearTimeout(tm) }
+}
+function fmtMin(m){ m=Math.round(m); return m<60? m+' د' : Math.floor(m/60)+' س '+(m%60)+' د' }
+function fare(cat, km){ return (rates[cat].base + rates[cat].perKm*km).toFixed(2) }
+function setMode(m){
+ mode=m
+ document.getElementById('modePick').classList.toggle('active', m==='pick')
+ document.getElementById('modeDrop').classList.toggle('active', m==='drop')
+ document.getElementById('mapHint').textContent = m==='pick'? 'اضغط على الخريطة لتحديد الانطلاق' : 'اضغط على الخريطة لتحديد الوصول'
+}
+function initMap(){
+ const center=[33.5138,36.2765]
+ map=L.map('map',{zoomControl:false}).setView(center,13)
+ L.tileLayer('https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map)
+ map.on('click', e=>{
+   const ll=[e.latlng.lat, e.latlng.lng]
+   if(mode==='pick'){
+     pickup=ll
+     if(markerPick) map.removeLayer(markerPick)
+     markerPick=L.marker(ll,{icon: L.divIcon({html:'<div style="background:#22c55e;color:#fff;width:28px;height:28px;border-radius:999px;display:grid;place-items:center;border:2px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.2)">●</div>', iconSize:[28,28], iconAnchor:[14,14]})}).addTo(map)
+     setMode('drop')
+   } else {
+     dropoff=ll
+     if(markerDrop) map.removeLayer(markerDrop)
+     markerDrop=L.marker(ll,{icon: L.divIcon({html:'<div style="background:#ef4444;color:#fff;width:28px;height:28px;border-radius:999px;display:grid;place-items:center;border:2px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.2)">●</div>', iconSize:[28,28], iconAnchor:[14,14]})}).addTo(map)
+   }
+   updateDistance()
+ })
+ if(navigator.geolocation){
+   navigator.geolocation.getCurrentPosition(pos=>{
+     pickup=[pos.coords.latitude, pos.coords.longitude]
+     if(markerPick) map.removeLayer(markerPick)
+     markerPick=L.marker(pickup,{icon: L.divIcon({html:'<div style="background:#22c55e;color:#fff;width:28px;height:28px;border-radius:999px;display:grid;place-items:center;border:2px solid #fff">●</div>', iconSize:[28,28], iconAnchor:[14,14]})}).addTo(map)
+     map.setView(pickup,14)
+   })
+ }
+}
+function useMyLocation(){
+ if(!navigator.geolocation) return showToast('المتصفح لا يدعم الموقع')
+ navigator.geolocation.getCurrentPosition(pos=>{
+   pickup=[pos.coords.latitude, pos.coords.longitude]
+   if(markerPick) map.removeLayer(markerPick)
+   markerPick=L.marker(pickup,{icon: L.divIcon({html:'<div style="background:#22c55e;color:#fff;width:28px;height:28px;border-radius:999px;display:grid;place-items:center;border:2px solid #fff">●</div>', iconSize:[28,28], iconAnchor:[14,14]})}).addTo(map)
+   map.setView(pickup,14)
+   setMode('drop')
+   updateDistance()
+ })
+}
+let routeReq=0, routeMin=0
+async function updateDistance(){
+ if(!pickup || !dropoff) return
+ const my=++routeReq
+ const badge=document.getElementById('distBadge')
+ badge.textContent='⏳ جاري حساب المسار...'
+ const btn=document.getElementById('publishBtn'); btn.disabled=true; btn.textContent='جاري حساب المسار على الطرق...'
+ const r=await getRoute([pickup,dropoff])
+ if(my!==routeReq) return
+ if(window.routeLine) map.removeLayer(window.routeLine)
+ if(!r.ok){
+   distanceKm=0; badge.textContent='⚠️ تعذر حساب المسار'
+   document.getElementById('sliderWrap').style.display='none'
+   btn.disabled=true; btn.textContent='تعذر حساب المسار — اضغط لإعادة المحاولة'
+   btn.disabled=false; btn.dataset.retry='1'
+   showToast('تعذر حساب المسار على الطرق، حاول مرة أخرى')
+   return
+ }
+ btn.dataset.retry='0'
+ distanceKm=r.km; routeMin=r.min
+ badge.textContent=`${distanceKm.toFixed(1)} كم • ${fmtMin(routeMin)}`
+ document.getElementById('sliderWrap').style.display='block'
+ window.routeLine=L.polyline(r.latlngs,{color:'#4F46E5', weight:5, opacity:.9}).addTo(map)
+ map.fitBounds(window.routeLine.getBounds(),{padding:[30,30]})
+ renderSlider()
+}
+function renderSlider(){
+ const s=document.getElementById('slider'); s.innerHTML=''
+ Object.entries(rates).forEach(([k,v])=>{
+   const price=fare(k,distanceKm)
+   const card=document.createElement('div'); card.className='card'+(k===selectedCat?' active':''); card.onclick=()=>{ selectedCat=k; renderSlider() }
+   card.innerHTML=`<div class="icon">${v.icon}</div><b>${v.name}</b><div class="price">$${price}</div><div class="perkm">${v.perKm.toFixed(2)}$/كم</div>`
+   s.appendChild(card)
+ })
+ updatePublish()
+}
+function updatePublish(){
+ const btn=document.getElementById('publishBtn'), note=document.getElementById('rangeNote')
+ if(!pickup || !dropoff){ btn.disabled=true; btn.textContent='حدد الوصول على الخريطة'; note.textContent=''; return }
+ const price=fare(selectedCat,distanceKm), name=rates[selectedCat].name
+ const hasDriver=Math.random()>0.3
+ if(hasDriver){
+   btn.disabled=false; btn.textContent=`📢 نشر الطلب — ${name} • $${price}`; note.textContent=`سيُرسل للسائقين ضمن ${radius} كم`; btn.dataset.expand='0'
+ } else {
+   btn.disabled=false; btn.textContent=`⚠️ لا يوجد ${name} ضمن 5 كم — وسّع إلى 10 كم؟`; note.textContent='اضغط للتوسيع'; btn.dataset.expand='1'
+ }
+ btn.dataset.price=price
+}
+function publish(){
+ const btn=document.getElementById('publishBtn')
+ if(btn.dataset.retry==='1'){ updateDistance(); return }
+ if(btn.dataset.expand==='1' && radius===5){
+   radius=10
+   btn.textContent='جاري التوسيع إلى 10 كم...'
+   setTimeout(()=>{
+     const price=btn.dataset.price, name=rates[selectedCat].name
+     btn.textContent=`📢 نشر الطلب — ${name} • $${price} (10 كم)`
+     document.getElementById('rangeNote').textContent='تم التوسيع إلى 10 كم'
+     btn.dataset.expand='0'
+     sendToDB(price)
+   },700)
+   return
+ }
+ sendToDB(btn.dataset.price)
+}
+function sendToDB(price){
+ const payload={
+   pickup_lat: pickup[0], pickup_lng: pickup[1],
+   dropoff_lat: dropoff[0], dropoff_lng: dropoff[1],
+   distance_km: Number(distanceKm.toFixed(2)),
+   duration_min: Math.round(routeMin),
+   route_source: 'osrm_road',
+   vehicle_category: selectedCat,
+   estimated_fare: Number(price),
+   search_radius_km: radius,
+ }
+ console.log(payload)
+ showToast('تم نشر طلب التكسي')
+}
+setTimeout(initMap, 100)
+</script>
+<div id="toast" class="toast"></div>
+</body>
+</html>

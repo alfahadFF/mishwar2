@@ -1,0 +1,124 @@
+// اختبار دفع التكسي على Postgres (PGlite). التشغيل: cd /tmp/pg && node /home/user/.tools/pgtest_contracts.mjs [full|parts]
+import { createRequire } from 'module'
+const require = createRequire('/tmp/pg/')
+const { PGlite } = await import(require.resolve('@electric-sql/pglite'))
+import fs from 'fs'
+const db=new PGlite(); const H='/home/user/'
+const q=async(sql,l)=>{ try{ return await db.exec(sql) }catch(e){ console.log('❌',l,e.message); process.exit(1) } }
+await q(`create role anon; create role authenticated; create schema auth;
+create table auth.users(id uuid primary key, created_at timestamptz not null default now());
+create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.jwt.claim.sub', true),'')::uuid $$;
+create table public.profiles(id uuid primary key references auth.users(id), email text, full_name text, phone text, avatar_url text, type text, created_at timestamptz default now(), updated_at timestamptz default now(), account_type text, governorate text, national_id text);
+create table public.wallets(user_id uuid, balance_syp bigint not null, is_trial_active boolean, trial_days_remaining integer, commission_rate_percent numeric, updated_at timestamptz default now(), id uuid primary key, trial_used boolean);
+create table public.wallet_transactions(id uuid primary key default gen_random_uuid(), user_id uuid references public.profiles(id) on delete cascade, amount_syp bigint not null, type text not null, reference_info text, created_at timestamptz default now());`,'env')
+await q(fs.readFileSync(H+'cargo-transport-migration.sql','utf8'),'transport')
+await q(`alter table cargo_orders drop constraint if exists cargo_orders_status_check; alter table cargo_orders alter column status set default 'open'; alter table cargo_orders add column if not exists carrier_id uuid;`,'real')
+await q(fs.readFileSync(H+'event-orders-migration-fixed.sql','utf8').replace(/-- تحقق[\s\S]*$/,''),'events base')
+await q(fs.readFileSync(H+'order-points-migration.sql','utf8').replace(/alter table public\.contract_orders[^;]*;/g,'').replace(/do \$\$[\s\S]*?end \$\$;/,'').replace(/select table_name[\s\S]*$/,''),'order-points(no events)')
+await q(fs.readFileSync(H+'cargo-offers-migration.sql','utf8'),'offers')
+await q(fs.readFileSync(H+'cargo-carrier-migration.sql','utf8'),'carrier')
+await q(`alter table public.event_orders add column if not exists gathering_lat double precision; alter table public.event_orders add column if not exists gathering_lng double precision; alter table public.event_orders add column if not exists route_info jsonb; alter table public.event_orders alter column final_point type jsonb using null;`,'points')
+await q(fs.readFileSync(H+'events-driver-migration.sql','utf8'),'events-driver')
+await q(fs.readFileSync(H+'contract-orders-migration.sql','utf8').replace(/select table_name[\s\S]*$/,''),'contracts base')
+await q(fs.readFileSync(H+'contract-orders-fix.sql','utf8').replace(/-- تحقق[\s\S]*$/,''),'contracts fix')
+await q(`alter table public.contract_orders add column if not exists route_info jsonb;`,'ct points')
+await q(fs.readFileSync(H+'contracts-driver-migration.sql','utf8'),'contracts-driver')
+for (const f of ['m1.sql','m2.sql','m3.sql']) await q(fs.readFileSync(H+'sql-cargo-edit/'+f,'utf8'),'cargo-edit '+f)
+for (const f of ['u1.sql','u2.sql','u3.sql','u4.sql','u5.sql']) await q(fs.readFileSync(H+'sql-free/'+f,'utf8'),'free '+f)
+await db.exec(`insert into auth.users(id, created_at) values ('99999999-9999-9999-9999-999999999999', now()); insert into profiles(id, full_name, phone) values ('99999999-9999-9999-9999-999999999999','قديم','0911000000');`)
+for (const r of [1,2]) for (const f of ['w1.sql','w2.sql','w3.sql','w4.sql','w5.sql','w6.sql']) { const res=await q(fs.readFileSync(H+'sql-wallet/'+f,'utf8'), f+' run'+r); if(f==='w6.sql'&&r===2) console.log('check:', JSON.stringify(res.at(-1).rows.map(x=>Object.values(x).join(': ')))) }
+await db.exec(`grant usage on schema public, auth to anon, authenticated; grant all on all tables in schema public to anon, authenticated; grant all on all sequences in schema public to authenticated;`)
+const CU='11111111-1111-1111-1111-111111111111', CR='22222222-2222-2222-2222-222222222222', BUS='33333333-3333-3333-3333-333333333333', P2='44444444-4444-4444-4444-444444444444'
+await db.exec(`insert into auth.users(id, created_at) values ('${CU}',now()),('${CR}',now()-interval '30 days'),('${BUS}',now()-interval '30 days'),('${P2}',now());
+insert into profiles(id,full_name,phone,vehicle_class,event_vehicle_type,vehicle_seats,svc_events) values
+ ('${CU}','أحمد محمد','0944123456',null,null,null,false),('${CR}','أبو خالد النقل','+963955111222','md5',null,null,false),
+ ('${BUS}','أبو سامر','0966333444',null,'bus_mid_21',21,true),('${P2}','سارة','0933777888',null,null,null,false);
+insert into wallets(user_id,balance) values ('${CR}',50),('${BUS}',50);`)
+const as=async(u,sql,p=[])=>{ await db.exec(`reset role; select set_config('request.jwt.claim.sub','${u||''}',false)`); if(u) await db.exec('set role authenticated'); try{ return (await db.query(sql,p)).rows }catch(e){ return 'ERR: '+e.message.split('\n')[0] } finally{ await db.exec('reset role') } }
+const one=async(u,sql,p)=>{ const r=await as(u,sql,p); return typeof r==='string'? r : Object.values(r[0]||{})[0] }
+const J=x=>JSON.stringify(x)
+await q(fs.readFileSync(H+'taxi-migration.sql','utf8'),'taxi')
+await q(`alter table taxi_orders drop constraint taxi_orders_status_check; alter table taxi_orders add column if not exists duration_min int, add column if not exists route_source text; insert into taxi_orders(user_id,pickup_lat,pickup_lng,dropoff_lat,dropoff_lng,distance_km,vehicle_category,estimated_fare,status) values ('${CU}',1,1,1,1,1,'ordinary',1,'weird_legacy')`,'real cols')
+const PF=Array.from({length:39},(_,i)=>String(i+1).padStart(2,'0')+'.sql')
+for (const r of [1,2]) for (const f of PF) { const res=await q(fs.readFileSync(H+'sql-pay/'+f,'utf8'), f+' run'+r); if(f==='39.sql'&&r===2) console.log('check:', J(res.at(-1).rows.map(x=>Object.values(x).join(': ')))) }
+await q(fs.readFileSync(H+'taxi-shared-migration-fixed.sql','utf8'),'shared')
+await q(fs.readFileSync(H+'taxi-shared-route-join.sql','utf8').replace(/do \$\$ begin\s*begin alter publication[\s\S]*?end \$\$;/,''),'shared-join')
+const ADM='55555555-5555-5555-5555-555555555555'
+await db.exec(`insert into auth.users(id,created_at) values ('${ADM}',now()); insert into profiles(id,full_name,account_type) values ('${ADM}','المدير','admin')`)
+const CF=Array.from({length:16},(_,i)=>String(i+1).padStart(2,'0')+'.sql')
+for (const r of [1,2]) for (const f of CF) { const res=await q(fs.readFileSync(H+'sql-cancel/'+f,'utf8'), 'cancel '+f+' run'+r); if(f==='16.sql'&&r===2) console.log('check:', J(res.at(-1).rows.map(x=>Object.values(x).join(': ')))) }
+await db.exec(`grant all on all tables in schema public to anon, authenticated; delete from taxi_orders;`)
+const SF=Array.from({length:22},(_,i)=>String(i+1).padStart(2,'0')+'.sql')
+for (const r of [1,2]) for (const f of SF) { const res=await q(fs.readFileSync(H+'sql-shared/'+f,'utf8'), 'shared '+f+' run'+r); if(f==='22.sql'&&r===2) console.log('check:', J(res.at(-1).rows.map(x=>Object.values(x).join(': ')))) }
+await db.exec(`grant all on all tables in schema public to anon, authenticated;`)
+const DR=CR  // old account -> not in free period
+await as(null,`update profiles set vehicle_model='كيا ريو', vehicle_color='أبيض' where id=$1`,[DR])
+await as(null,`select set_wallet_pin('2580')`); await one(CU,`select set_wallet_pin('2580')`); await as(null,`select admin_wallet_adjust($1,100,'شحن')`,[CU])
+const line=JSON.stringify([[33.50,36.20],[33.50,36.30],[33.50,36.40]])
+const pub=(h)=>as(DR,`insert into taxi_shared_trips(driver_id,pickup_text,pickup_lat,pickup_lng,dropoff_text,dropoff_lat,dropoff_lng,departure_time,available_seats,total_seats,price_per_seat,route_polyline,duration_min) values ($1,'دمشق',33.5,36.2,'حمص',33.5,36.4,(date_trunc('day', now() at time zone 'Asia/Damascus') + interval '1 day' + make_interval(mins=>$2)) at time zone 'Asia/Damascus',3,3,10,$3::jsonb,60) returning id`,[DR,h,line])
+const t1=(await pub(480))[0].id
+console.log('overlap 1.5h:', J(await pub(510)))
+for (const h of [600,720,840]) await pub(h)
+console.log('5th same day:', J(await pub(960)))
+console.log('forge start:', J(await as(DR,`update taxi_shared_trips set started_at=now() where id=$1 returning id`,[t1])))
+console.log('join auto CU:', J(await one(CU,`select request_shared_join($1,33.5,36.25,33.5,36.35,false,0,0,null)`,[t1])))
+await as(P2,`select request_shared_join($1,33.6,36.25,33.5,36.35,false,3,5,null)`,[t1])
+const r2=(await as(null,`select id from taxi_shared_requests where passenger_id=$1`,[P2]))[0].id
+await as(DR,`select driver_respond_join($1,'counter',2)`,[r2])
+console.log('P2 counter accept:', J(await one(P2,`select passenger_answer_counter($1,true)`,[r2])))
+console.log('driver passengers:', J(await as(DR,`select x->>'fare' fare, x->>'phone' ph, x ? 'name' has_name from driver_shared_passengers($1) x`,[t1])))
+console.log('CU joins view:', J(await one(CU,`select x - 'departure_time' - 'request_id' - 'trip_id' from my_shared_joins() x`)))
+console.log('CU payable:', J(await as(CU,`select p->>'gross' g, p->>'to_pay' tp from my_payables() p where p->>'service'='taxi_shared'`)))
+const b0=await one(DR,`select my_wallet()->>'balance'`)
+console.log('position before start:', await one(DR,`select driver_shared_position($1,33.5,36.22)`,[t1]))
+console.log('complete before start:', await one(DR,`select driver_complete_shared_trip($1)`,[t1]))
+console.log('start:', J(await one(DR,`select driver_start_shared_trip($1)`,[t1])), '| bal', b0,'→', await one(DR,`select my_wallet()->>'balance'`), '| start again:', await one(DR,`select driver_start_shared_trip($1)`,[t1]))
+const P3='66666666-6666-6666-6666-666666666666'
+await db.exec(`insert into auth.users(id,created_at) values ('${P3}',now()); insert into profiles(id,full_name,phone) values ('${P3}','راكب3','0999000111')`)
+console.log('visible after start (seats left):', J(await as(P3,`select count(*) from taxi_shared_trips where id=$1`,[t1])))
+console.log('join after start:', J(await one(P3,`select request_shared_join($1,33.5,36.3,33.5,36.38,false,0,0,null)`,[t1])), '| bal now', await one(DR,`select my_wallet()->>'balance'`))
+console.log('visible when full:', J(await as(P3,`select count(*) from taxi_shared_trips where id=$1`,[t1])))
+console.log('position:', J(await one(DR,`select driver_shared_position($1,33.5,36.3)`,[t1])))
+console.log('passenger started notif:', J(await as(CU,`select n->>'title' t from my_notifications() n where n->>'kind'='shared_started'`)))
+console.log('CU pay:', J(await one(CU,`select pay_from_wallet('taxi_shared',$1,1,'2580')`,[(await as(null,`select id from taxi_shared_requests where passenger_id=$1`,[CU]))[0].id])), '| DR bal', await one(DR,`select my_wallet()->>'balance'`))
+console.log('DR notif:', J(await as(DR,`select n->>'body' b from my_notifications() n where n->>'kind'='payment_in'`)), '| DR tx:', J(await as(DR,`select x->>'kind' k, x->>'amount' a, x->>'counterparty' c from my_wallet_transactions() x where x->>'service'='taxi_shared'`)))
+console.log('driver trips:', J(await as(DR,`select x->>'passengers' p, x->>'overdue' o from driver_my_shared_trips() x`)))
+console.log('complete:', J(await one(DR,`select driver_complete_shared_trip($1)`,[t1])), '| trips now:', J(await as(DR,`select x->>'status' s, x->>'started_at' st from driver_my_shared_trips() x`)), J(await as(null,`select status from taxi_shared_trips where id=$1`,[t1])))
+// overdue unstarted trip blocks publishing
+await db.exec(`set session_replication_role=replica; update taxi_shared_trips set departure_time=now()-interval '10 minutes' where id=(select id from taxi_shared_trips where driver_id='${DR}' and status='pending' and started_at is null order by departure_time limit 1); set session_replication_role=origin`)
+console.log('overdue flag:', J(await as(DR,`select x->>'overdue' o from driver_my_shared_trips() x`)), '| publish blocked:', J(await pub(1500)))
+// forgotten started trip auto close
+const t9=(await as(null,`select id from taxi_shared_trips where driver_id=$1 and status='pending' and started_at is null and departure_time<now()`,[DR]))[0].id
+await one(DR,`select driver_start_shared_trip($1)`,[t9])
+await db.exec(`set session_replication_role=replica; update taxi_shared_trips set started_at=now()-interval '4 hours' where id='${t9}'; set session_replication_role=origin`)
+console.log('auto close:', J(await one(DR,`select count(*) from driver_my_shared_trips() x where x->>'id'=$1`,[t9])), J(await as(null,`select status from taxi_shared_trips where id=$1`,[t9])))
+const tc=(await as(DR,`select x->>'id' id from driver_my_shared_trips() x where (x->>'overdue')='false' limit 1`))[0].id
+await one(CU,`select request_shared_join($1,33.5,36.25,33.5,36.35,false,0,0,null)`,[tc])
+console.log('cancel shared after update:', J(await one(DR,`select driver_cancel_shared_trip($1,'emergency')`,[tc])), J(await as(null,`select status from taxi_shared_trips where id=$1`,[tc])))
+for (const r of [1,2]) for (const f of ['01.sql','02.sql','03.sql','04.sql','05.sql']) { const res=await q(fs.readFileSync(H+'sql-taxicat/'+f,'utf8'),'taxicat '+f); if(f==='05.sql'&&r===2) console.log('check:', J(res.rows? res.rows : res.at(-1).rows.map(x=>Object.values(x).join(': ')))) }
+await db.exec(`grant all on all tables in schema public to anon, authenticated;`)
+const D1=BUS
+await as(null,`update profiles set taxi_suspended=false where id=$1`,[D1])
+const mk=async()=>{ await as(CU,`insert into taxi_orders(user_id,pickup_lat,pickup_lng,dropoff_lat,dropoff_lng,distance_km,vehicle_category,estimated_fare) values ($1,33.51,36.28,33.52,36.30,3,'economy',5)`,[CU]); return (await as(CU,`select id from taxi_orders where status='pending' order by created_at desc limit 1`))[0].id }
+const oc=await mk()
+console.log('no category sees:', J(await as(D1,`select count(*) from taxi_orders where id=$1`,[oc])), '| accept:', await one(D1,`select driver_accept_taxi($1)`,[oc]), '| ping:', J(await one(D1,`select driver_taxi_ping(33.515,36.28)`)))
+await as(null,`update profiles set taxi_category='luxury' where id=$1`,[D1])
+console.log('luxury sees economy:', J(await as(D1,`select count(*) from taxi_orders where id=$1`,[oc])), '| accept:', await one(D1,`select driver_accept_taxi($1)`,[oc]))
+await as(null,`update profiles set taxi_category='economy' where id=$1`,[D1])
+console.log('ping:', J(await one(D1,`select driver_taxi_ping(33.515,36.28)`)), '| customer nearby (free):', J(await as(CU,`select nearby_taxis(33.51,36.28,5) x`)))
+console.log('far at 5:', J(await as(CU,`select count(*) from nearby_taxis(33.51,36.35,5)`)), '| far at 10:', J(await as(CU,`select count(*) from nearby_taxis(33.51,36.35,10)`)))
+console.log('economy sees:', J(await as(D1,`select count(*) from taxi_orders where id=$1`,[oc])), '| accept:', J(await one(D1,`select driver_accept_taxi($1)`,[oc])), '| status cat:', J(await one(D1,`select my_driver_status()->>'taxi_category'`)))
+console.log('customer nearby (busy):', J(await as(CU,`select nearby_taxis(33.51,36.28,5) x`)))
+await one(D1,`select driver_taxi_start($1)`,[oc])
+const o2=await mk()
+console.log('accept 2nd while in trip:', J(await one(D1,`select driver_accept_taxi($1)`,[o2])))
+console.log('active:', J(await one(D1,`select driver_taxi_active()`)))
+console.log('arrive 2nd before finishing:', await one(D1,`select driver_taxi_arrived($1)`,[o2]))
+console.log('nearby when full:', J(await as(CU,`select count(*) from nearby_taxis(33.51,36.28,5)`)))
+const o3=await mk()
+console.log('accept 3rd:', await one(D1,`select driver_accept_taxi($1)`,[o3]))
+const bal0=J(await as(null,`select balance from wallets where user_id=$1`,[D1]))
+console.log('complete 1st:', J(await one(D1,`select driver_taxi_complete($1)`,[oc])), '| balance before/after:', bal0, J(await as(null,`select balance from wallets where user_id=$1`,[D1])))
+console.log('active after:', J(await one(D1,`select driver_taxi_active()`)), '| 2nd arrived:', J(await one(D1,`select driver_taxi_arrived($1)`,[o2])))
+await db.exec(`update taxi_driver_positions set updated_at=now()-interval '3 minutes'`)
+console.log('stale hidden:', J(await as(CU,`select count(*) from nearby_taxis(33.51,36.28,5)`)), '| direct table read:', J(await as(CU,`select count(*) from taxi_driver_positions`)))

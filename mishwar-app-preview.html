@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>مشوار — معاينة التطبيق كامل</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{font-family:-apple-system,"Segoe UI",Tahoma,"Noto Sans Arabic",sans-serif;background:#e9ecf2;color:#0f172a;min-height:100vh}
+button{font-family:inherit;border:0;cursor:pointer}
+.wrap{display:flex;gap:24px;justify-content:center;align-items:flex-start;padding:24px}
+.side{width:270px;background:#fff;border-radius:18px;padding:14px;position:sticky;top:24px;max-height:calc(100vh - 48px);overflow:auto;box-shadow:0 8px 30px rgba(0,0,0,.06)}
+.side h2{font-size:15px;margin-bottom:4px}.side p{font-size:11px;color:#64748b;margin-bottom:10px}
+.grp{font-size:11px;font-weight:800;color:#FF6B00;margin:12px 4px 6px}
+.nav{display:block;width:100%;text-align:right;background:#f8fafc;border-radius:10px;padding:8px 10px;margin-bottom:4px;font-size:13px;font-weight:600;color:#1A1A2E}
+.nav.on{background:#1A1A2E;color:#fff}
+.phone{width:390px;height:800px;background:#111;border-radius:46px;padding:12px;box-shadow:0 30px 60px rgba(0,0,0,.25);flex-shrink:0}
+.screen{width:100%;height:100%;background:#F8F9FA;border-radius:36px;overflow:hidden;position:relative;display:flex;flex-direction:column}
+.status{height:30px;display:flex;justify-content:space-between;align-items:center;padding:0 22px;font-size:12px;font-weight:700;background:#fff;flex-shrink:0}
+.body{flex:1;overflow-y:auto;overflow-x:hidden;position:relative}
+.body::-webkit-scrollbar{width:0}
+.menuBtn{display:none}
+@media (max-width:760px){
+  .wrap{padding:0}.side{display:none;position:fixed;inset:0;width:auto;max-height:none;border-radius:0;z-index:100}
+  .side.open{display:block}.phone{width:100vw;height:100vh;height:100dvh;border-radius:0;padding:0;box-shadow:none}
+  .screen{border-radius:0}.status{display:none}
+  .menuBtn{display:flex;position:fixed;bottom:84px;left:12px;z-index:90;background:#1A1A2E;color:#fff;border-radius:999px;padding:10px 14px;font-size:13px;font-weight:800;box-shadow:0 6px 18px rgba(0,0,0,.3)}
+  .closeSide{display:block!important}
+}
+.closeSide{display:none;float:left;background:#f1f5f9;border-radius:10px;padding:6px 10px;font-weight:800}
+/* عام */
+.top{height:56px;background:#fff;display:flex;align-items:center;justify-content:space-between;padding:0 14px;border-bottom:1px solid #f1f5f9;flex-shrink:0;position:sticky;top:0;z-index:5}
+.hdr{height:54px;background:#fff;display:flex;align-items:center;gap:10px;padding:0 12px;border-bottom:1px solid #e2e8f0;position:sticky;top:0;z-index:5}
+.hdr .b{width:36px;height:36px;border-radius:10px;background:#f1f5f9;font-size:18px}
+.hdr h1{font-size:16px;font-weight:900;flex:1}
+.pad{padding:12px}
+.card{background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:12px;margin-bottom:10px}
+.h{font-weight:900;font-size:15px}.sub{font-size:12px;color:#64748b;margin-top:3px;line-height:1.6}
+.row{display:flex;align-items:center;gap:8px}.sb{justify-content:space-between}
+.btn{display:block;width:100%;background:#FF6B00;color:#fff;font-weight:900;font-size:15px;border-radius:14px;padding:13px;margin-top:8px}
+.btn.dark{background:#1A1A2E}.btn.brand{background:#4F46E5}.btn.ghost{background:#eef2ff;color:#4F46E5}.btn.ok{background:#047857}.btn.red{background:#dc2626}
+.btn.sm{display:inline-block;width:auto;padding:8px 14px;font-size:13px;border-radius:10px;margin:0}
+.pill{display:inline-block;border-radius:999px;padding:3px 9px;font-size:11px;font-weight:800;background:#f1f5f9;color:#475569}
+.pill.ok{background:#ecfdf5;color:#047857}.pill.warn{background:#fffbeb;color:#b45309}.pill.err{background:#fef2f2;color:#b91c1c}.pill.brand{background:#eef2ff;color:#4F46E5}.pill.or{background:#fff4ec;color:#FF6B00}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.chip{border:1.5px solid #e2e8f0;background:#fff;border-radius:12px;padding:7px 11px;font-size:12px;font-weight:700;color:#334155}
+.chip.on{border-color:#FF6B00;background:#fff4ec;color:#FF6B00}
+.lbl{font-size:12px;font-weight:800;color:#475569;margin:12px 2px 6px}
+.inp{width:100%;border:1.5px solid #e2e8f0;border-radius:12px;padding:11px;font-size:14px;font-family:inherit;background:#fff;text-align:right}
+.pt{display:flex;align-items:center;gap:10px;background:#fff;border:1.5px dashed #cbd5e1;border-radius:12px;padding:10px;margin-bottom:6px;font-size:13px}
+.pt .d{width:26px;height:26px;border-radius:50%;color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900;flex-shrink:0}
+.pt.set{border-style:solid}
+.stars{background:#fffbeb;color:#92400e;border-radius:10px;padding:3px 8px;font-size:11px;font-weight:800;display:inline-block}
+.tabbar{height:64px;background:#fff;border-top:1px solid #f1f5f9;display:flex;flex-shrink:0}
+.tab{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:10px;color:#6B7280;background:none;gap:2px}
+.tab b{font-size:18px;font-weight:400}.tab.on{color:#FF6B00;font-weight:800}
+.map{position:relative;height:300px;background:#eef1e6;overflow:hidden}
+.map svg{position:absolute;inset:0;width:100%;height:100%}
+.pin{position:absolute;transform:translate(50%,-100%);font-size:26px;filter:drop-shadow(0 2px 2px rgba(0,0,0,.3))}
+.car{position:absolute;font-size:18px;transition:all 2s linear}
+.car.fade{opacity:.3}
+.overlay{position:absolute;inset:0;background:rgba(15,23,42,.5);display:none;align-items:flex-end;z-index:50}
+.overlay.show{display:flex}
+.sheet{background:#fff;width:100%;border-radius:22px 22px 0 0;padding:16px;max-height:88%;overflow:auto;animation:up .25s}
+@keyframes up{from{transform:translateY(40px);opacity:0}}
+.toast{position:absolute;top:70px;left:50%;transform:translateX(-50%);background:#1A1A2E;color:#fff;padding:10px 16px;border-radius:12px;font-size:13px;font-weight:700;z-index:60;display:none;max-width:88%;text-align:center}
+.toast.show{display:block;animation:up .2s}
+.sos{position:absolute;left:12px;bottom:78px;width:52px;height:52px;border-radius:50%;background:#dc2626;color:#fff;font-weight:900;font-size:13px;z-index:20;box-shadow:0 6px 18px rgba(220,38,38,.45)}
+.seg{display:flex;background:#f1f5f9;border-radius:12px;padding:3px;gap:3px}
+.seg button{flex:1;background:none;padding:8px;border-radius:10px;font-size:12px;font-weight:800;color:#64748b}
+.seg button.on{background:#fff;color:#0f172a;box-shadow:0 1px 3px rgba(0,0,0,.1)}
+.bar{height:10px;background:#e2e8f0;border-radius:6px;overflow:hidden;margin-top:10px}.bar i{display:block;height:100%;border-radius:6px}
+.hist{display:flex;align-items:center;gap:10px;background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:10px;margin-bottom:6px;font-size:13px}
+.slider{display:flex;gap:8px;overflow-x:auto;padding:4px 2px 8px}.slider::-webkit-scrollbar{height:0}
+.cat{min-width:92px;border:2px solid #e2e8f0;background:#fff;border-radius:14px;padding:8px;text-align:center}
+.cat.on{border-color:#FF6B00;background:#fff4ec}.cat.off{opacity:.4}
+.cat .i{font-size:22px}.cat .n{font-size:12px;font-weight:800}.cat .p{font-size:12px;color:#FF6B00;font-weight:900}.cat .e{font-size:10px;color:#64748b}
+.photos{display:grid;grid-template-columns:2fr 1fr;grid-template-rows:1fr 1fr;gap:4px;height:130px;border-radius:12px;overflow:hidden;margin-bottom:8px}
+.photos div{background:linear-gradient(135deg,#cbd5e1,#94a3b8);display:flex;align-items:center;justify-content:center;font-size:30px}
+.photos div:first-child{grid-row:span 2;font-size:48px}
+.draft{background:#fffbeb;border:1px dashed #f59e0b;color:#92400e;border-radius:12px;padding:8px 10px;font-size:12px;font-weight:700;margin-bottom:10px}
+.star{font-size:34px;color:#e2e8f0;background:none}.star.on{color:#f59e0b}
+.pop{position:absolute;inset:auto 12px 12px 12px;background:#fff;border-radius:18px;padding:14px;box-shadow:0 10px 40px rgba(0,0,0,.25);z-index:30;border:2px solid #FF6B00;animation:up .25s}
+.big{font-size:26px;font-weight:900}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <aside class="side" id="side">
+    <button class="closeSide" onclick="toggleSide()">✕</button>
+    <h2>📱 مشوار — كل الشاشات</h2>
+    <p>معاينة تفاعلية بأرقام تجريبية. اضغط على أي شاشة، أو تنقّل من جوّا التطبيق.</p>
+    <div id="navList"></div>
+  </aside>
+  <div class="phone"><div class="screen" id="screen">
+    <div class="status"><span>9:41</span><span>📶 🔋</span></div>
+    <div class="body" id="body"></div>
+    <div id="tabs"></div>
+    <div class="toast" id="toast"></div>
+    <div class="overlay" id="ov" onclick="if(event.target===this)closeSheet()"><div class="sheet" id="sheet"></div></div>
+  </div></div>
+</div>
+<button class="menuBtn" onclick="toggleSide()">☰ الشاشات</button>
+
+<script>
+const $=id=>document.getElementById(id);
+let cur='home', hist=[];
+const toast=(m)=>{const t=$('toast');t.textContent=m;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),2200)};
+const openSheet=h=>{$('sheet').innerHTML=h;$('ov').classList.add('show')};
+const closeSheet=()=>$('ov').classList.remove('show');
+function toggleSide(){$('side').classList.toggle('open')}
+const hdr=(t,right='')=>`<div class="hdr"><button class="b" onclick="back()">→</button><h1>${t}</h1>${right}</div>`;
+const pt=(c,b,t,l,set=true)=>`<div class="pt ${set?'set':''}"><div class="d" style="background:${c}">${b}</div><div style="flex:1"><div style="font-size:11px;color:#64748b">${t}</div><div style="font-weight:700">${set?l:'اضغط لتحديد النقطة على الخريطة'}</div></div><span>🗺️</span></div>`;
+const chips=(arr,on=0,id='')=>`<div class="chips">${arr.map((a,i)=>`<button class="chip ${i===on?'on':''}" onclick="pick(this)">${a}</button>`).join('')}</div>`;
+function pick(el){[...el.parentNode.children].forEach(c=>c.classList.remove('on'));el.classList.add('on')}
+const lv={bronze:'🥉',silver:'🥈',gold:'🥇',diamond:'💎'};
+const stars=(a,n,l)=>n?`<span class="stars">${l&&l!=='bronze'?lv[l]+' ':''}⭐ ${a} · ${n}</span>`:`<span class="stars" style="background:#f1f5f9;color:#64748b">✨ جديد</span>`;
+
+// خريطة وهمية بشوارع
+function map(h=300,extra='',route=true){
+  return `<div class="map" style="height:${h}px"><svg viewBox="0 0 400 300" preserveAspectRatio="xMidYMid slice">
+  <rect width="400" height="300" fill="#eef1e6"/>
+  <rect x="250" y="20" width="110" height="70" rx="8" fill="#d9ead3"/><rect x="30" y="200" width="90" height="70" rx="8" fill="#d9ead3"/>
+  <path d="M0 60 L400 90" stroke="#fff" stroke-width="14"/><path d="M0 180 L400 150" stroke="#fff" stroke-width="18"/>
+  <path d="M90 0 L130 300" stroke="#fff" stroke-width="12"/><path d="M270 0 L240 300" stroke="#fff" stroke-width="14"/>
+  <path d="M0 250 Q200 230 400 270" stroke="#fde68a" stroke-width="10" fill="none"/>
+  <path d="M180 0 L200 300" stroke="#fff" stroke-width="8"/>
+  ${route?'<path d="M112 70 L125 165 L245 152 L258 70" stroke="#4F46E5" stroke-width="5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>':''}
+  </svg>${route?'<div class="pin" style="right:72%;top:24%">🟢</div><div class="pin" style="right:35%;top:24%">📍</div>':''}${extra}</div>`;
+}
+function back(){cur=hist.pop()||'home';render(false)}
+function go(s){if(s!==cur)hist.push(cur);cur=s;render(false)}
+
+const TAB=`<div class="tabbar">${[['home','🏠','الرئيسية'],['orders','🧾','طلباتي'],['wallet','👛','المحفظة'],['loyalty','🎁','نقاطي'],['me','👤','حسابي']].map(([k,i,l])=>`<button class="tab ${cur===k?'on':''}" onclick="${k==='me'?"toast('يتطلب تسجيل الدخول')":`go('${k}')`}"><b>${i}</b>${l}</button>`).join('')}</div>`;
+
+const S={};
+/* ===================== الزبون ===================== */
+S.home={g:'الزبون',t:'🏠 الرئيسية',tabs:1,h:()=>`
+<div class="top"><div class="row"><img src="data:image/png;base64,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y5Ytsc9l27ZSqq2t7fbbb3/uuefLF9u24zi2bQeBv2jRogsuuKCpaUMikXg/K3awAqqeV490dXVVVlauWLFi1KhRRps4m3HO7NkrV6xIpzOXX355dfXg2I9oaWm5//77i8ViHDoXi8VCoTBlypQxY8ZIKVpb22praxcsWJBIJHSkLdtauXLlfffdl0wmjDYkBBERgUCFQmH9m282NDR0dnZWV1fPnj27trbWsqydO99buXLVK6+8opT6mzPOmDZtWiab2b27efXq1atXry4Wi8OHD585c+aoUaOYeceOHatXr25qaspms2efdda06dOTyaTWetu2bcv/unzN62scxzmgA31IABFRd3d3FEVSypEjR951111z5syJoggMZalVq1ade+65sebv6urqDaCFEJlMpjfhYtv21KlTS6USMw8aNGjW2bO++KXL0ulkr8d09qxZy196SSmltSYq12IBIIJtW4lEQikVBEFPqhsAHMdJJpPMyOVzYRD0NiYSCSml7/uFQqEnoyI9z41TmrlcrrdTInIcJ5FMxGdcP4BF3lcHxVr5+uuuP3nsyQMHDpw9e3ZlZaXWJo4NACxYsMD3/Rj+ysrKXh+UmXuzLR0d7Z/5zNxHH13c98lacxCEtm0B+KebvvHKyyuHDxsShFFcNisESwEGs6FIM7NhE9mWHDig0nDPwXJjYrDSqVSvexk3RlGklKqoqOhdobgRQDab7TvIOBL8AGg+CKBYJQ8dOvQHC37gum7cGIYhUaw48d3vfnfp0qWVlZUxFgdkUWYWQl5++WUAgiCItRIAKUlKa/Pmzbfeeut9991vuRXvNQfpBBPBtfmBHxdOHG5KJbriFvf1Ny3XQVuOAJak45e7AH1qS4zRPWzFffo94Hg+QI4OG6A49Ttv3nzXdWMRI6JYEb733o5bv//9++77dVVVBRtd3kHGXvVKzCBBfqk09uTRp86YCo5sJQxHXZ35ltbWxnVvPr1s2eNPPL59+84F1zvjTujKFc3ChxKNTeqkEfr08YGbFYVup72TmDGo0vzL1wrptNjWTD/6jRtHen0Xvrfb/Q/a7J8M7wPikQEUR9LTpk3t7OwkIiFFR3vHunWNy5Y98/Di/9qxbaubqGjvMoZpT3lh3y7L9YT2xnfbJk47N53J2JbtB353d1eus43Ddq21stJ147I3XNSVrIza3qMFvyZm1I5maamwM2pYGzW3uwycWqO/Oi+Cwu+fdbqKlE0gMmwrjsWNufdEdfl1H6a3QKfsEqHXC4tdEEEcM+AhvnbgwAAxs+M4N9xwQyaTiRmnq7NzV3Mz62D0CO9vpqUynu/Z7CokHWQ8eBZ7tkknTMqBbcO1OeEK1yHm3KYdu3d1EAlkbE46GD9armxyv/vbRLFozpxcTA5iQD653H57kwJ4xinaSgpEeOrPsq1NADx7ioa0UQwe+28BUCHgn19Vmvux0C+wsiQbYzS0QRQhiCjQCAIEGpGhwFAxpLxPuVB0+mjrou4S2vJo7SQ/QGceG3ao8ADR+770QVbMGNPrHEsplbJsiwZnw2xKZ5NIuZxykXKQsOHZJuVy0uaEw9ISjsW2RbbUSsBzYDu2VDBREEac9HDrA94TqyxHcf3YaPop2o/kKUNDYnDI27pEPlC2ZcYP074vTGg2NROzlIQnX1a7O4Vrm9suCYZnOVcypUiaiIslzvnIl0QQiVDDD5DzUQzJMErl7yLQKAYURog0ggjMZPhQ3513EDO/D1sxI9RUfn0N9xQD7yPPXD61JajXGYxjfIpf+aMkHAUQSj4VfBB47d2l2vEBcqj/h+SaJmtglX7rHr9qcOS3idFXezuahbCQcjmuBsn7iKuwmPde/bgvKksTAFEuTOeeL3udCTzE/boPPMyynyojgmMxWXtKlvuMbS+Iyg/Y6/feqvQyrEmPQfTxCWHtSB9589qbamuLdJN84bSgKllEgVY1Wu15qh7AxkD3KLu0iz24H7jfvTrrO4YPsZ142Ns+vWWKR05lncr49dOKtHjpLelHEIScT79a6hDE842KGXHd+p679ufZo0kfwZs49+qe4Ico+ASCrZB0GEApoGIIAI5CwvlgR/foj/Aj/7cRRIjfkmDKtvkALR8hffSvS2ZGxAdp+Qjp+BvJD0LHAToIHQfoIHQcoIPQcYAOQscBOggdB+gg9P8AYT4PSVWFWP0AAAAASUVORK5CYII=" style="width:40px;height:40px;border-radius:12px"><div style="font-weight:900;font-size:20px">مشوار</div></div><button onclick="toast('الإشعارات')" style="width:36px;height:36px;border-radius:10px;background:#F3F4F6">🔔</button></div>
+<div style="margin:14px;background:#1A1A2E;border-radius:20px;padding:20px;color:#fff">
+ <span class="pill" style="background:rgba(255,255,255,.12);color:#fff">⚡ متاح الآن في مدينتك</span>
+ <div style="font-size:22px;font-weight:900;margin-top:10px;line-height:1.4">كل خدمات النقل<br>في مكان واحد</div>
+ <div style="font-size:13px;opacity:.75;margin-top:6px">تكسي، نقل بضائع، مناسبات، عقود وتأجير — سائقون موثوقون وأسعار واضحة</div></div>
+<div class="pad" style="padding-top:0"><div class="row sb" style="margin-bottom:10px"><b>اختر خدمتك</b><span style="color:#FF6B00;font-size:11px;font-weight:700">5 خدمات</span></div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+ ${[['taxi','🚕','تكسي','توصيل فوري خلال دقائق',1],['taxiShared','👥','رحلة مشتركة','مقعد برحلة مجدولة'],['transport','🚚','نقل','نقل بضائع وعفش بأمان'],['events','🎉','مناسبات','أعراس ومؤتمرات ورحلات'],['contracts','📋','عقود','مدارس وشركات وعمال'],['rental','🔑','تأجير سيارات','يوم، أسبوع، شهر']].map(([k,i,t,d,f])=>`
+ <button onclick="go('${k}')" style="text-align:right;border-radius:18px;padding:14px;min-height:120px;${f?'background:#FF6B00;color:#fff':'background:#fff;border:1px solid #E5E7EB'}">
+ <div style="font-size:26px;margin-bottom:8px">${i}</div><div style="font-weight:900;font-size:15px">${t}</div><div style="font-size:11px;opacity:.75;margin-top:3px">${d}</div></button>`).join('')}
+</div>
+<div class="row sb" style="margin:18px 0 10px"><b>لوحات مقدّمي الخدمة</b></div>
+${[['driver','🚕','سائق التكسي','طلبات التكسي القريبة والرحلات المشتركة'],['carrier','🚚','الناقل','طلبات النقل ضمن 10 كم وعروض الأسعار'],['eventsDriver','🚌','سائق المناسبات','باصات وفانات وسيارات زفاف'],['contractsDriver','📄','سائق العقود','يومي، أسبوعي، شهري'],['rentalProvider','🔑','المؤجّر','انشر سياراتك واستقبل الطلبات ضمن 50 كم']].map(([k,i,t,d])=>`
+<button onclick="go('${k}')" class="card row" style="width:100%;text-align:right;margin-bottom:8px"><div style="width:40px;height:40px;border-radius:12px;background:#FFF4EC;display:flex;align-items:center;justify-content:center;font-size:20px">${i}</div><div style="flex:1"><div style="font-weight:800;font-size:14px">${t}</div><div style="font-size:11px;color:#6B7280">${d}</div></div><b style="color:#FF6B00">←</b></button>`).join('')}
+<button class="card row" onclick="go('sos')" style="width:100%;text-align:right;border-color:#fecaca;background:#fef2f2"><span style="font-size:22px">🆘</span><div style="flex:1"><b>إعدادات الطوارئ</b><div class="sub">أرقام الأهل ورقم الطوارئ</div></div><b style="color:#dc2626">←</b></button>
+</div>`};
+
+let taxiCat=0;
+const CATS=[['🚗','عادية',3.40,'3 د'],['⚡','اقتصادية',2.80,'5 د'],['✨','فاخرة',6.80,'—'],['🚐','فان 8',4.90,'9 د'],['🚐','فان 11',5.80,'—']];
+S.taxi={g:'الزبون',t:'🚕 تكسي',h:()=>`${hdr('🚕 تكسي','<span class="pill ok">5 كم</span>')}
+${map(330,`<div class="car" id="c1" style="right:60%;top:52%">🚕</div><div class="car" id="c2" style="right:20%;top:44%">🚕</div><div class="car fade" style="right:44%;top:78%">🚐</div><div class="car" id="c3" style="right:78%;top:30%">🚕</div>`)}
+<div class="pad">
+ ${pt('#16a34a','🟢','من','ساحة الأمويين')}${pt('#dc2626','📍','إلى','المزة — جانب الجامع')}
+ <div class="row sb" style="margin:6px 2px"><span class="sub">📏 4.6 كم على الطريق • ⏱️ 12 دقيقة</span></div>
+ <div class="slider">${CATS.map((c,i)=>`<button class="cat ${i===taxiCat?'on':''} ${c[3]==='—'?'off':''}" onclick="${c[3]==='—'?"toast('ما في سيارات من هالفئة قريبة')":`taxiCat=${i};render()`}"><div class="i">${c[0]}</div><div class="n">${c[1]}</div><div class="p">$${c[2].toFixed(2)}</div><div class="e">${c[3]==='—'?'غير متوفرة':'🕐 '+c[3]}</div></button>`).join('')}</div>
+ <div class="card" style="background:#f8fafc"><div class="row sb"><span class="sub" style="margin:0">💳 ادفع من التطبيق — خصم 3%</span><b style="color:#047857">$${(CATS[taxiCat][2]*.97).toFixed(2)}</b></div></div>
+ <button class="btn" onclick="taxiSearch()">اطلب ${CATS[taxiCat][1]} • $${CATS[taxiCat][2].toFixed(2)}</button>
+</div>`,after(){let k=0;clearInterval(window._cars);window._cars=setInterval(()=>{k++;[['c1',60,52],['c2',20,44],['c3',78,30]].forEach(([id,x,y],i)=>{const e=$(id);if(e){e.style.right=(x+Math.sin(k+i)*6)+'%';e.style.top=(y+Math.cos(k+i)*5)+'%'}})},2000)}};
+function taxiSearch(){openSheet(`<div style="text-align:center;padding:10px"><div style="font-size:40px">🔎</div><div class="h" style="margin-top:6px">عم ندوّر على سائق ضمن 5 كم…</div><div class="sub">إذا ما لقينا خلال دقيقة منوسّع لـ 10 كم</div><div class="bar"><i style="width:45%;background:#FF6B00"></i></div><button class="btn" onclick="taxiFound()">(تجربة) السائق قبل الطلب</button><button class="btn ghost" onclick="closeSheet();toast('تم إلغاء الطلب مجاناً')">إلغاء الطلب</button></div>`)}
+function taxiFound(){openSheet(`<div class="row sb"><div class="h">✅ السائق بالطريق</div><span class="pill ok">🕐 4 دقائق</span></div>
+<div class="card" style="margin-top:10px"><div class="row"><div style="width:48px;height:48px;border-radius:50%;background:#eef2ff;display:flex;align-items:center;justify-content:center;font-size:24px">👨</div><div style="flex:1"><b>أبو خالد</b> ${stars('4.9',128,'gold')}<div class="sub">كيا ريو • أبيض • 123456 دمشق</div></div></div></div>
+<div class="row" style="gap:8px"><button class="btn ok" onclick="toast('📞 اتصال بالسائق')">📞 اتصال</button><button class="btn ghost" onclick="toast('انتسخ رابط تتبع الرحلة لمشاركته')">🔗 مشاركة الرحلة</button></div>
+<div class="sub" style="text-align:center;margin-top:8px">بعد قبول السائق، الإلغاء بيكون من السائق فقط</div>
+<button class="btn dark" onclick="closeSheet();ratePrompt('رحلة التكسي')">(تجربة) انتهت الرحلة ← التقييم</button>`)}
+
+S.taxiShared={g:'الزبون',t:'👥 رحلة مشتركة',h:()=>`${hdr('👥 رحلات مشتركة')}
+${map(200)}
+<div class="pad">
+ ${pt('#16a34a','🟢','أنا طالع من','جرمانا')}${pt('#dc2626','📍','رايح على','المزة')}
+ <div class="lbl">رحلات بتمرّ من طريقك (ضمن 1 كم)</div>
+ ${[['8:30 ص','ساحة العباسيين ← المزة',3,1.5,'4.8',64,'silver','✅ على طريقك — انضمام فوري'],['9:15 ص','باب توما ← المزة أوتستراد',2,1.25,'4.9',140,'diamond','📍 أبعد من 1 كم — بدها موافقة السائق'],['10:00 ص','جرمانا ← دمر',5,2,null,0,null,'✅ على طريقك']].map(t=>`
+ <div class="card"><div class="row sb"><b>🕐 ${t[0]}</b>${stars(t[4],t[5],t[6])}</div><div class="sub">${t[1]}</div>
+ <div class="row sb" style="margin-top:8px"><span class="pill brand">💺 ${t[2]} مقاعد</span><b style="color:#FF6B00">$${t[3]} / مقعد</b></div>
+ <div class="sub">${t[7]}</div>
+ <button class="btn sm" style="margin-top:8px;background:#FF6B00;color:#fff" onclick="${t[7].includes('موافقة')?"toast('انبعت طلبك للسائق — رح يوصلك رده (قبول/رفض/مبلغ إضافي)')":"toast('✅ انضميت للرحلة')"}">احجز مقعد</button></div>`).join('')}
+</div>`};
+
+S.transport={g:'الزبون',t:'🚚 نقل',h:()=>`${hdr('🚚 طلب نقل')}
+<div class="pad">
+ <div class="lbl">شو بدك تنقل؟</div>${chips(['🛋️ عفش','📦 بضاعة','🧱 مواد بناء','🧊 أجهزة'])}
+ <div class="lbl">حجم المركبة</div>${chips(['🛻 بيك آب صغير','🚚 متوسط','🚛 شاحنة'],1)}
+ <div class="lbl">نقاط التحميل والتنزيل</div>
+ ${pt('#16a34a','1','التحميل','ركن الدين — شارع أسد الدين')}${pt('#dc2626','2','التنزيل','صحنايا')}
+ <button class="chip" style="width:100%" onclick="toast('انضافت نقطة جديدة')">+ نقطة إضافية</button>
+ <div class="sub" style="margin-top:8px">📏 المسافة الفعلية على الطريق: 14.2 كم</div>
+ <div class="lbl">خدمات إضافية</div>${chips(['👷 عمّال','🏢 طابق + مصعد','🔧 فك وتركيب'],9)}
+ <div class="lbl">الوقت</div><div class="seg"><button class="on" onclick="pick(this)">⚡ مستعجل</button><button onclick="pick(this)">📅 مجدول</button></div>
+ <div class="lbl">الميزانية</div><div class="seg"><button class="on" onclick="pick(this)">💵 سعر محدد</button><button onclick="pick(this)">📨 استقبل عروض</button></div>
+ <input class="inp" style="margin-top:8px" placeholder="مثلاً 25$" value="25">
+ <button class="btn" onclick="toast('انبعت طلبك للناقلين ضمن 10 كم');go('orders')">إرسال الطلب</button>
+</div>`};
+
+S.events={g:'الزبون',t:'🎉 مناسبات',h:()=>`${hdr('🎉 طلب مناسبة')}
+<div class="pad">
+ <div class="lbl">نوع المناسبة</div>${chips(['💍 عرس','🎓 تخرج','🏢 مؤتمر','🚌 رحلة'])}
+ <div class="lbl">المركبات المطلوبة</div>
+ ${[['💍 سيارة زفاف',1],['🚌 باص متوسط 27',2],['🚐 فان 11',0]].map(v=>`<div class="card row sb" style="padding:10px"><b style="font-size:13px">${v[0]}</b><div class="row"><button class="btn sm ghost">−</button><b>${v[1]}</b><button class="btn sm ghost">+</button></div></div>`).join('')}
+ <div class="lbl">المسار</div>
+ ${pt('#16a34a','📍','نقطة التجمع','صالة الشام — المالكي')}${pt('#4F46E5','1','الوجهة 1','فندق داما روز')}${pt('#dc2626','🏁','نقطة الوصول الأخيرة (اختياري)','',false)}
+ <div class="lbl">التاريخ والوقت</div><input class="inp" value="الخميس 15/10 — 7:00 مساءً">
+ <div class="lbl">الميزانية</div><div class="seg"><button class="on" onclick="pick(this)">💵 سعر محدد</button><button onclick="pick(this)">📨 عروض</button></div>
+ <button class="btn" onclick="toast('انبعت الطلب — كل مركبة بتنقبل لحال');go('orders')">إرسال الطلب</button>
+</div>`};
+
+S.contracts={g:'الزبون',t:'📋 عقود',h:()=>`${hdr('📋 عقد نقل')}
+<div class="pad">
+ <div class="lbl">الفئة</div>${chips(['🏫 مدارس','🎓 جامعات','🧸 روضة','🏢 شركة','👷 عمال','🏭 مصانع'])}
+ <div class="lbl">مدة العقد</div><div class="seg"><button onclick="pick(this)">يومي</button><button onclick="pick(this)">أسبوعي</button><button class="on" onclick="pick(this)">شهري</button></div>
+ <div class="row" style="margin-top:8px"><input class="inp" value="6" style="width:80px;text-align:center"><span class="sub">أشهر • البداية 1/11/2026</span></div>
+ <div class="lbl">المسار</div>${pt('#16a34a','🟢','الذهاب','المزة 86')}${pt('#dc2626','🏫','الوجهة','مدرسة الحرية — المالكي')}
+ <div class="lbl">الركاب والمواعيد</div><div class="row"><input class="inp" value="12 طالب"><input class="inp" value="7:00 ص / 1:30 م"></div>
+ <div class="lbl">الميزانية الشهرية</div><input class="inp" value="180$">
+ <button class="btn" onclick="toast('انبعت الطلب للسائقين ضمن 10 كم');go('orders')">إرسال الطلب</button>
+ <div class="sub" style="text-align:center">إنهاء العقد من الزبون فقط</div>
+</div>`};
+
+S.rental={g:'الزبون',t:'🔑 تأجير سيارات',h:()=>`${hdr('🔑 تأجير سيارات','<span class="pill ok">50 كم</span>')}
+<div class="pad">
+ <div class="seg"><button class="on" onclick="pick(this)">🚗 السيارات القريبة</button><button onclick="pick(this)">📝 طلب عام</button><button onclick="pick(this)">📋 طلباتي</button></div>
+ <div class="lbl">المدة</div>${chips(['يوم','أسبوع','شهر'])}
+ ${[['🚗','كيا ريو 2019','أوتوماتيك • بنزين • 5 ركاب','25$ / يوم','3.2','4.9',52,'gold'],['🚙','هيونداي توسان 2021','أوتوماتيك • 5 ركاب','عروض أسعار','7.8','4.6',23,'silver'],['🚘','تويوتا كورولا 2018','عادي • بنزين','20$ / يوم','12.5',null,0]].map(c=>`
+ <div class="card"><div class="photos"><div>${c[0]}</div><div>📷</div><div>📷</div></div>
+ <div class="row sb"><b>${c[1]}</b>${stars(c[5],c[6],c[7])}</div><div class="sub">${c[2]} • 📍 ${c[4]} كم</div>
+ <div class="chips"><span class="pill">🚭 ممنوع التدخين</span><span class="pill">⛽ يرجع متل ما استلمها</span></div>
+ <div class="row sb" style="margin-top:8px"><b style="color:#FF6B00">${c[3]}</b><button class="btn sm" style="background:#FF6B00;color:#fff" onclick="toast('انبعت طلبك — صاحب السيارة لازم يوافق')">اطلب</button></div></div>`).join('')}
+ <div class="sub" style="text-align:center">هوية صاحب السيارة بتبين بعد الموافقة</div>
+</div>`};
+
+S.orders={g:'الزبون',t:'🧾 طلباتي',tabs:1,h:()=>`${hdr('🧾 طلباتي')}
+<div class="pad">
+ <div class="seg"><button class="on" onclick="pick(this)">النشطة</button><button onclick="pick(this)">السابقة</button></div>
+ <div class="card" style="margin-top:10px"><div class="row sb"><b>🚚 نقل عفش</b><span class="pill warn">📨 3 عروض</span></div><div class="sub">ركن الدين ← صحنايا • 14.2 كم</div>
+ ${[['22$','4.8',61,'gold'],['25$','4.9',133,'diamond'],['19$',null,0]].sort((a,b)=>(b[2]||0)-(a[2]||0)).map(o=>`<div class="row sb" style="border-top:1px solid #f1f5f9;padding-top:8px;margin-top:8px"><div>${stars(o[1],o[2],o[3])} <b style="margin-right:6px">${o[0]}</b></div><button class="btn sm" style="background:#047857;color:#fff" onclick="toast('✅ قبلت العرض — بيانات الناقل بتبين هلق')">قبول</button></div>`).join('')}
+ <button class="btn sm ghost" style="margin-top:10px" onclick="toast('فيك تعدّل كلشي قبل القبول')">✏️ تعديل</button></div>
+ <div class="card"><div class="row sb"><b>🎉 عرس — الخميس</b><span class="pill ok">2 من 3 مركبات</span></div><div class="sub">💍 سيارة زفاف ✅ • 🚌 باص 27 ✅ • 🚌 باص 27 ⏳</div>
+ <button class="btn sm ghost" style="margin-top:8px" onclick="toast('انتسخ رابط التتبع')">🔗 مشاركة</button></div>
+ <div class="card"><div class="row sb"><b>📋 عقد مدرسة — شهري</b><span class="pill brand">الشهر 1 من 6</span></div><div class="sub">المزة 86 ← مدرسة الحرية • 180$ / شهر</div>
+ <button class="btn sm" style="background:#fef2f2;color:#b91c1c;margin-top:8px" onclick="toast('انتهى العقد')">إنهاء العقد</button></div>
+ <div class="card"><div class="row sb"><b>🔑 كيا ريو — 3 أيام</b><span class="pill ok">مستأجرة</span></div><div class="sub">الاستلام 2/10 • التسليم 5/10</div>
+ <button class="btn sm ghost" style="margin-top:8px" onclick="toast('انبعت طلب التمديد')">⏱️ تمديد</button></div>
+</div>`};
+
+S.wallet={g:'الزبون',t:'👛 المحفظة',tabs:1,h:()=>`${hdr('👛 المحفظة')}
+<div class="pad">
+ <div style="background:linear-gradient(135deg,#1A1A2E,#4F46E5);color:#fff;border-radius:20px;padding:18px">
+  <div style="font-size:12px;opacity:.8">الرصيد</div><div style="font-size:34px;font-weight:900">$42.60</div>
+  <div class="row sb" style="margin-top:8px;font-size:12px;opacity:.85"><span>رقم الحساب: 1000 0001</span><span>🎁 14 يوم مجاني</span></div></div>
+ <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:10px">
+  ${[['➕','شحن',"openSheet(topup())"],['↔️','تحويل',"openSheet(transfer())"],['📷','دفع','toast(\'امسح رمز السائق للدفع\')']].map(b=>`<button class="card" style="text-align:center;margin:0" onclick="${b[2]}"><div style="font-size:22px">${b[0]}</div><b style="font-size:13px">${b[1]}</b></button>`).join('')}</div>
+ <div class="lbl">آخر الحركات</div>
+ ${[['🎁 تحويل 200 نقطة','+2.00','#047857'],['💳 دفع رحلة تكسي','−3.30','#b91c1c'],['↔️ تحويل من 1000 0007','+10.00','#047857'],['➕ شحن من وكيل','+30.00','#047857'],['🏆 مكافأة شهر 9/2026','+16.20','#047857']].map(t=>`<div class="hist"><span style="flex:1">${t[0]}</span><b style="color:${t[2]}">${t[1]}$</b></div>`).join('')}
+ <div class="sub" style="text-align:center">ما في سحب — الرصيد للاستعمال داخل التطبيق</div>
+</div>`};
+const topup=()=>`<div class="h">➕ شحن الرصيد</div><div class="sub">عند أقرب وكيل أو بالبطاقة</div>${chips(['10$','20$','50$','100$'],1)}<button class="btn" onclick="closeSheet();toast('تم الشحن ✓')">شحن</button>`;
+const transfer=()=>`<div class="h">↔️ تحويل</div><div class="lbl">برقم الموبايل أو رقم الحساب</div><input class="inp" placeholder="09xxxxxxxx أو 8 أرقام"><div class="lbl">المبلغ</div><input class="inp" placeholder="$"><div class="lbl">الرمز السري</div><input class="inp" placeholder="••••"><button class="btn brand" onclick="closeSheet();toast('تم التحويل ✓')">تحويل</button>`;
+
+S.loyalty={g:'الزبون',t:'🎁 نقاطي',tabs:1,h:()=>`${hdr('🎁 نقاطي')}
+<div class="pad">
+ <div style="background:#fefce8;border:1px solid #a1620755;border-radius:18px;padding:16px;text-align:center;margin-bottom:10px">
+  <div style="font-size:44px">🥇</div><div style="font-size:20px;font-weight:900;color:#a16207">المستوى ذهبي</div>
+  <div class="bar"><i style="width:37%;background:#a16207"></i></div><div class="sub">باقي 127 نقطة للمستوى ماسي</div></div>
+ <div class="card"><div class="row sb"><b>🎁 رصيد النقاط</b><span class="big">350</span></div><div class="sub">تساوي $3.50 • كل 100 نقطة = 1$</div>
+ <button class="btn brand" onclick="openSheet(redeem())">تحويل لرصيد المحفظة</button></div>
+ <div class="card"><b>👥 ادعُ أصدقاءك</b><div class="sub">كل صديق بيسجّل برمزك وبيكمّل أول طلب = 10 نقاط إلك</div>
+ <div style="background:#eef2ff;border-radius:12px;padding:12px;text-align:center;margin:10px 0;font-size:24px;font-weight:900;letter-spacing:3px;color:#4F46E5">1000 0001</div>
+ <button class="btn ghost" onclick="toast('📤 مشاركة رمز الدعوة')">📤 مشاركة رمز الدعوة</button></div>
+ <div class="card"><b>كيف بتجمع نقاط؟</b><div class="sub">• كل 1$ بتدفعه = نقطة<br>• كل طلب مكتمل = نقطة إضافية<br>• النقاط بتنزل بعد انتهاء الخدمة، وما إلها تاريخ انتهاء</div></div>
+ <div class="lbl">السجل</div>
+ ${[['+8','رحلة تكسي • $7.6','28/9'],['+10','دعوة صديق','27/9'],['+26','نقل • $25','25/9'],['+181','عقد • $180','20/9']].map(h=>`<div class="hist"><b style="color:#047857;min-width:44px">${h[0]}</b><span style="flex:1">${h[1]}</span><span class="sub" style="margin:0">${h[2]}</span></div>`).join('')}
+</div>`};
+const redeem=()=>`<div class="h">تحويل النقاط لرصيد</div><div class="row" style="margin-top:12px"><button class="btn sm ghost" style="font-size:22px">+</button><div style="flex:1;text-align:center"><div class="big">200</div><div class="sub">نقطة = $2.00</div></div><button class="btn sm ghost" style="font-size:22px">−</button></div><div class="sub" style="text-align:center;margin:10px 0">مستواك بيضل ذهبي، وعدّاد المستوى بيرجع لأوله.</div><button class="btn brand" onclick="closeSheet();toast('انضاف $2 لمحفظتك ✓')">تحويل $2.00</button>`;
+
+S.sos={g:'الزبون',t:'🆘 إعدادات الطوارئ',h:()=>`${hdr('🆘 الطوارئ')}
+<div class="pad">
+ <div class="card" style="border-color:#fecaca"><b>كيف بيشتغل زر الطوارئ؟</b><div class="sub">بيبعت موقعك المباشر للأهل أولاً، وبعدين حسب اختيارك لرقم الطوارئ. ما بيوقف إلا لما تضغط «أنا بخير».</div></div>
+ <div class="lbl">أرقام الأهل</div>
+ <div class="hist"><span style="flex:1">👩 أمي — 0944 123 456</span><button class="btn sm ghost">✕</button></div>
+ <div class="hist"><span style="flex:1">👨 أخي — 0933 987 654</span><button class="btn sm ghost">✕</button></div>
+ <button class="chip" style="width:100%">+ إضافة رقم</button>
+ <div class="lbl">لما إضغط الزر</div><div class="seg"><button onclick="pick(this)">الأهل فقط</button><button class="on" onclick="pick(this)">الأهل + الطوارئ</button></div>
+ <button class="btn red" style="margin-top:16px" onclick="sosNow()">🆘 تجربة الزر</button>
+</div>`};
+function sosNow(){openSheet(`<div style="text-align:center"><div style="font-size:50px">🆘</div><div class="h" style="color:#dc2626">تم إرسال الاستغاثة</div><div class="sub">موقعك المباشر عم يوصل للأهل كل 10 ثواني، وحتى لو التطبيق بالخلفية</div><button class="btn ok" onclick="closeSheet();toast('تم إيقاف الطوارئ — الحمدلله على السلامة')">✅ أنا بخير</button></div>`)}
+
+function ratePrompt(svc){openSheet(`<div style="text-align:center"><div class="h">⭐ كيف كانت ${svc}؟</div><div class="sub">التقييم اختياري ومخفي الهوية</div>
+<div id="st" style="margin:10px 0">${[1,2,3,4,5].map(i=>`<button class="star" onclick="[...this.parentNode.children].forEach((b,j)=>b.classList.toggle('on',j<${i}))">★</button>`).join('')}</div></div>
+${chips(['🚗 سواقة آمنة','⏱️ ملتزم بالوقت','✨ السيارة نظيفة','😊 أسلوب محترم','⚠️ سواقة متهورة','⌛ تأخّر'],9)}
+<button class="btn" onclick="closeSheet();toast('شكراً لتقييمك ✓')">إرسال</button><button class="btn ghost" onclick="closeSheet()">لاحقاً</button>`)}
+S.rate={g:'الزبون',t:'⭐ نافذة التقييم',h:()=>S.orders.h(),after(){ratePrompt('رحلة التكسي')},tabs:1};
+
+/* ===================== مقدّم الخدمة ===================== */
+S.driver={g:'مقدّم الخدمة',t:'🚕 لوحة سائق التكسي',h:()=>`${hdr('🚕 سائق التكسي','<span class="stars">🥇 ⭐ 4.9 (128)</span> <span class="pill ok">● متاح</span>')}
+${map(260,'<div class="pin" style="right:50%;top:55%">🚕</div>',false)}
+<div class="pad">
+ <div class="row sb"><b>طلبات قريبة (ضمن 5 كم)</b><span class="pill or">فئة: عادية</span></div>
+ ${[['ساحة الأمويين ← المزة','1.2 كم منك','4.6 كم','3.40'],['البرامكة ← الميدان','2.8 كم منك','3.1 كم','2.60']].map(r=>`<div class="card" style="margin-top:8px"><div class="row sb"><b style="font-size:13px">${r[0]}</b><b style="color:#FF6B00">$${r[3]}</b></div><div class="sub">📍 ${r[1]} • 📏 الرحلة ${r[2]}</div><button class="btn ok" onclick="toast('✅ قبلت الطلب — زر الاتصال صار متاح')">قبول</button></div>`).join('')}
+ <div class="row" style="gap:8px"><button class="btn dark" onclick="go('driverShared')">➕ نشر رحلة مشتركة</button><button class="btn ghost" onclick="go('incentives')">🏆 حوافزي</button></div>
+</div>`,after(){setTimeout(()=>{if(cur!=='driver')return;const d=document.createElement('div');d.className='pop';d.innerHTML=`<div class="row sb"><b>🔔 طلب جديد!</b><span class="pill ok">0.9 كم منك</span></div><div class="sub">باب توما ← جرمانا • 📏 5.2 كم على الطريق</div><div class="row sb" style="margin-top:6px"><b style="color:#FF6B00;font-size:20px">$3.80</b><span class="pill">عادية</span></div><div class="row" style="gap:8px"><button class="btn ok" onclick="this.closest('.pop').remove();toast('✅ قبلت الطلب')">قبول</button><button class="btn ghost" onclick="this.closest('.pop').remove()">تجاهل</button></div>`;$('body').appendChild(d)},1500)}};
+
+S.driverShared={g:'مقدّم الخدمة',t:'➕ نشر رحلة مشتركة',h:()=>`${hdr('➕ نشر رحلة مشتركة')}
+${map(200)}
+<div class="pad">
+ ${pt('#16a34a','🟢','من','ساحة العباسيين')}${pt('#dc2626','📍','إلى','المزة')}
+ <div class="lbl">وقت الانطلاق</div><input class="inp" value="اليوم — 8:30 ص">
+ <div class="lbl">عدد المقاعد (1-11)</div>${chips(['1','2','3','4','5','6','7','8','9','10','11'],3)}
+ <div class="lbl">سعر المقعد</div><input class="inp" value="1.50$">
+ <div class="sub">الركاب اللي على طريقك ضمن 1 كم بينضموا تلقائياً، والأبعد بيحتاجوا موافقتك (قبول / رفض / مبلغ إضافي)</div>
+ <button class="btn" onclick="toast('✅ انتشرت الرحلة');back()">نشر الرحلة</button>
+</div>`};
+
+S.carrier={g:'مقدّم الخدمة',t:'🚚 لوحة الناقل',h:()=>`${hdr('🚚 الناقل')}
+<div class="pad">
+ <div class="card"><div class="row sb"><b>⭐ تقييمي</b><span class="big" style="color:#b45309;font-size:20px">4.8 <span class="sub">(61 تقييم)</span></span></div><div class="chips"><span class="pill ok">📦 حريص على الأغراض × 34</span><span class="pill ok">⏱️ ملتزم بالوقت × 22</span></div></div>
+ <div class="row sb"><b>طلبات ضمن 10 كم</b><span class="pill">مركبتي: متوسط</span></div>
+ ${[['🛋️ عفش','ركن الدين ← صحنايا','14.2 كم','عروض'],['📦 بضاعة','الحريقة ← القدم','6.5 كم','18$']].map(o=>`<div class="card" style="margin-top:8px"><div class="row sb"><b>${o[0]}</b><span class="pill warn">${o[3]==='عروض'?'📨 استقبل عروض':'💵 '+o[3]}</span></div><div class="sub">${o[1]} • 📏 ${o[2]} • 👷 2 عمال</div>
+ <div class="row" style="gap:8px;margin-top:4px"><input class="inp" placeholder="عرضك $"><button class="btn sm" style="background:#FF6B00;color:#fff;padding:12px 16px" onclick="toast('انبعت عرضك')">إرسال</button></div></div>`).join('')}
+ <div class="sub" style="text-align:center">بيانات الزبون بتبين بعد قبول العرض وقطع العمولة</div>
+</div>`};
+
+S.eventsDriver={g:'مقدّم الخدمة',t:'🚌 سائق المناسبات',h:()=>`${hdr('🚌 سائق المناسبات')}
+<div class="pad">
+ <div class="card row sb"><span>مركبتي: 🚌 باص متوسط 27</span><span class="pill ok">💍 خدمة الزفاف مفعّلة</span></div>
+ ${[['💍 عرس','الخميس 7:00 م','صالة الشام ← داما روز','35$'],['🎓 تخرج','السبت 5:00 م','جامعة دمشق ← الربوة','عروض']].map(o=>`<div class="card"><div class="row sb"><b>${o[0]}</b><span class="pill brand">${o[1]}</span></div><div class="sub">${o[2]}</div><div class="row sb" style="margin-top:8px"><b style="color:#FF6B00">${o[3]}</b><button class="btn sm" style="background:#047857;color:#fff" onclick="toast('انبعت قبولك لهالمركبة')">قبول / عرض</button></div></div>`).join('')}
+ <button class="btn ghost" onclick="go('incentives')">🏆 حوافزي</button>
+</div>`};
+
+S.contractsDriver={g:'مقدّم الخدمة',t:'📄 سائق العقود',h:()=>`${hdr('📄 سائق العقود')}
+<div class="pad">
+ <div class="seg"><button class="on" onclick="pick(this)">طلبات جديدة</button><button onclick="pick(this)">عقودي</button></div>
+ ${[['🏫 مدارس — شهري','6 أشهر • 12 طالب','المزة 86 ← المالكي','180$ / شهر'],['🏭 مصانع — أسبوعي','2 أسبوع • 20 عامل','جرمانا ← عدرا','عروض']].map(o=>`<div class="card" style="margin-top:8px"><b>${o[0]}</b><div class="sub">${o[1]} • ${o[2]}</div><div class="row sb" style="margin-top:8px"><b style="color:#FF6B00">${o[3]}</b><button class="btn sm" style="background:#FF6B00;color:#fff" onclick="toast('انبعت عرضك')">قدّم عرض</button></div></div>`).join('')}
+ <div class="sub" style="text-align:center">الشهري: العمولة بتنقطع كل شهر • اليومي والأسبوعي: عند القبول</div>
+</div>`};
+
+S.rentalProvider={g:'مقدّم الخدمة',t:'🔑 المؤجّر',h:()=>`${hdr('🔑 المؤجّر')}
+<div class="pad">
+ <div class="seg"><button class="on" onclick="pick(this)">سياراتي</button><button onclick="pick(this)">الطلبات (2)</button><button onclick="pick(this)">طلبات عامة</button></div>
+ <div class="card" style="margin-top:10px"><div class="photos"><div>🚗</div><div>📷</div><div>📷</div></div><div class="row sb"><b>كيا ريو 2019</b><span class="pill ok">منشورة</span></div><div class="sub">25$ / يوم • 150$ / أسبوع • 500$ / شهر</div></div>
+ <div class="card" style="border-color:#FF6B00"><div class="row sb"><b>📥 طلب جديد: 3 أيام</b><b style="color:#FF6B00">75$</b></div><div class="sub">كيا ريو • الاستلام 2/10 10:00 ص</div>
+ <div class="row" style="gap:8px"><button class="btn ok" onclick="toast('✅ وافقت — انقطعت العمولة')">موافقة</button><button class="btn ghost" onclick="toast('انرفض الطلب')">رفض</button></div></div>
+ <div class="card"><div class="row sb"><b>🔄 كيا ريو — مستأجرة</b><span class="pill brand">لـ 5/10</span></div><button class="btn dark" onclick="toast('انعادت السيارة للنشر ✓')">تم الاستلام — إعادة نشر</button></div>
+ <button class="btn" onclick="toast('3 صور بالضبط + الشروط بالأزرار')">➕ إضافة سيارة</button>
+</div>`};
+
+S.incentives={g:'مقدّم الخدمة',t:'🏆 حوافزي (قيد النقاش)',h:()=>`${hdr('🏆 حوافزي')}
+<div class="pad">
+ <div class="draft">⚠️ مسودة: أرقام المكافأة الشهرية لسا قيد النقاش</div>
+ <div style="background:#fefce8;border:1px solid #a1620755;border-radius:18px;padding:16px;text-align:center;margin-bottom:10px">
+  <div style="font-size:44px">🥇</div><div style="font-size:20px;font-weight:900;color:#a16207">المستوى ذهبي</div>
+  <div class="sub">⭐ 4.9 على آخر 100 تقييم • 72 تقييم</div>
+  <div class="bar"><i style="width:72%;background:#a16207"></i></div><div class="sub">للماسي: 100 تقييم + 4.8 (باقي 28 تقييم)</div></div>
+ <div class="card"><b>ميزات مستواك</b><div class="sub">• طلبات التكسي بتوصلك بعد 3 ثواني من الماسي<br>• عروضك وإعلاناتك بتطلع فوق عند الزبون<br>• شارة 🥇 جنب اسمك<br>• +5% فوق مكافأة الشهر</div></div>
+ <div class="card"><div class="row sb"><b>📊 هالشهر</b><span class="pill">باقي 12 يوم</span></div>
+  <div class="row sb" style="margin-top:8px"><span class="sub" style="margin:0">مجموع الطلبات</span><b>$— من الحد</b></div>
+  <div class="bar"><i style="width:55%;background:#FF6B00"></i></div>
+  <div class="row sb" style="margin-top:8px"><span class="sub" style="margin:0">تقييم الشهر</span><b style="color:#047857">4.9 ✓</b></div>
+  <div class="row sb"><span class="sub" style="margin:0">المكافأة المتوقعة</span><b style="color:#047857">—</b></div></div>
+ <div class="lbl">المكافآت السابقة</div><div class="hist"><span style="flex:1">شهر 9/2026</span><b style="color:#047857">+16.20$</b></div>
+</div>`};
+
+/* ===================== الرسم ===================== */
+function render(){
+  clearInterval(window._cars);
+  const s=S[cur]; $('body').innerHTML=s.h()+(['home','taxi','orders','transport','events','contracts','rental','taxiShared'].includes(cur)?'<button class="sos" onclick="sosNow()">SOS</button>':'');
+  $('tabs').innerHTML=s.tabs?TAB:''; $('body').scrollTop=0; closeSheet();
+  if(s.after) s.after();
+  document.querySelectorAll('.nav').forEach(n=>n.classList.toggle('on',n.dataset.k===cur));
+}
+let g='';$('navList').innerHTML=Object.entries(S).map(([k,s])=>{let o='';if(s.g!==g){g=s.g;o=`<div class="grp">${g}</div>`}return o+`<button class="nav" data-k="${k}" onclick="hist=[];cur='${k}';render();$('side').classList.remove('open')">${s.t}</button>`}).join('');
+render();
+</script>
+</body>
+</html>

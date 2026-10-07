@@ -1,0 +1,2320 @@
+app/admin-wallet.tsx	'أدخل معرّف المحفظة أو رقم الهاتف'
+app/admin-wallet.tsx	`تمت التسوية. الرصيد الآن ${money(data.balance)}`
+app/admin-wallet.tsx	'تمت إعادة تعيين الرمز السري. ينشئ المستخدم رمزاً جديداً عند أول عملية'
+app/admin-wallet.tsx	'أدخل قيمة البطاقة'
+app/admin-wallet.tsx	'العدد من 1 إلى 1000'
+app/admin-wallet.tsx	'رقم البطاقة 14 رقماً'
+app/admin-wallet.tsx	'تم تعطيل البطاقة'
+app/admin-wallet.tsx	"إدارة المحافظ"
+app/admin-wallet.tsx	"هذه الصفحة للمدير فقط"
+app/admin-wallet.tsx	'المستخدمون'
+app/admin-wallet.tsx	'البطاقات'
+app/admin-wallet.tsx	'التقرير'
+app/admin-wallet.tsx	>معرّف المحفظة أو رقم الهاتف<
+app/admin-wallet.tsx	"1234 5678 أو 09xxxxxxxx"
+app/admin-wallet.tsx	"بحث"
+app/admin-wallet.tsx	'بدون اسم'
+app/admin-wallet.tsx	'لديه رمز سري'
+app/admin-wallet.tsx	'بدون رمز'
+app/admin-wallet.tsx	"معرّف المحفظة"
+app/admin-wallet.tsx	"الهاتف"
+app/admin-wallet.tsx	"الرصيد"
+app/admin-wallet.tsx	"إعادة تعيين الرمز السري"
+app/admin-wallet.tsx	>تسوية يدوية<
+app/admin-wallet.tsx	"إضافة +"
+app/admin-wallet.tsx	"خصم −"
+app/admin-wallet.tsx	>المبلغ<
+app/admin-wallet.tsx	>السبب<
+app/admin-wallet.tsx	"مثال: استرجاع دفعة بالخطأ"
+app/admin-wallet.tsx	"متابعة"
+app/admin-wallet.tsx	'أدخل مبلغاً صحيحاً'
+app/admin-wallet.tsx	'اكتب سبب التسوية'
+app/admin-wallet.tsx	>آخر الحركات<
+app/admin-wallet.tsx	>إنشاء دفعة بطاقات<
+app/admin-wallet.tsx	>قيمة البطاقة<
+app/admin-wallet.tsx	>العدد<
+app/admin-wallet.tsx	>اسم الدفعة (اختياري)<
+app/admin-wallet.tsx	"مثال: دفعة تشرين 1"
+app/admin-wallet.tsx	"إنشاء البطاقات"
+app/admin-wallet.tsx	>تعطيل بطاقة مفقودة<
+app/admin-wallet.tsx	"تعطيل"
+app/admin-wallet.tsx	>الدفعات<
+app/admin-wallet.tsx	>جاري التحميل…<
+app/admin-wallet.tsx	"لا توجد بطاقات بعد"
+app/admin-wallet.tsx	`قيمة ${money(b.amount)}`
+app/admin-wallet.tsx	>الكل<
+app/admin-wallet.tsx	>مستخدمة<
+app/admin-wallet.tsx	>متاحة<
+app/admin-wallet.tsx	>معطّلة<
+app/admin-wallet.tsx	>من {
+app/admin-wallet.tsx	"العمولات المحصّلة"
+app/admin-wallet.tsx	"خصومات الدفع من التطبيق"
+app/admin-wallet.tsx	"صافي الإيراد"
+app/admin-wallet.tsx	"شحن البطاقات"
+app/admin-wallet.tsx	"الدفعات عبر التطبيق"
+app/admin-wallet.tsx	"التحويلات بين المستخدمين"
+app/admin-wallet.tsx	"التسويات اليدوية"
+app/admin-wallet.tsx	"مجموع أرصدة المستخدمين"
+app/admin-wallet.tsx	"مجموع الديون (أرصدة سالبة)"
+app/admin-wallet.tsx	"تأكيد التسوية"
+app/admin-wallet.tsx	"المستخدم"
+app/admin-wallet.tsx	"العملية"
+app/admin-wallet.tsx	'إضافة'
+app/admin-wallet.tsx	'خصم'
+app/admin-wallet.tsx	"المبلغ"
+app/admin-wallet.tsx	"الرصيد بعد التسوية"
+app/admin-wallet.tsx	"السبب"
+app/admin-wallet.tsx	"تأكيد"
+app/admin-wallet.tsx	"رجوع"
+app/admin-wallet.tsx	`تم إنشاء ${newCodes?.length || 0} بطاقة`
+app/admin-wallet.tsx	>انسخ الأرقام الآن للطباعة. لا تظهر مرة أخرى في التطبيق.<
+app/admin-wallet.tsx	"تم"
+app/carrier.tsx	` : 'بانتظار عرض سعرك');
+const editedText = (f?: string[] | null) => {
+  const x = f || [];
+  const t = x.some(k => k.startsWith('sched') || k === 'timing_type' || k === 'is_urgent');
+  const n = x.includes('notes');
+  return t && n ? 'الموعد والملاحظات' : t ? 'الموعد' : 'الملاحظات';
+};
+const whenText = (o: any) => (o.timing_type === 'scheduled' ? `
+app/carrier.tsx	`.trim() : 'فوري');
+
+export default function CarrierScreen() {
+  const router = useRouter();
+  const toast = useToast();
+  const { wallet, refresh: refreshWallet, isFree } = useWallet();
+  const [profile, setProfile] = useState<any>(null);
+  const [me, setMe] = useState<[number, number] | null>(null);
+  const [tab, setTab] = useState('feed');
+  const [feed, setFeed] = useState<any[] | null>(null);
+  const [offers, setOffers] = useState<any[] | null>(null);
+  const [jobs, setJobs] = useState<any[] | null>(null);
+  const [dist, setDist] = useState<Record<string, OrderDist>>({});
+  const tried = useRef<Set<string>>(new Set());
+  const known = useRef<Set<string> | null>(null);
+  const [fresh, setFresh] = useState<Set<string>>(new Set());
+  const [popup, setPopup] = useState<any>(null);
+  const [detail, setDetail] = useState<any>(null);
+  const [offerFor, setOfferFor] = useState<any>(null);
+  const [price, setPrice] = useState('');
+  const [msg, setMsg] = useState('');
+  const [confirmAccept, setConfirmAccept] = useState<any>(null);
+  const [revealed, setRevealed] = useState<any>(null);
+  const [busy, setBusy] = useState(false);
+  const [walletOpen, setWalletOpen] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+
+  useEffect(() => {
+    getMyLocation().then(r => setMe(r.ll));
+    supabase.rpc('my_driver_profile').then(({ data }) => setProfile(data || {}));
+  }, []);
+
+  const loadFeed = useCallback(async () => {
+    if (!me) return;
+    const { data, error } = await supabase.rpc('carrier_cargo_feed', { p_lat: me[0], p_lng: me[1], p_radius_km: RADIUS });
+    if (error) { setFeed(f => f || []); return; }
+    const list = (data || []) as any[];
+    const ids = new Set(list.map(o => o.id));
+    if (known.current) {
+      const nw = list.filter(o => !known.current!.has(o.id));
+      if (nw.length) {
+        setFresh(prev => new Set([...prev, ...nw.map(o => o.id)]));
+        setPopup(nw[0]);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      }
+    }
+    known.current = ids;
+    setFeed(list);
+  }, [me]);
+
+  const loadOffers = useCallback(async () => {
+    const { data } = await supabase.rpc('carrier_my_cargo_offers');
+    setOffers((data || []) as any[]);
+  }, []);
+  const loadJobs = useCallback(async () => {
+    const { data } = await supabase.rpc('carrier_my_cargo_jobs');
+    setJobs((data || []) as any[]);
+  }, []);
+  const loadAll = useCallback(async () => { await Promise.all([loadFeed(), loadOffers(), loadJobs(), refreshWallet()]); }, [loadFeed, loadOffers, loadJobs, refreshWallet]);
+
+  useEffect(() => {
+    if (!me) return;
+    loadAll();
+    const t = setInterval(loadFeed, POLL_MS);
+    return () => clearInterval(t);
+  }, [me]);
+
+  useEffect(() => {
+    (feed || []).forEach(o => {
+      if (tried.current.has(o.id)) return;
+      tried.current.add(o.id);
+      orderDistances(me, lls(o)).then(d => setDist(x => ({ ...x, [o.id]: d })));
+    });
+  }, [feed]);
+
+  const onRefresh = async () => { setRefreshing(true); await loadAll(); setRefreshing(false); };
+  const seen = (id: string) => setFresh(prev => { const n = new Set(prev); n.delete(id); return n; });
+  const openDetail = (o: any) => { seen(o.id); setPopup(null); setDetail(o); };
+  const feeText = (p: number) => (isFree ? 'بدون عمولة (الفترة المجانية)' : `
+app/carrier.tsx	`);
+
+  const openOffer = (o: any) => {
+    setOfferFor(o);
+    setPrice(o.my_offer_price ? String(Number(o.my_offer_price)) : '');
+    setMsg('');
+  };
+  const priceNum = Number(price);
+  const fixed = offerFor?.budget_type === 'fixed' && Number(offerFor?.budget_to) > 0;
+  const priceErr = !price ? '' : !(priceNum > 0) ? 'أدخل سعراً صحيحاً'
+    : fixed && (priceNum < Number(offerFor.budget_from) || priceNum > Number(offerFor.budget_to)) ? `
+app/carrier.tsx	` : '';
+
+  const sendOffer = async () => {
+    setBusy(true);
+    const { error } = await supabase.rpc('carrier_send_cargo_offer', { p_order: offerFor.id, p_price: priceNum, p_message: msg.trim() || null });
+    setBusy(false);
+    if (error) return toast.show(errMsg(error), 'err');
+    setOfferFor(null); setDetail(null);
+    toast.show(offerFor.my_offer_id ? 'تم تعديل العرض' : 'تم إرسال العرض');
+    loadFeed(); loadOffers();
+  };
+  const withdraw = async (offerId: string) => {
+    setBusy(true);
+    const { error } = await supabase.rpc('carrier_withdraw_cargo_offer', { p_offer: offerId });
+    setBusy(false);
+    if (error) return toast.show(errMsg(error), 'err');
+    setDetail(null); toast.show('تم سحب العرض', 'info');
+    loadFeed(); loadOffers();
+  };
+  const doAccept = async () => {
+    const o = confirmAccept;
+    setBusy(true);
+    const { data, error } = await supabase.rpc('carrier_accept_cargo', { p_order: o.id });
+    setBusy(false);
+    if (error) { setConfirmAccept(null); loadFeed(); return toast.show(errMsg(error), 'err'); }
+    setConfirmAccept(null); setDetail(null);
+    setRevealed({ ...data, order: o });
+    loadAll();
+  };
+  const complete = async (id: string) => {
+    setBusy(true);
+    const { error } = await supabase.rpc('carrier_complete_cargo', { p_order: id });
+    setBusy(false);
+    if (error) return toast.show(errMsg(error), 'err');
+    toast.show('تم تسليم الطلب'); loadJobs();
+  };
+
+  const noVehicle = profile && !profile.vehicle_class;
+  const pendingOffers = (offers || []).filter(f => f.status === 'pending').length;
+  const activeJobs = (jobs || []).filter(j => j.status === 'accepted').length;
+
+  return (
+    <View style={ui.page}>
+      <Header title="لوحة الناقل" onBack={() => router.back()} right={<>
+        <Pill text={wallet ? `
+app/carrier.tsx	`} tone="ok" onPress={() => setWalletOpen(true)} />}
+      </>} />
+
+      <View style={{ paddingHorizontal: 12, paddingTop: 10, flexDirection: 'row-reverse', gap: 6, flexWrap: 'wrap' }}>
+        <Pill text={profile?.vehicle_class ? vName(profile.vehicle_class) : 'المركبة: —'} tone="brand" />
+        <Pill text={`
+app/carrier.tsx	`} />
+      </View>
+
+      <Tabs value={tab} onChange={setTab} tabs={[
+        { k: 'feed', label: 'الطلبات', n: feed?.length },
+        { k: 'offers', label: 'عروضي', n: pendingOffers },
+        { k: 'jobs', label: 'أعمالي', n: activeJobs },
+      ]} />
+
+      <ScrollView contentContainerStyle={{ padding: 12, paddingBottom: 90 }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}>
+        <MyRatingCard />
+        <NewOrdersToggle ping />
+        {wallet?.blocked && (
+          <View style={[ui.banner, { backgroundColor: C.errBg, borderColor: '#fecaca' }]}>
+            <Text style={{ fontWeight: '900', color: C.err, textAlign: 'right' }}>رصيدك سالب ({money(wallet.balance)})</Text>
+            <Text style={[ui.note, { color: C.err }]}>توقف ظهور الطلبات الجديدة حتى شحن الرصيد</Text>
+          </View>
+        )}
+
+        {tab === 'feed' && (noVehicle ? (
+          <Empty icon="🚚" title="بيانات مركبتك قيد الاعتماد" sub="تظهر الطلبات بعد اعتماد فئة المركبة من الإدارة" />
+        ) : !feed ? <Empty icon="⏳" title="جاري تحميل الطلبات" /> : feed.length === 0 ? (
+          <Empty icon="📭" title="لا توجد طلبات حالياً" sub={`
+app/carrier.tsx	`} />
+        ) : feed.map(o => {
+          const d = dist[o.id];
+          const first = o.pickup_points?.[0], last = (o.dropoff_points || []).slice(-1)[0];
+          return (
+            <Pressable key={o.id} onPress={() => openDetail(o)} style={[ui.card, fresh.has(o.id) && ui.cardNew]}>
+              <View style={ui.cardTop}>
+                <Text style={ui.h}>{o.cargo_type || 'طلب نقل'}</Text>
+                {fresh.has(o.id) ? <Pill text="جديد" tone="brand" /> : o.my_offer_status === 'pending' ? <Pill text={`
+app/carrier.tsx	`} /> : null}
+              </View>
+              <View style={ui.metrics}>
+                <View style={ui.metric}><Text style={ui.metricV}>{d ? fmtKm(d.toMe) : '…'}</Text><Text style={ui.metricK}>يبعد عنك</Text></View>
+                <View style={ui.metric}><Text style={ui.metricV}>{d ? fmtKm(d.tripKm) : '…'}</Text><Text style={ui.metricK}>مسافة الطلب</Text></View>
+                <View style={[ui.metric, { flex: 1.4 }]}><Text style={[ui.metricV, { fontSize: 13 }]} numberOfLines={1}>{budgetText(o)}</Text><Text style={ui.metricK}>الميزانية</Text></View>
+              </View>
+            </Pressable>
+          );
+        }))}
+
+        {tab === 'offers' && (!offers ? <Empty icon="⏳" title="جاري التحميل" /> : offers.length === 0 ? (
+          <Empty icon="💬" title="لا توجد عروض" sub="العروض التي ترسلها للزبائن تظهر هنا" />
+        ) : offers.map(f => (
+          <View key={f.id} style={ui.card}>
+            <View style={ui.cardTop}>
+              <Text style={ui.h}>{f.cargo_type || 'طلب نقل'}</Text>
+              <Pill text={f.status === 'pending' ? 'بانتظار الزبون' : 'لم يُختر'} tone={f.status === 'pending' ? 'warn' : 'mute'} />
+            </View>
+            <Text style={ui.sub} numberOfLines={1}>📍 {f.pickup_points?.[0]?.label || '—'}  ←  🏁 {(f.dropoff_points || []).slice(-1)[0]?.label || '—'}</Text>
+            <Row k="سعرك" v={money(f.price)} strong />
+            <Row k="التاريخ" v={fmtDateTime(f.created_at)} />
+            {f.status === 'pending' && <View style={ui.btns}><Btn label="سحب العرض" tone="err" small onPress={() => withdraw(f.id)} loading={busy} /></View>}
+          </View>
+        )))}
+
+        {tab === 'jobs' && (!jobs ? <Empty icon="⏳" title="جاري التحميل" /> : jobs.length === 0 ? (
+          <Empty icon="📦" title="لا توجد أعمال بعد" sub="الطلبات المتفق عليها تظهر هنا مع بيانات الزبون" />
+        ) : jobs.map(j => (
+          <View key={j.id} style={ui.card}>
+            <View style={ui.cardTop}>
+              <Text style={ui.h}>{j.cargo_type || 'طلب نقل'}</Text>
+              <Pill text={j.status === 'completed' ? 'مكتمل' : 'قيد التنفيذ'} tone={j.status === 'completed' ? 'mute' : 'ok'} />
+            </View>
+            <Text style={ui.sub} numberOfLines={1}>📍 {j.pickup_points?.[0]?.label || '—'}</Text>
+            <Text style={ui.sub} numberOfLines={1}>🏁 {(j.dropoff_points || []).slice(-1)[0]?.label || '—'}</Text>
+            <Row k="الزبون" v={j.customer_name} strong />
+            <Row k="السعر المتفق عليه" v={money(j.agreed_price)} strong />
+            <Row k="العمولة" v={Number(j.commission_amount) === 0 ? 'مجانية' : money(j.commission_amount)} />
+            <Row k="الموعد" v={whenText(j)} />
+            {!!j.notes && <Row k="ملاحظات" v={j.notes} />}
+            {j.status === 'accepted' && !!j.edited_at && <View style={[ui.banner, { backgroundColor: C.warnBg, borderColor: '#fde68a', marginTop: 8, marginBottom: 0 }]}>
+              <Text style={{ color: C.warn, fontWeight: '800', textAlign: 'right', fontSize: 12 }}>
+                عدّل الزبون {editedText(j.edited_fields)} • {fmtDateTime(j.edited_at)}
+              </Text>
+            </View>}
+            {j.status === 'accepted' && <View style={ui.btns}>
+              <CallBtn phone={j.customer_phone} />
+              <Btn label="تم التسليم" tone="ghost" onPress={() => complete(j.id)} loading={busy} />
+            </View>}
+          </View>
+        )))}
+      </ScrollView>
+
+      {toast.node}
+
+      {}
+      <Sheet visible={!!popup} onClose={() => setPopup(null)} title="طلب نقل جديد">
+        {popup && <>
+          <Text style={[ui.h, { textAlign: 'center' }]}>{popup.cargo_type || 'طلب نقل'}</Text>
+          <Text style={[ui.sub, { textAlign: 'center' }]}>{vName(popup.vehicle_class)} • {whenText(popup)}</Text>
+          <Row k="الانطلاق" v={popup.pickup_points?.[0]?.label} />
+          <Row k="يبعد عنك" v={dist[popup.id] ? fmtKm(dist[popup.id].toMe) : '…'} />
+          <Row k="الميزانية" v={budgetText(popup)} strong />
+          <View style={ui.btns}>
+            <Btn label="عرض التفاصيل" onPress={() => openDetail(popup)} />
+            <Btn label="لاحقاً" tone="ghost" onPress={() => setPopup(null)} />
+          </View>
+        </>}
+      </Sheet>
+
+      {}
+      <Sheet visible={!!detail && !offerFor && !confirmAccept} onClose={() => setDetail(null)} title={detail?.cargo_type || 'طلب نقل'}>
+        {detail && <ScrollView>
+          <DetailMap o={detail} />
+          <Row k="المركبة المطلوبة" v={vName(detail.vehicle_class)} />
+          <Row k="الموعد" v={whenText(detail)} />
+          {detail.weight_kg ? <Row k="الوزن" v={`
+app/carrier.tsx	` : '')} />)}
+          {detail.need_workers && <Row k="عمّال" v={detail.workers_count || 'نعم'} />}
+          {detail.need_equipment && <Row k="معدات" v={detail.equipment_detail || 'نعم'} />}
+          {detail.lift_down && <Row k="تنزيل من طابق" v={`
+app/carrier.tsx	' • مصعد'
+app/carrier.tsx	`} />}
+          {detail.lift_up && <Row k="رفع إلى طابق" v={`
+app/carrier.tsx	`} />}
+          {!!detail.floor_note && <Row k="ملاحظة" v={detail.floor_note} />}
+          <Row k="الميزانية" v={budgetText(detail)} strong />
+          <Text style={ui.note}>هوية الزبون ورقم هاتفه تظهر بعد الاتفاق.</Text>
+          {detail.my_offer_status === 'pending' ? (
+            <View style={ui.btns}>
+              <Btn label={`
+app/carrier.tsx	`} onPress={() => openOffer(detail)} />
+              <Btn label="سحب" tone="err" onPress={() => withdraw(detail.my_offer_id)} loading={busy} />
+            </View>
+          ) : detail.budget_type === 'fixed' && Number(detail.budget_to) > 0 ? (
+            <View style={ui.btns}>
+              <Btn label={`
+app/carrier.tsx	`} tone="ok" onPress={() => setConfirmAccept(detail)} />
+              <Btn label="تقديم عرض" onPress={() => openOffer(detail)} />
+            </View>
+          ) : (
+            <View style={ui.btns}><Btn label="تقديم عرض سعر" onPress={() => openOffer(detail)} /></View>
+          )}
+        </ScrollView>}
+        {toast.node}
+      </Sheet>
+
+      {}
+      <Sheet visible={!!offerFor} onClose={() => setOfferFor(null)} title={offerFor?.my_offer_id ? 'تعديل العرض' : 'تقديم عرض سعر'}>
+        {offerFor && <>
+          {fixed && <Text style={[ui.note, { textAlign: 'center' }]}>ميزانية الزبون: {money(offerFor.budget_from)} – {money(offerFor.budget_to)}</Text>}
+          <Text style={ui.label}>سعرك</Text>
+          <TextInput value={price} onChangeText={t => setPrice(t.replace(/[^0-9.]/g, ''))} keyboardType="numeric" placeholder="السعر" style={[ui.input, !!priceErr && { borderColor: C.err }]} />
+          {!!priceErr && <Text style={[ui.note, { color: C.err }]}>{priceErr}</Text>}
+          <Text style={ui.label}>رسالة للزبون (اختياري)</Text>
+          <TextInput value={msg} onChangeText={setMsg} placeholder="مثال: متاح خلال ساعة" style={ui.input} maxLength={200} />
+          {priceNum > 0 && !priceErr && <Text style={ui.note}>{feeText(priceNum)} — تُخصم عند قبول الزبون</Text>}
+          <View style={ui.btns}>
+            <Btn label="إرسال" onPress={sendOffer} disabled={!price || !!priceErr} loading={busy} />
+            <Btn label="إلغاء" tone="ghost" onPress={() => setOfferFor(null)} />
+          </View>
+        </>}
+        {toast.node}
+      </Sheet>
+
+      {}
+      <Sheet visible={!!confirmAccept} onClose={() => setConfirmAccept(null)} title="تأكيد القبول">
+        {confirmAccept && <>
+          <Row k="الطلب" v={confirmAccept.cargo_type} />
+          <Row k="السعر" v={money(confirmAccept.budget_to)} strong />
+          <Row k="العمولة" v={isFree ? 'بدون عمولة (الفترة المجانية)' : money(Number(confirmAccept.budget_to) * COMMISSION)} />
+          <Text style={ui.note}>عند التأكيد تُخصم العمولة من رصيدك وتظهر بيانات الزبون فوراً.</Text>
+          <View style={ui.btns}>
+            <Btn label="تأكيد" tone="ok" onPress={doAccept} loading={busy} />
+            <Btn label="رجوع" tone="ghost" onPress={() => setConfirmAccept(null)} />
+          </View>
+        </>}
+      </Sheet>
+
+      {}
+      <Sheet visible={!!revealed} onClose={() => setRevealed(null)} title="تم الاتفاق">
+        {revealed && <>
+          <Row k="الزبون" v={revealed.customer_name} strong />
+          <Row k="الهاتف" v={revealed.customer_phone} />
+          <Row k="السعر" v={money(revealed.agreed_price)} />
+          <Row k="العمولة" v={Number(revealed.commission) === 0 ? 'مجانية' : money(revealed.commission)} />
+          <View style={ui.btns}><CallBtn phone={revealed.customer_phone} /></View>
+          <View style={ui.btns}><Btn label="إلى أعمالي" tone="ghost" onPress={() => { setRevealed(null); setTab('jobs'); }} /></View>
+        </>}
+      </Sheet>
+
+      <WalletSheet visible={walletOpen} wallet={wallet} onClose={() => setWalletOpen(false)} />
+    </View>
+  );
+}
+
+function DetailMap({ o }: { o: any }) {
+  const P = pts(o);
+  const L = P.map(p => [Number(p.lat), Number(p.lng)]);
+  const nPick = (o.pickup_points || []).length;
+  if (L.length < 2) return null;
+  const segments: Segment[] = [{ key: 'trip', name: 'مسار الطلب', icon: '🛣️', color: C.brand, pts: L }];
+  const markers: TripMarker[] = P.map((p, i) => ({ ll: L[i], txt: i < nPick ? `
+app/contracts-driver.tsx	'اكتمل العدد'
+app/contracts-driver.tsx	'اختار الزبون عرضاً آخر'
+app/contracts-driver.tsx	'ألغى الزبون الطلب'
+app/contracts-driver.tsx	'📄 عقد'
+app/contracts-driver.tsx	`;
+
+export default function ContractsDriverScreen() {
+  const router = useRouter();
+  const toast = useToast();
+  const { wallet, refresh: refreshWallet, isFree } = useWallet();
+  const [profile, setProfile] = useState<DriverProfile | null>(null);
+  const [me, setMe] = useState<[number, number] | null>(null);
+  const [tab, setTab] = useState('feed');
+  const [feed, setFeed] = useState<any[] | null>(null);
+  const [offers, setOffers] = useState<any[] | null>(null);
+  const [jobs, setJobs] = useState<any[] | null>(null);
+  const [dist, setDist] = useState<Record<string, OrderDist>>({});
+  const tried = useRef<Set<string>>(new Set());
+  const known = useRef<Set<string> | null>(null);
+  const [fresh, setFresh] = useState<Set<string>>(new Set());
+  const [popup, setPopup] = useState<any>(null);
+  const [detail, setDetail] = useState<any>(null);
+  const [offerFor, setOfferFor] = useState<{ o: any; item: any } | null>(null);
+  const [price, setPrice] = useState('');
+  const [msg, setMsg] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [walletOpen, setWalletOpen] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+
+  useEffect(() => {
+    getMyLocation().then(r => setMe(r.ll));
+    supabase.rpc('my_driver_profile').then(({ data }) => setProfile((data || {}) as DriverProfile));
+  }, []);
+
+  const loadFeed = useCallback(async () => {
+    if (!me) return;
+    const { data, error } = await supabase.rpc('driver_contracts_feed', { p_lat: me[0], p_lng: me[1], p_radius_km: 10 });
+    if (error) { setFeed(f => f || []); return; }
+    const list = (data || []) as any[];
+    if (known.current) {
+      const nw = list.filter(o => !known.current!.has(o.id));
+      if (nw.length) {
+        setFresh(prev => new Set([...prev, ...nw.map(o => o.id)]));
+        setPopup(nw[0]);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      }
+    }
+    known.current = new Set(list.map(o => o.id));
+    setFeed(list);
+    setDetail((d: any) => (d ? list.find(o => o.id === d.id) || null : d));
+  }, [me]);
+  const loadOffers = useCallback(async () => { const { data } = await supabase.rpc('driver_my_contract_offers'); setOffers((data || []) as any[]); }, []);
+  const loadJobs = useCallback(async () => { const { data } = await supabase.rpc('driver_contract_jobs'); setJobs((data || []) as any[]); }, []);
+
+  const loadAll = useCallback(async () => { await refreshWallet(); await Promise.all([loadFeed(), loadOffers(), loadJobs()]); }, [loadFeed, loadOffers, loadJobs, refreshWallet]);
+
+  useEffect(() => {
+    if (!me) return;
+    loadAll();
+    const t = setInterval(loadFeed, POLL_MS);
+    return () => clearInterval(t);
+  }, [me]);
+
+  useEffect(() => {
+    (feed || []).forEach(o => {
+      if (tried.current.has(o.id)) return;
+      tried.current.add(o.id);
+      orderDistances(me, ctTripLLs(o)).then(d => setDist(x => ({ ...x, [o.id]: d })));
+    });
+  }, [feed]);
+
+  const onRefresh = async () => { setRefreshing(true); await loadAll(); setRefreshing(false); };
+  const openDetail = (o: any) => { setFresh(p => { const n = new Set(p); n.delete(o.id); return n; }); setPopup(null); setDetail(o); };
+  const vType = profile?.event_vehicle_type;
+  const myItems = (o: any) => ((o?.items || []) as any[]).filter(it => Number(it.left) > 0 && ctCanServe(it.type, vType));
+
+  const priceNum = Number(price);
+  const U = unitOf(offerFor?.o?.contract_unit);
+  const total = priceNum * Number(offerFor?.o?.unit_count || 1);
+  const feeLine = () => {
+    if (!(priceNum > 0)) return '';
+    if (isFree) return 'بدون عمولة خلال الفترة المجانية';
+    return offerFor?.o?.contract_unit === 'month'
+      ? `
+app/contracts-driver.tsx	`;
+  };
+
+  const sendOffer = async () => {
+    if (!offerFor) return;
+    setBusy(true);
+    const { error } = await supabase.rpc('driver_send_contract_offer', { p_order: offerFor.o.id, p_item: offerFor.item.type, p_price: priceNum, p_message: msg.trim() || null });
+    setBusy(false);
+    if (error) return toast.show(errMsg(error), 'err');
+    setOfferFor(null); setDetail(null);
+    toast.show('تم إرسال العرض');
+    loadFeed(); loadOffers();
+  };
+  const withdraw = async (offerId: string) => {
+    setBusy(true);
+    const { error } = await supabase.rpc('driver_withdraw_contract_offer', { p_offer: offerId });
+    setBusy(false);
+    if (error) return toast.show(errMsg(error), 'err');
+    setDetail(null); toast.show('تم سحب العرض', 'info');
+    loadFeed(); loadOffers();
+  };
+
+  const noVehicle = profile && !vType;
+  const pendingOffers = (offers || []).filter(f => f.status === 'pending').length;
+  const activeJobs = (jobs || []).filter(j => j.active).length;
+
+  return (
+    <View style={ui.page}>
+      <Header title="سائق العقود" onBack={() => router.back()} right={<>
+        <Pill text={wallet ? `
+app/contracts-driver.tsx	`} tone="ok" onPress={() => setWalletOpen(true)} />}
+      </>} />
+
+      <View style={{ paddingHorizontal: 12, paddingTop: 10, flexDirection: 'row-reverse', gap: 6, flexWrap: 'wrap' }}>
+        <Pill text={vType ? vehicleLine(profile) : 'المركبة: —'} tone="brand" />
+        <Pill text="النطاق 10 كم" />
+      </View>
+
+      <Tabs value={tab} onChange={setTab} tabs={[
+        { k: 'feed', label: 'الطلبات', n: feed?.length },
+        { k: 'offers', label: 'عروضي', n: pendingOffers },
+        { k: 'jobs', label: 'عقودي', n: activeJobs },
+      ]} />
+
+      <ScrollView contentContainerStyle={{ padding: 12, paddingBottom: 90 }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}>
+        <MyRatingCard />
+        <NewOrdersToggle ping />
+        {wallet?.blocked && (
+          <View style={[ui.banner, { backgroundColor: C.errBg, borderColor: '#fecaca' }]}>
+            <Text style={{ fontWeight: '900', color: C.err, textAlign: 'right' }}>رصيدك سالب ({money(wallet.balance)})</Text>
+            <Text style={[ui.note, { color: C.err }]}>توقف ظهور الطلبات الجديدة حتى شحن الرصيد. عقودك القائمة مستمرة.</Text>
+          </View>
+        )}
+
+        {tab === 'feed' && (noVehicle ? (
+          <Empty icon="🚌" title="بيانات مركبتك قيد الاعتماد" sub="تظهر طلبات العقود بعد اعتماد نوع المركبة من الإدارة" />
+        ) : !feed ? <Empty icon="⏳" title="جاري تحميل الطلبات" /> : feed.length === 0 ? (
+          <Empty icon="📭" title="لا توجد طلبات حالياً" sub="تظهر هنا طلبات العقود ضمن 10 كم من أول نقطة انطلاق" />
+        ) : feed.map(o => {
+          const d = dist[o.id];
+          return (
+            <Pressable key={o.id} onPress={() => openDetail(o)} style={[ui.card, fresh.has(o.id) && ui.cardNew]}>
+              <View style={ui.cardTop}>
+                <Text style={ui.h}>{catName(o)} • {unitOf(o.contract_unit).label}</Text>
+                {fresh.has(o.id) ? <Pill text="جديد" tone="brand" /> : o.my_offer ? <Pill text={`
+app/contracts-driver.tsx	` : ''} • {o.num_people} شخص</Text>
+              <View style={ui.chips}>
+                {(o.items || []).filter((it: any) => Number(it.left) > 0).map((it: any) => (
+                  <Pill key={it.type} text={`
+app/contracts-driver.tsx	`} tone={ctCanServe(it.type, vType) ? 'ok' : 'mute'} />
+                ))}
+              </View>
+              <View style={ui.metrics}>
+                <View style={ui.metric}><Text style={ui.metricV}>{d ? fmtKm(d.toMe) : '…'}</Text><Text style={ui.metricK}>يبعد عنك</Text></View>
+                <View style={ui.metric}><Text style={ui.metricV}>{d ? fmtKm(d.tripKm) : '…'}</Text><Text style={ui.metricK}>مسافة الذهاب</Text></View>
+              </View>
+            </Pressable>
+          );
+        }))}
+
+        {tab === 'offers' && (!offers ? <Empty icon="⏳" title="جاري التحميل" /> : offers.length === 0 ? (
+          <Empty icon="💬" title="لا توجد عروض" sub="العروض التي ترسلها تظهر هنا" />
+        ) : offers.map(f => (
+          <View key={f.id} style={ui.card}>
+            <View style={ui.cardTop}>
+              <Text style={ui.h}>{catName(f)} • {unitOf(f.unit).label}</Text>
+              <Pill text={f.status === 'pending' ? 'بانتظار الزبون' : REASON[f.reason] || 'لم يُختر'} tone={f.status === 'pending' ? 'warn' : 'mute'} />
+            </View>
+            <Text style={ui.sub} numberOfLines={1}>📍 {f.pickup_points?.[0]?.label || '—'} • يبدأ {dateOnly(f.start_date)}</Text>
+            <Row k="المركبة" v={ctVehName(f.item_type)} />
+            <Row k={`
+app/contracts-driver.tsx	`} v={money(f.total)} />
+            {f.status === 'pending' && <View style={ui.btns}><Btn label="سحب العرض" tone="err" small onPress={() => withdraw(f.id)} loading={busy} /></View>}
+          </View>
+        )))}
+
+        {tab === 'jobs' && (!jobs ? <Empty icon="⏳" title="جاري التحميل" /> : jobs.length === 0 ? (
+          <Empty icon="📄" title="لا توجد عقود بعد" sub="العروض المقبولة تظهر هنا مع بيانات الزبون" />
+        ) : jobs.map(j => (
+          <View key={j.offer_id} style={ui.card}>
+            <View style={ui.cardTop}>
+              <Text style={ui.h}>{catName(j)} • {unitOf(j.contract_unit).label}</Text>
+              <Pill text={j.ended_at ? 'أنهاه الزبون' : j.active ? 'ساري' : 'منتهٍ'} tone={j.active ? 'ok' : 'mute'} />
+            </View>
+            <Text style={ui.sub} numberOfLines={1}>📍 {j.pickup_points?.[0]?.label || '—'}  ←  🏁 {j.destinations?.[0]?.label || '—'}</Text>
+            <Row k="المدة" v={period(j)} />
+            <Row k="الأيام" v={`
+app/contracts-driver.tsx	`} />
+            <Row k="المركبة" v={ctVehName(j.item_type)} />
+            <Row k="الزبون" v={j.customer_name} strong />
+            <Row k={`
+app/contracts-driver.tsx	`} v={money(j.price)} strong />
+            <Row k="الإجمالي" v={money(j.total)} />
+            <Row k="العمولة المدفوعة" v={Number(j.commission_total) === 0 ? 'مجانية' : money(j.commission_total)} />
+            {j.contract_unit === 'month' && <Row k="الأشهر المحتسبة" v={`
+app/contracts-driver.tsx	`} />}
+            {j.next_due && <Row k="الخصم القادم" v={`
+app/contracts-driver.tsx	`} />}
+            {j.active && <View style={ui.btns}><CallBtn phone={j.customer_phone} /></View>}
+          </View>
+        )))}
+      </ScrollView>
+
+      {toast.node}
+
+      <Sheet visible={!!popup} onClose={() => setPopup(null)} title="طلب عقد جديد">
+        {popup && <>
+          <Text style={[ui.h, { textAlign: 'center' }]}>{catName(popup)} • {unitOf(popup.contract_unit).label}</Text>
+          <Row k="الانطلاق" v={popup.pickup_points?.[0]?.label} />
+          <Row k="المدة" v={period(popup)} />
+          <Row k="يبعد عنك" v={dist[popup.id] ? fmtKm(dist[popup.id].toMe) : '…'} />
+          <Row k="المركبات المطلوبة" v={(popup.items || []).filter((i: any) => i.left > 0).map((i: any) => `
+app/contracts-driver.tsx	`).join('، ')} />
+          <View style={ui.btns}>
+            <Btn label="عرض التفاصيل" onPress={() => openDetail(popup)} />
+            <Btn label="لاحقاً" tone="ghost" onPress={() => setPopup(null)} />
+          </View>
+        </>}
+      </Sheet>
+
+      <Sheet visible={!!detail && !offerFor} onClose={() => setDetail(null)} title={detail ? `
+app/contracts-driver.tsx	` : ''}>
+        {detail && <ScrollView>
+          <ContractMap o={detail} />
+          <Row k="نوع العقد" v={`
+app/contracts-driver.tsx	`} strong />
+          <Row k="البداية" v={dateOnly(detail.start_date)} />
+          <Row k="النهاية" v={dateOnly(detail.end_date)} />
+          <Row k="أيام الدوام" v={daysText(detail.days)} />
+          {timeOnly(detail.departure_time) && <Row k="ساعة الانطلاق" v={timeOnly(detail.departure_time)} />}
+          {timeOnly(detail.return_time) && <Row k="ساعة العودة" v={timeOnly(detail.return_time)} />}
+          {detail.shift_type && <Row k="الورديات" v={{ morning: 'صباحية', evening: 'مسائية', night: 'ليلية', two_shifts: 'ورديتين', three_shifts: '3 ورديات', custom: 'مخصص' }[detail.shift_type as string] || '—'} />}
+          {(detail.pickup_points || []).map((p: any, i: number) => <Row key={'p' + i} k={`
+app/contracts-driver.tsx	`} v={p.label} />)}
+          <Row k="عدد الأشخاص" v={detail.num_people} strong />
+          {detail.need_supervisor && <Row k="مشرف/ة" v="مطلوب" />}
+          {!!detail.notes && <Row k="ملاحظات" v={detail.notes} />}
+
+          <Text style={ui.label}>المركبات المتبقية</Text>
+          {(detail.items || []).map((it: any) => {
+            const mine = ctCanServe(it.type, vType);
+            const left = Number(it.left);
+            return (
+              <View key={it.type} style={[ui.card, { padding: 10, marginBottom: 6, opacity: left > 0 ? 1 : 0.5 }]}>
+                <View style={ui.cardTop}>
+                  <Text style={[ui.h, { fontSize: 14 }]}>{ctVehName(it.type)}</Text>
+                  <Pill text={left > 0 ? `
+app/contracts-driver.tsx	` : 'مكتمل'} tone={left > 0 && mine ? 'ok' : 'mute'} />
+                </View>
+                {left > 0 && mine && !detail.my_offer && <View style={ui.btns}><Btn small label="تقديم عرض لمركبتي" onPress={() => { setOfferFor({ o: detail, item: it }); setPrice(''); setMsg(''); }} /></View>}
+              </View>
+            );
+          })}
+          {detail.my_offer ? (
+            <View style={[ui.banner, { backgroundColor: C.warnBg, borderColor: '#fde68a', marginTop: 6 }]}>
+              <Text style={{ fontWeight: '900', color: C.warn, textAlign: 'right' }}>عرضك: {money(detail.my_offer.price)} {unitOf(detail.contract_unit).per} • {ctVehName(detail.my_offer.item_type)}</Text>
+              <View style={ui.btns}><Btn small label="سحب العرض" tone="err" onPress={() => withdraw(detail.my_offer.id)} loading={busy} /></View>
+            </View>
+          ) : myItems(detail).length === 0 ? (
+            <Text style={ui.note}>لا توجد مركبة متبقية تناسب مركبتك في هذا الطلب.</Text>
+          ) : null}
+          <Text style={ui.note}>هوية الزبون ورقم هاتفه تظهر بعد قبول عرضك.</Text>
+        </ScrollView>}
+        {toast.node}
+      </Sheet>
+
+      <Sheet visible={!!offerFor} onClose={() => setOfferFor(null)} title="عرض سعر لمركبتك">
+        {offerFor && <>
+          <View style={[ui.card, { flexDirection: 'row-reverse', gap: 10, alignItems: 'center' }]}>
+            {profile?.vehicle_photo_url ? <Image source={{ uri: profile.vehicle_photo_url }} style={{ width: 64, height: 48, borderRadius: 8 }} /> : null}
+            <View style={{ flex: 1 }}>
+              <Text style={[ui.h, { fontSize: 14 }]}>{vehicleLine(profile)}</Text>
+              <Text style={ui.sub}>{profile?.vehicle_seats ? `
+app/contracts-driver.tsx	` : ''}للبند: {ctVehName(offerFor.item.type)}</Text>
+            </View>
+          </View>
+          <Row k="العقد" v={`
+app/contracts-driver.tsx	`} />
+          <Text style={ui.label}>السعر {U.per}</Text>
+          <TextInput value={price} onChangeText={t => setPrice(t.replace(/[^0-9.]/g, ''))} keyboardType="numeric" placeholder={`
+app/contracts-driver.tsx	>رسالة للزبون (اختياري)<
+app/contracts-driver.tsx	"مثال: باص مكيّف والتزام بالمواعيد"
+app/contracts-driver.tsx	"إرسال العرض"
+app/contracts-driver.tsx	"إلغاء"
+app/contracts.tsx	'مدارس'
+app/contracts.tsx	'روضة'
+app/contracts.tsx	'جامعات'
+app/contracts.tsx	'مصانع'
+app/contracts.tsx	'شركة'
+app/contracts.tsx	'عمال'
+app/contracts.tsx	'🚗 سيارة 4'
+app/contracts.tsx	'🚐 فان 8'
+app/contracts.tsx	'🚐 فان 11'
+app/contracts.tsx	'🚐 باص صغير 14'
+app/contracts.tsx	'🚌 باص كبير 50'
+app/contracts.tsx	'🚌 باص متوسط 27'
+app/contracts.tsx	'🚌 باص متوسط 21'
+app/contracts.tsx	'🚌 باص متوسط 18'
+app/contracts.tsx	'يجب تسجيل الدخول لنشر الطلب'
+app/contracts.tsx	'تم نشر الطلب'
+app/contracts.tsx	'تعذر نشر الطلب، حاول مرة أخرى'
+app/contracts.tsx	'الذهاب'
+app/contracts.tsx	'العودة'
+app/contracts.tsx	>📄 عقد نقل جديد<
+app/contracts.tsx	>مدارس • روضة • جامعات • مصانع • شركات • عمال<
+app/contracts.tsx	>📚 فئة العقد<
+app/contracts.tsx	>👤 صفة المتعاقد<
+app/contracts.tsx	>👨‍👩‍👧 ولي أمر<
+app/contracts.tsx	>👨‍🏫 موظف<
+app/contracts.tsx	>🏫 مؤسسة<
+app/contracts.tsx	'عدد العمال'
+app/contracts.tsx	'عدد الأطفال'
+app/contracts.tsx	'عدد الموظفين'
+app/contracts.tsx	'عدد الطلاب'
+app/contracts.tsx	'عدد العمال/الموظفين'
+app/contracts.tsx	'العدد'
+app/contracts.tsx	'نقطة تجمع العمال'
+app/contracts.tsx	'منازل الأطفال'
+app/contracts.tsx	'مكان السكن'
+app/contracts.tsx	'أحياء التجمع'
+app/contracts.tsx	'مكان الانطلاق '
+app/contracts.tsx	>＋ إضافة مكان انطلاق<
+app/contracts.tsx	>ساعة الانطلاق<
+app/contracts.tsx	>🏫 الوجهات<
+app/contracts.tsx	'الوجهة '
+app/contracts.tsx	"ساعة العودة 14:00"
+app/contracts.tsx	>＋ إضافة وجهة<
+app/contracts.tsx	>ساعة العودة<
+app/contracts.tsx	>⏰ نظام الورديات<
+app/contracts.tsx	'صباحية'
+app/contracts.tsx	'مسائية'
+app/contracts.tsx	'ليلية'
+app/contracts.tsx	'ورديتين'
+app/contracts.tsx	'3 ورديات'
+app/contracts.tsx	'مخصص'
+app/contracts.tsx	>🔁 التنزيل<
+app/contracts.tsx	>نفس الانطلاق<
+app/contracts.tsx	>مختلف<
+app/contracts.tsx	'مكان التنزيل '
+app/contracts.tsx	>＋ إضافة مكان تنزيل<
+app/contracts.tsx	>🛣️ مسار الرحلة<
+app/contracts.tsx	>📅 أيام الدوام<
+app/contracts.tsx	'سبت'
+app/contracts.tsx	'أحد'
+app/contracts.tsx	'إثن'
+app/contracts.tsx	'ثلا'
+app/contracts.tsx	'أرب'
+app/contracts.tsx	'خميس'
+app/contracts.tsx	'جمعة'
+app/contracts.tsx	>⏳ نوع العقد ومدته<
+app/contracts.tsx	>عدد {
+app/contracts.tsx	>تاريخ البداية<
+app/contracts.tsx	'اختر التاريخ'
+app/contracts.tsx	>🚌 المركبات<
+app/contracts.tsx	>مشرف/ة<
+app/contracts.tsx	>📝 ملاحظات<
+app/contracts.tsx	'جاري النشر...'
+app/contracts.tsx	'📢 نشر الطلب واستقبال العروض'
+app/contracts.tsx	"تاريخ بداية العقد"
+app/driver-shared-publish.tsx	'🚗 عادية'
+app/driver-shared-publish.tsx	'⚡ اقتصادية'
+app/driver-shared-publish.tsx	'✨ فاخرة'
+app/driver-shared-publish.tsx	'تم نشر رحلة الراكب'
+app/driver-shared-publish.tsx	'تعذر نشر الرحلة'
+app/driver-shared-publish.tsx	>👥 نشر رحلة راكب<
+app/driver-shared-publish.tsx	>حدد المسار والوقت والمقاعد — مع خيار شاغر منتصف الطريق<
+app/driver-shared-publish.tsx	>📍 الانطلاق<
+app/driver-shared-publish.tsx	>🏁 الوصول<
+app/driver-shared-publish.tsx	'⏳ جاري حساب المسار على الطرق...'
+app/driver-shared-publish.tsx	'⚠️ تعذر حساب المسار — أعد تحديد النقطة'
+app/driver-shared-publish.tsx	`🛣️ ${route.km.toFixed(1)} كم على الطريق • ${fmtMin(route.min)}`
+app/driver-shared-publish.tsx	>🕖 موعد الانطلاق<
+app/driver-shared-publish.tsx	'الساعة'
+app/driver-shared-publish.tsx	>🚘 فئة المركبة<
+app/driver-shared-publish.tsx	>💺 المقاعد والسعر<
+app/driver-shared-publish.tsx	>عدد المقاعد<
+app/driver-shared-publish.tsx	>سعر المقعد $<
+app/driver-shared-publish.tsx	>🔄 يوجد شاغر في منتصف الطريق<
+app/driver-shared-publish.tsx	>سيركب زبون وينزل منتصف الطريق<
+app/driver-shared-publish.tsx	>أين سينزل الراكب؟<
+app/driver-shared-publish.tsx	>📍 حدد على الخريطة<
+app/driver-shared-publish.tsx	>📢 نشر رحلة راكب<
+app/driver-shared-publish.tsx	"تاريخ الرحلة"
+app/driver-shared-publish.tsx	"ساعة الانطلاق"
+app/driver.tsx	'عادية'
+app/driver.tsx	'اقتصادية'
+app/driver.tsx	'فاخرة'
+app/driver.tsx	'فان 8'
+app/driver.tsx	'فان 11'
+app/driver.tsx	'نقطة الانطلاق'
+app/driver.tsx	'الوجهة'
+app/driver.tsx	`${Number(r.distance_km).toFixed(1)} كم${r.duration_min? ' • '+fmtMin(r.duration_min):''}`
+app/driver.tsx	'الراكب ما رد'
+app/driver.tsx	'عطل بالسيارة'
+app/driver.tsx	'ظرف طارئ'
+app/driver.tsx	'سبب تاني'
+app/driver.tsx	'تم إيقاف استقبال الطلبات بسبب كثرة الإلغاءات'
+app/driver.tsx	'تم إلغاء الرحلة'
+app/driver.tsx	`${rt.km.toFixed(1)} كم • ${fmtMin(rt.min)}`
+app/driver.tsx	'تعذر حساب المسار'
+app/driver.tsx	'انضم راكب جديد لرحلتك'
+app/driver.tsx	>0) driverNotify(`✅ وافق الراكب على +$${
+app/driver.tsx	`);
+        if(r.status==='declined_by_passenger') driverNotify('رفض الراكب المبلغ الإضافي');
+        if(r.status==='cancelled'){
+          setJoinQueue(q=> q.filter(x=> x.id!==r.id));
+          setJoinReq((cur:any)=> cur?.id===r.id? null : cur);
+          driverNotify('ألغى الراكب طلب الانضمام');
+        }
+      }).subscribe();
+    return ()=>{ supabase.removeChannel(ch); };
+  },[]);
+  const enqueueJoin=async(r:any)=>{
+    if(r.status!=='pending') return;
+    const { data:trip }=await supabase.from('taxi_shared_trips').select('*').eq('id', r.trip_id).single();
+    if(!trip) return;
+    setJoinQueue(q=> q.some(x=> x.id===r.id)? q : [...q, {...r, trip}]);
+  };
+  useEffect(()=>{ if(!joinReq && joinQueue.length){ setJoinReq(joinQueue[0]); setJoinQueue(q=> q.slice(1)); setShowExtra(false); } },[joinQueue, joinReq]);
+
+  useEffect(()=>{
+    if(!joinReq) return;
+    const tick=()=>{ Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning); Vibration.vibrate(300); };
+    tick(); const iv=setInterval(tick,2000);
+    return ()=> clearInterval(iv);
+  },[joinReq?.id]);
+  const respondJoin=async(action:'accept'|'reject'|'counter')=>{
+    if(!joinReq) return;
+    const v=Number(extra);
+    if(action==='counter' && !(v>0)){ showToast('اكتب المبلغ الإضافي أولاً'); return; }
+    const { error }=await supabase.rpc('driver_respond_join',{p_request:joinReq.id, p_action:action, p_extra: action==='counter'? v : 0});
+    if(error){ showToast(error.message.includes('TRIP_FULL')? 'الرحلة مكتملة' : 'تعذر إرسال الرد'); }
+    else showToast(action==='accept'? 'تم قبول الراكب' : action==='reject'? 'تم رفض الطلب' : 'تم إرسال المبلغ للراكب — بانتظار موافقته');
+    setJoinReq(null); setExtra('');
+  };
+  const openExtra=()=>{ setExtra(''); setShowExtra(true); };
+  const toLL=(p:number[])=>({latitude:p[0], longitude:p[1]});
+
+  const quickAccept=(r:any)=>{ setModal(r); setTimeout(()=> accept(),100); };
+  const accept=async()=>{
+    if(!modal) return;
+    const m=modal; setModal(null);
+    setNearby(p=> p.filter(x=> x.id!==m.id));
+    const { data, error }=await supabase.rpc('driver_accept_taxi',{p_order:m.id});
+    if(error){ showToast(errMsg(error, 'تعذر قبول الطلب')); loadNearby(); return; }
+    await loadTrip(); livePingNow();
+    showToast((data as any)?.is_next? 'تم قبول الطلب كطلب تالٍ — يبدأ بعد إنهاء رحلتك' : 'تم قبول الطلب — يمكنك الاتصال بالعميل الآن');
+  };
+  const STEP:Record<string,{step:string,label:string,done:string}>={
+    accepted:{step:'arrived', label:'📍 وصلت إلى الراكب', done:'تم إبلاغ الراكب بوصولك'},
+    arrived:{step:'start', label:'▶️ بدء الرحلة', done:'بدأت الرحلة'},
+    in_progress:{step:'complete', label:'🏁 إنهاء الرحلة', done:'انتهت الرحلة — وصل للراكب طلب الدفع'},
+  };
+  const doStep=async()=>{
+    if(!trip || stepBusy) return; const st=STEP[trip.status]; if(!st) return;
+    setStepBusy(true);
+    const { error }=await supabase.rpc(`
+app/driver.tsx	`,{p_order:trip.id});
+    setStepBusy(false);
+    if(error){ showToast(errMsg(error)); loadTrip(); return; }
+    showToast(st.done); loadTrip();
+  };
+  const reject=()=>{ const m=modal; setModal(null); if(m) setNearby(p=> p.filter(x=> x.id!==m.id)); showToast('تم رفض الطلب'); };
+  return (
+    <View style={s.page}>
+      <View style={s.header}>
+        <Text style={s.h1}>🚕 لوحة السائق</Text>
+        <View style={{flexDirection:'row', gap:6, alignItems:'center'}}><MyRatingCard compact /><NewOrdersToggle compact onChange={v=> showToast(v? 'إشعارات الطلبات الجديدة شغّالة 🔔' : 'إشعارات الطلبات الجديدة موقّفة 🔕')} /><View style={s.badge}><Text style={s.badgeT}>● متاح</Text></View></View>
+      </View>
+      <View style={{flex:1, margin:10, borderRadius:14, overflow:'hidden', borderWidth:1, borderColor:'#e2e8f0'}}>
+        <MapView style={{flex:1}} region={{latitude:(myLL||[33.5138,36.2765])[0], longitude:(myLL||[33.5138,36.2765])[1], latitudeDelta:0.12, longitudeDelta:0.12}}>
+          <UrlTile urlTemplate="https://a.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png" maximumZ={19} flipY={false}/>
+          {myLL && <Circle center={toLL(myLL)} radius={RADIUS_KM*1000} fillColor="rgba(79,70,229,0.08)" strokeColor="rgba(79,70,229,0.5)"/>}
+          {myLL && <Marker coordinate={toLL(myLL)} pinColor="#4F46E5"/>}
+          {nearby.map(r=> <Marker key={r.id} coordinate={toLL(r.fromLL)} pinColor="green" onPress={()=> openWithRoute(r)}/>)}
+        </MapView>
+        <View style={s.legend}><Text style={{fontSize:10, fontWeight:'900'}}>نطاق الطلبات {RADIUS_KM} كم{status?.taxi_category? ' • '+(CAT[status.taxi_category]||'') : ''}</Text></View>
+      </View>
+      <View style={{padding:10, gap:8, paddingBottom:80}}>
+        {status?.taxi_suspended && (
+          <View style={{backgroundColor:'#fef2f2', borderWidth:1, borderColor:'#fecaca', borderRadius:12, padding:10}}><Text style={{color:'#991b1b', fontWeight:'800', fontSize:12, textAlign:'center'}}>{status.message}</Text></View>
+        )}
+
+        {!!status && !status.taxi_category && !status.taxi_suspended && (
+          <View style={{backgroundColor:'#fffbeb', borderWidth:1, borderColor:'#fde68a', borderRadius:12, padding:10}}><Text style={{color:'#92400e', fontWeight:'800', fontSize:12, textAlign:'center'}}>فئة سيارتك غير محددة — تُحدد عند التسجيل، وبعدها تظهر لك طلبات فئتك فقط</Text></View>
+        )}
+        {!trip?.next && !status?.taxi_suspended && !!status?.taxi_category && (nearby.length
+          ? <View style={{gap:6}}>
+              <Text style={{fontWeight:'900', fontSize:13, textAlign:'right'}}>📋 طلبات قريبة ({nearby.length}){trip? ' • يمكنك قبول طلب تالٍ واحد' : ''}</Text>
+              {nearby.slice(0,5).map(r=> (
+                <Pressable key={r.id} onPress={()=> openWithRoute(r)} style={{backgroundColor:'#fff', borderWidth:1, borderColor:'#e2e8f0', borderRadius:12, padding:10, flexDirection:'row-reverse', justifyContent:'space-between'}}>
+                  <View style={{flex:1}}><Text style={{fontWeight:'800', fontSize:12, textAlign:'right'}}>{r.from} ← {r.to}</Text><Text style={{fontSize:11, color:'#64748b', textAlign:'right'}}>{r.cat} • {r.dist}</Text></View>
+                  <Text style={{fontWeight:'900', color:'#4F46E5'}}>{r.price}</Text>
+                </Pressable>
+              ))}
+            </View>
+          : <Pressable onPress={loadNearby} style={[s.btn,{backgroundColor:'#fff', borderWidth:1, borderColor:'#e2e8f0'}]}><Text style={s.btnT}>لا توجد طلبات ضمن {RADIUS_KM} كم • تحديث</Text></Pressable>)}
+        <SharedTripsDriver toast={showToast}/>
+        <Pressable onPress={()=> router.push('/driver-shared-publish' as any)} style={[s.btn,{backgroundColor:'#4F46E5'}]}><Text style={[s.btnT,{color:'#fff'}]}>👥 نشر رحلة راكب مشتركة</Text></Pressable>
+      </View>
+      {trip && (
+        <View style={s.tripCard}>
+          <View style={{flexDirection:'row-reverse', justifyContent:'space-between', alignItems:'center'}}>
+            <Text style={{fontWeight:'900', fontSize:14}}>{trip.status==='accepted'? '🚕 في الطريق إلى الراكب' : trip.status==='arrived'? '📍 بانتظار الراكب' : '🛣️ الرحلة جارية'}</Text>
+            <Text style={{fontWeight:'900', fontSize:16, color:'#4F46E5'}}>${Number(trip.fare).toFixed(2)}</Text>
+          </View>
+          <View style={{flexDirection:'row-reverse', gap:8, marginTop:10}}>
+            <Pressable onPress={doStep} disabled={stepBusy} style={[s.btn,{flex:2, backgroundColor: trip.status==='in_progress'? '#4F46E5' : '#0f172a', opacity:stepBusy? .6:1}]}><Text style={[s.btnT,{color:'#fff'}]}>{stepBusy? 'جاري...' : STEP[trip.status]?.label}</Text></Pressable>
+            {!!trip.customer_phone && <Pressable onPress={()=> Linking.openURL(`
+app/driver.tsx	`)} style={[s.btn,{flex:1, backgroundColor:'#22c55e'}]}><Text style={[s.btnT,{color:'#fff'}]}>📞 اتصال بالعميل</Text></Pressable>}
+          </View>
+          {!!trip.next && (
+            <View style={{marginTop:10, backgroundColor:'#f8fafc', borderWidth:1, borderColor:'#e2e8f0', borderRadius:12, padding:8, flexDirection:'row-reverse', alignItems:'center', gap:8}}>
+              <View style={{flex:1}}>
+                <Text style={{fontWeight:'900', fontSize:12, textAlign:'right'}}>⏭️ الطلب التالي • ${Number(trip.next.fare).toFixed(2)}</Text>
+                <Text style={{fontSize:11, color:'#64748b', textAlign:'right'}}>يبدأ بعد إنهاء رحلتك الحالية</Text>
+              </View>
+              {!!trip.next.customer_phone && <Pressable onPress={()=> Linking.openURL(`
+app/driver.tsx	>📞 اتصال<
+app/driver.tsx	>إلغاء<
+app/driver.tsx	>إلغاء الرحلة<
+app/driver.tsx	>🔔 طلب تكسي جديد ضمن نطاقك<
+app/driver.tsx	>اضغط قبول خلال 15 ثانية<
+app/driver.tsx	>المسافة<
+app/driver.tsx	>الفئة<
+app/driver.tsx	>الأجرة<
+app/driver.tsx	>رفض<
+app/driver.tsx	>✅ قبول<
+app/driver.tsx	>👤 طلب انضمام راكب<
+app/driver.tsx	>رحلتك: {
+app/driver.tsx	>↩️ نزول الراكب قبل موقع ركوبه على اتجاه رحلتك<
+app/driver.tsx	>رمادي متقطع: مسارك الأصلي • برتقالي: مع الراكب • 🟢 ركوب • 🔴 نزول<
+app/driver.tsx	} كم<
+app/driver.tsx	>البعد عن مسارك<
+app/driver.tsx	>التفاف إضافي<
+app/driver.tsx	>سعر المقعد<
+app/driver.tsx	>ركوب {
+app/driver.tsx	>المبلغ الإضافي المطلوب من الراكب<
+app/driver.tsx	>الالتفاف +{
+app/driver.tsx	} — اكتب المبلغ الذي تراه مناسباً<
+app/driver.tsx	>رجوع<
+app/driver.tsx	>إرسال للراكب<
+app/driver.tsx	>قبول بمبلغ إضافي<
+app/driver.tsx	>قبول<
+app/driver.tsx	>سبب الإلغاء<
+app/driver.tsx	>متأكد؟ سيُحتسب عليك إلغاء<
+app/driver.tsx	>تأكيد الإلغاء<
+app/events-driver.tsx	'تم إرسال العرض'
+app/events-driver.tsx	'تم سحب العرض'
+app/events-driver.tsx	'تم تنفيذ المناسبة'
+app/events-driver.tsx	'مناسبات'
+app/events-driver.tsx	'زفاف'
+app/events-driver.tsx	"سائق المناسبات"
+app/events-driver.tsx	`مجاني · ${wallet?.free_days_left} يوم`
+app/events-driver.tsx	'المركبة: —'
+app/events-driver.tsx	'الطلبات'
+app/events-driver.tsx	'عروضي'
+app/events-driver.tsx	'أعمالي'
+app/events-driver.tsx	>رصيدك سالب ({
+app/events-driver.tsx	>توقف ظهور الطلبات الجديدة حتى شحن الرصيد<
+app/events-driver.tsx	"خدمة المناسبات غير مفعّلة في حسابك"
+app/events-driver.tsx	"تظهر الطلبات بعد تفعيل خدمة المناسبات أو الزفاف واعتماد بيانات المركبة"
+app/events-driver.tsx	"جاري تحميل الطلبات"
+app/events-driver.tsx	"لا توجد طلبات حالياً"
+app/events-driver.tsx	"تظهر هنا طلبات المناسبات ضمن 10 كم من نقطة التجمع"
+app/events-driver.tsx	"جديد"
+app/events-driver.tsx	`عرضك ${money(o.my_offer.price)}`
+app/events-driver.tsx	} شخص<
+app/events-driver.tsx	>يبعد عنك<
+app/events-driver.tsx	>مسافة المسار<
+app/events-driver.tsx	>الوجهات<
+app/events-driver.tsx	"جاري التحميل"
+app/events-driver.tsx	"لا توجد عروض"
+app/events-driver.tsx	"العروض التي ترسلها تظهر هنا"
+app/events-driver.tsx	'بانتظار الزبون'
+app/events-driver.tsx	'لم يُختر'
+app/events-driver.tsx	"المركبة"
+app/events-driver.tsx	"سعرك"
+app/events-driver.tsx	"سحب العرض"
+app/events-driver.tsx	"لا توجد أعمال بعد"
+app/events-driver.tsx	"العروض المقبولة تظهر هنا مع بيانات الزبون"
+app/events-driver.tsx	'مكتمل'
+app/events-driver.tsx	'مؤكد'
+app/events-driver.tsx	"الموعد"
+app/events-driver.tsx	"المدة"
+app/events-driver.tsx	`${j.duration_hours || '—'} ساعة`
+app/events-driver.tsx	"الزبون"
+app/events-driver.tsx	"السعر"
+app/events-driver.tsx	"العمولة"
+app/events-driver.tsx	'مجانية'
+app/events-driver.tsx	"تم التنفيذ"
+app/events-driver.tsx	"طلب مناسبة جديد"
+app/events-driver.tsx	"نقطة التجمع"
+app/events-driver.tsx	"يبعد عنك"
+app/events-driver.tsx	"المركبات المطلوبة"
+app/events-driver.tsx	`).join('، ')} />
+          <View style={ui.btns}>
+            <Btn label="عرض التفاصيل" onPress={() => openDetail(popup)} />
+            <Btn label="لاحقاً" tone="ghost" onPress={() => setPopup(null)} />
+          </View>
+        </>}
+      </Sheet>
+
+      <Sheet visible={!!detail && !offerFor} onClose={() => setDetail(null)} title={detail ? eventKind(detail) : ''}>
+        {detail && <ScrollView>
+          <EventMap o={detail} />
+          <Row k="نقطة التجمع" v={detail.gathering_point} />
+          <Row k="موعد التجمع" v={fmtDateTime(detail.gathering_time)} />
+          {detail.departure_time && <Row k="موعد الانطلاق" v={fmtDateTime(detail.departure_time)} />}
+          {dests(detail).map((d, i) => <Row key={i} k={`
+app/events-driver.tsx	`} v={d.label} />)}
+          <Row k="المدة" v={`
+app/events-driver.tsx	' • مع انتظار'
+app/events-driver.tsx	`} />
+          {detail.return_time && <Row k="موعد العودة" v={fmtDateTime(detail.return_time)} />}
+          {parseFinal(detail.final_point)?.label && <Row k="الوصول الأخير" v={parseFinal(detail.final_point)!.label} />}
+          <Row k="عدد الأشخاص" v={detail.num_people} strong />
+          {!!detail.notes && <Row k="ملاحظات" v={detail.notes} />}
+
+          <Text style={ui.label}>المركبات المتبقية</Text>
+          {(detail.items || []).map((it: any) => {
+            const mine = canServe(it.type, profile);
+            const left = Number(it.left);
+            return (
+              <View key={it.type} style={[ui.card, { padding: 10, marginBottom: 6, opacity: left > 0 ? 1 : 0.5 }]}>
+                <View style={ui.cardTop}>
+                  <Text style={[ui.h, { fontSize: 14 }]}>{evName(it.type)}</Text>
+                  <Pill text={left > 0 ? `
+app/events-driver.tsx	` : 'مكتمل'} tone={left > 0 ? (mine ? 'ok' : 'mute') : 'mute'} />
+                </View>
+                {it.type === 'wedding_car' && !!weddingDetails(it) && <Text style={ui.sub}>{weddingDetails(it)}</Text>}
+                {left > 0 && mine && !detail.my_offer && <View style={ui.btns}><Btn small label="تقديم عرض لمركبتي" onPress={() => { setOfferFor({ o: detail, item: it }); setPrice(''); setMsg(''); }} /></View>}
+              </View>
+            );
+          })}
+          {detail.my_offer ? (
+            <View style={[ui.banner, { backgroundColor: C.warnBg, borderColor: '#fde68a', marginTop: 6 }]}>
+              <Text style={{ fontWeight: '900', color: C.warn, textAlign: 'right' }}>عرضك: {money(detail.my_offer.price)} • {evName(detail.my_offer.item_type)}</Text>
+              <View style={ui.btns}><Btn small label="سحب العرض" tone="err" onPress={() => withdraw(detail.my_offer.id)} loading={busy} /></View>
+            </View>
+          ) : myItems(detail).length === 0 ? (
+            <Text style={ui.note}>لا توجد مركبة متبقية تناسب مركبتك في هذا الطلب.</Text>
+          ) : null}
+          <Text style={ui.note}>هوية الزبون ورقم هاتفه تظهر بعد قبول عرضك.</Text>
+        </ScrollView>}
+        {toast.node}
+      </Sheet>
+
+      <Sheet visible={!!offerFor} onClose={() => setOfferFor(null)} title="عرض سعر لمركبتك">
+        {offerFor && <>
+          <View style={[ui.card, { flexDirection: 'row-reverse', gap: 10, alignItems: 'center' }]}>
+            {profile?.vehicle_photo_url ? <Image source={{ uri: profile.vehicle_photo_url }} style={{ width: 64, height: 48, borderRadius: 8 }} /> : null}
+            <View style={{ flex: 1 }}>
+              <Text style={[ui.h, { fontSize: 14 }]}>{vehicleLine(profile)}</Text>
+              <Text style={ui.sub}>{profile?.vehicle_seats ? `
+app/events-driver.tsx	` : ''}للبند: {evName(offerFor.item.type)}</Text>
+            </View>
+          </View>
+          <Text style={ui.note}>تفاصيل مركبتك تظهر للزبون مع العرض.</Text>
+          <Text style={ui.label}>السعر</Text>
+          <TextInput value={price} onChangeText={t => setPrice(t.replace(/[^0-9.]/g, ''))} keyboardType="numeric" placeholder="السعر" style={ui.input} />
+          <Text style={ui.label}>رسالة للزبون (اختياري)</Text>
+          <TextInput value={msg} onChangeText={setMsg} placeholder="مثال: باص مكيّف مع سائق خبرة" style={ui.input} maxLength={200} />
+          {priceNum > 0 && <Text style={ui.note}>{isFree ? 'بدون عمولة (الفترة المجانية)' : `
+app/events-driver.tsx	} — تُخصم عند قبول الزبون<
+app/events.tsx	'💍 سيارة زفاف'
+app/events.tsx	'نقطة التجمع'
+app/events.tsx	'الوصول الأخير'
+app/events.tsx	>✨ طلب مناسبة جديد<
+app/events.tsx	>زفاف • رحلة عائلية • سياحية • أخرى<
+app/events.tsx	>🎉 نوع المناسبة<
+app/events.tsx	'💍 زفاف'
+app/events.tsx	'👨‍👩‍👧‍👦 عائلية'
+app/events.tsx	'🏖️ سياحية'
+app/events.tsx	'✨ أخرى'
+app/events.tsx	"اكتب نوع المناسبة"
+app/events.tsx	>📍 المسار والمواعيد<
+app/events.tsx	'زفاف: نقطة التجمع → الوجهات → العودة'
+app/events.tsx	'نقطة التجمع والمسار والعودة'
+app/events.tsx	>موعد التجمع<
+app/events.tsx	>موعد الانطلاق<
+app/events.tsx	>الوجهة / مسار الرحلة — أكثر من مكان<
+app/events.tsx	>المدة بالساعات<
+app/events.tsx	>السائق ينتظر<
+app/events.tsx	>موعد العودة<
+app/events.tsx	"نقطة الوصول الأخيرة"
+app/events.tsx	'نقطة الوصول الأخيرة'
+app/events.tsx	>👥 الأشخاص والمركبات<
+app/events.tsx	>عدد الأشخاص<
+app/events.tsx	`⚠️ اختر مركبات — 0 / ${people}`
+app/events.tsx	`✅ المقاعد: ${totalSeats} / ${people}`
+app/events.tsx	`⚠️ لا تكفي: ${totalSeats} / ${people}`
+app/events.tsx	>💍 تفاصيل سيارة الزفاف<
+app/events.tsx	>عادية<
+app/events.tsx	>فاخرة<
+app/events.tsx	>مع زينة ✨<
+app/events.tsx	>بدون زينة<
+app/events.tsx	"كراسي أطفال، توقف إضافي..."
+app/incentives.tsx	'طلبات التكسي بتوصلك بعد المستويات الأعلى القريبة'
+app/incentives.tsx	'طلبات التكسي بتوصلك قبل البرونزي'
+app/incentives.tsx	'شارة 🥈 جنب عروضك'
+app/incentives.tsx	'+2% فوق مكافأة الشهر'
+app/incentives.tsx	'طلبات التكسي بتوصلك قبل الفضي والبرونزي'
+app/incentives.tsx	'عروضك وإعلاناتك بتطلع فوق'
+app/incentives.tsx	'شارة 🥇'
+app/incentives.tsx	'+5% فوق مكافأة الشهر'
+app/incentives.tsx	'طلبات التكسي بتوصلك أول شي'
+app/incentives.tsx	'عروضك وإعلاناتك أول القائمة'
+app/incentives.tsx	'شارة 💎'
+app/incentives.tsx	'+10% فوق مكافأة الشهر'
+app/incentives.tsx	`; };
+
+export default function IncentivesScreen() {
+  const router = useRouter();
+  const toast = useToast();
+  const [d, setD] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+  const load = useCallback(async () => {
+    setLoading(true);
+    const { data, error } = await supabase.rpc('my_incentives');
+    setLoading(false);
+    if (error) return toast.show(errMsg(error), 'err');
+    setD(data);
+  }, []);
+  useFocusEffect(useCallback(() => { load(); }, [load]));
+
+  const lvl = d?.level || 'bronze';
+  const L = LEVELS[lvl];
+  const nx = NEED[lvl].next ? NEED[NEED[lvl].next!] : null;
+  const NL = NEED[lvl].next ? LEVELS[NEED[lvl].next!] : null;
+  const n = Number(d?.n || 0), avg = d?.avg == null ? null : Number(d.avg);
+  const vol = Number(d?.month_volume || 0);
+  const volPct = Math.min(1, vol / CAP);
+  const toMin = Math.max(0, MIN - vol);
+  const nextStep = vol < MIN ? toMin : (d?.base_pct >= 30 ? 0 : 15 - ((vol - MIN) % 15));
+
+  return (
+    <View style={ui.page}>
+      <Header title="🏆 حوافزي" onBack={() => router.back()} />
+      <ScrollView contentContainerStyle={{ padding: 12, paddingBottom: 40 }} refreshControl={<RefreshControl refreshing={loading} onRefresh={load} />}>
+        {!!d && <>
+          <View style={[s.level, { backgroundColor: L.bg, borderColor: L.c + '55' }]}>
+            <Text style={{ fontSize: 44 }}>{L.e}</Text>
+            <Text style={[s.levelN, { color: L.c }]}>المستوى {L.n}</Text>
+            <Text style={s.levelS}>{n ? `
+app/incentives.tsx	` : 'لسا ما في تقييمات'}</Text>
+            {nx && NL && <>
+              <View style={s.bar}><View style={[s.barIn, { width: `
+app/incentives.tsx	`, backgroundColor: L.c }]} /></View>
+              <Text style={s.levelS}>
+                للمستوى {NL.n}: {nx.n} تقييم + متوسط {nx.avg}
+                {n < nx.n ? `
+app/incentives.tsx	` : ''}
+              </Text>
+            </>}
+            {!nx && <Text style={s.levelS}>أعلى مستوى 🎉 — حافظ على متوسط 4.8</Text>}
+          </View>
+
+          <View style={ui.card}>
+            <Text style={ui.h}>ميزات مستواك</Text>
+            {PERKS[lvl].map((p, i) => <Text key={i} style={ui.sub}>• {p}</Text>)}
+            <Text style={[ui.sub, { color: C.mute, marginTop: 6 }]}>المستوى محسوب على آخر 100 تقييم، فبيطلع وبينزل حسب خدمتك.</Text>
+          </View>
+
+          <View style={ui.card}>
+            <View style={ui.cardTop}>
+              <Text style={ui.h}>📊 مكافأة هالشهر</Text>
+              <Text style={s.days}>باقي {d.days_left} يوم</Text>
+            </View>
+            <View style={s.line}><Text style={s.k}>مجموع طلباتك المكتملة</Text><Text style={s.v}>{money(vol)}</Text></View>
+            <View style={s.bar}>
+              <View style={[s.barIn, { width: `
+app/incentives.tsx	` }]} />
+            </View>
+            <View style={[s.line, { marginTop: 2 }]}><Text style={s.tiny}>0</Text><Text style={s.tiny}>الحد {MIN}$</Text><Text style={s.tiny}>السقف {CAP}$</Text></View>
+            <Text style={[ui.sub, { marginTop: 6 }]}>
+              {vol < MIN ? `
+app/incentives.tsx	` : d.base_pct >= 30 ? 'وصلت للسقف 30% 🎉' : `
+app/incentives.tsx	`}
+            </Text>
+            <View style={s.line}><Text style={s.k}>نسبة الطلبات</Text><Text style={s.v}>{d.base_pct}%</Text></View>
+            <View style={s.line}><Text style={s.k}>زيادة المستوى</Text><Text style={s.v}>{vol >= MIN ? `
+app/incentives.tsx	>عمولة الشهر لهلق<
+app/incentives.tsx	>تقييم الشهر<
+app/incentives.tsx	'✗ (لازم 4.0)'
+app/incentives.tsx	>المكافأة المتوقعة<
+app/incentives.tsx	>بتنزل تلقائياً بمحفظتك أول الشهر الجاي<
+app/incentives.tsx	>كيف بتنحسب؟<
+app/incentives.tsx	>• من {
+app/incentives.tsx	}$ مجموع طلبات بالشهر بتبلّش المكافأة<
+app/incentives.tsx	>• كل 15$ فوق الـ {
+app/incentives.tsx	>• وفوقها زيادة المستوى: فضي 2% • ذهبي 5% • ماسي 10%<
+app/incentives.tsx	>• الشرط: تقييم الشهر 4.0 وفوق<
+app/incentives.tsx	>• ما بينحسب الملغي، ولا أكتر من طلبين باليوم مع نفس الزبون<
+app/incentives.tsx	>المكافآت السابقة<
+app/incentives.tsx	>لسا ما في أشهر منتهية<
+app/incentives.tsx	>شهر {
+app/index.tsx	'تكسي'
+app/index.tsx	'نقل'
+app/index.tsx	'عقود'
+app/index.tsx	'تأجير'
+app/index.tsx	>مشوار<
+app/index.tsx	>⚡ متاح الآن في مدينتك<
+app/index.tsx	>كل خدمات النقل{
+app/index.tsx	}في مكان واحد<
+app/index.tsx	>تكسي، نقل بضائع، مناسبات وعقود — سائقون موثوقون وأسعار واضحة<
+app/index.tsx	>اختر خدمتك<
+app/index.tsx	>4 خدمات<
+app/index.tsx	>الأكثر طلباً<
+app/index.tsx	>تكسي<
+app/index.tsx	>توصيل فوري خلال دقائق لأي مكان<
+app/index.tsx	>نقل<
+app/index.tsx	>نقل بضائع وعفش بأمان<
+app/index.tsx	>مناسبات<
+app/index.tsx	>حجوزات أعراس ومؤتمرات<
+app/index.tsx	>عقود<
+app/index.tsx	>عقود شهرية للشركات<
+app/index.tsx	>تأجير<
+app/index.tsx	>تأجير سيارات<
+app/index.tsx	>بالساعة واليوم والأسبوع والشهر<
+app/index.tsx	>لوحات مقدّمي الخدمة<
+app/index.tsx	'سائق التكسي'
+app/index.tsx	'طلبات التكسي القريبة والرحلات المشتركة'
+app/index.tsx	'الناقل'
+app/index.tsx	'طلبات النقل ضمن 10 كم وعروض الأسعار'
+app/index.tsx	'سائق المناسبات'
+app/index.tsx	'طلبات الباصات والفانات وسيارات الزفاف'
+app/index.tsx	'سائق العقود'
+app/index.tsx	'عقود المدارس والشركات والعمال: يومي، أسبوعي، شهري'
+app/index.tsx	'المؤجّر'
+app/index.tsx	'انشر سياراتك للإيجار واستقبل الطلبات ضمن 50 كم'
+app/index.tsx	>ابدأ رحلتك الآن<
+app/index.tsx	>سجّل دخولك لاستخدام جميع الخدمات<
+app/index.tsx	'شاشة التسجيل قريباً'
+app/index.tsx	>تسجيل / تسجيل دخول  ←<
+app/index.tsx	'يمكنك التصفح، والطلب يتطلب تسجيل الدخول'
+app/index.tsx	>👁️  تصفح كضيف<
+app/index.tsx	>ملاحظة<
+app/index.tsx	>الضيف يستطيع تصفح<
+app/index.tsx	> كل محتوى التطبيق (الخدمات، الأسعار، المركبات)، <
+app/index.tsx	>دون إمكانية استخدام<
+app/index.tsx	> أي خدمة فعلية — <
+app/index.tsx	>التسجيل أو تسجيل الدخول شرط أساسي<
+app/index.tsx	> لطلب تكسي، نقل، مناسبات أو عقود.
+            <
+app/index.tsx	>الرئيسية<
+app/index.tsx	>طلباتي<
+app/index.tsx	>المحفظة<
+app/index.tsx	>نقاطي<
+app/index.tsx	'يتطلب تسجيل الدخول'
+app/index.tsx	>حسابي<
+app/loyalty.tsx	'برونزي'
+app/loyalty.tsx	'فضي'
+app/loyalty.tsx	'ذهبي'
+app/loyalty.tsx	'ماسي'
+app/loyalty.tsx	'رحلة تكسي'
+app/loyalty.tsx	'رحلة مشتركة'
+app/loyalty.tsx	'مناسبة'
+app/loyalty.tsx	'عقد'
+app/loyalty.tsx	'إيجار'
+app/loyalty.tsx	'دعوة صديق'
+app/loyalty.tsx	`انضاف $${(data as any).usd} لمحفظتك ✓`
+app/loyalty.tsx	`حمّل تطبيق مشوار وسجّل برمز الدعوة: ${d.invite_code}`
+app/loyalty.tsx	"نقاطي"
+app/loyalty.tsx	>المستوى {
+app/loyalty.tsx	`باقي ${Math.max(0, next.min - lp)} نقطة للمستوى ${next.n}`
+app/loyalty.tsx	'وصلت لأعلى مستوى 🎉'
+app/loyalty.tsx	>🎁 رصيد النقاط<
+app/loyalty.tsx	>تساوي ${
+app/loyalty.tsx	"تحويل لرصيد المحفظة"
+app/loyalty.tsx	>التحويل من 100 نقطة وفوق<
+app/loyalty.tsx	>👥 ادعُ أصدقاءك<
+app/loyalty.tsx	"📤 مشاركة رمز الدعوة"
+app/loyalty.tsx	>سجّل برمزك {
+app/loyalty.tsx	'صديق'
+app/loyalty.tsx	'أصدقاء'
+app/loyalty.tsx	>كيف بتجمع نقاط؟<
+app/loyalty.tsx	>• النقاط بتنزل بعد انتهاء الخدمة، وما إلها تاريخ انتهاء<
+app/loyalty.tsx	>السجل<
+app/loyalty.tsx	>لسا ما في نقاط — أول طلب مكتمل بيبلّش العدّاد<
+app/loyalty.tsx	`تحويل لرصيد $${h.amount}`
+app/loyalty.tsx	'نقاط'
+app/loyalty.tsx	"تحويل النقاط لرصيد"
+app/loyalty.tsx	>الكل ({
+app/loyalty.tsx	>مستواك بيضل {
+app/loyalty.tsx	}، وعدّاد المستوى بيرجع لأوله.<
+app/loyalty.tsx	`تحويل $${(amt / 100).toFixed(2)}`
+app/my-orders.tsx	'بانتظار العروض'
+app/my-orders.tsx	'تم الاتفاق'
+app/my-orders.tsx	'ملغى'
+app/my-orders.tsx	'اكتملت المركبات'
+app/my-orders.tsx	'منتهٍ'
+app/my-orders.tsx	'فوري'
+app/my-orders.tsx	'اختر التاريخ والساعة'
+app/my-orders.tsx	'لم يتغير شيء'
+app/my-orders.tsx	'تم حفظ التعديل وإبلاغ الناقل'
+app/my-orders.tsx	'تم حفظ التعديل'
+app/my-orders.tsx	'تم إلغاء الطلب'
+app/my-orders.tsx	'تم رفض العرض'
+app/my-orders.tsx	'تم إنهاء العقد'
+app/my-orders.tsx	"طلباتي"
+app/my-orders.tsx	'النقل'
+app/my-orders.tsx	'المناسبات'
+app/my-orders.tsx	'العقود'
+app/my-orders.tsx	"سجّل الدخول لعرض طلباتك"
+app/my-orders.tsx	>لديك {
+app/my-orders.tsx	'خدمة مكتملة'
+app/my-orders.tsx	`${payCount} خدمات مكتملة`
+app/my-orders.tsx	} بانتظار الدفع من التطبيق<
+app/my-orders.tsx	>ادفع ←<
+app/my-orders.tsx	"لا توجد طلبات نقل"
+app/my-orders.tsx	"الطلبات التي تنشرها تظهر هنا مع عروض الناقلين"
+app/my-orders.tsx	'طلب نقل'
+app/my-orders.tsx	`السعر ${money(o.agreed_price)}`
+app/my-orders.tsx	"لا توجد طلبات مناسبات"
+app/my-orders.tsx	"الطلبات التي تنشرها تظهر هنا مع عروض السائقين"
+app/my-orders.tsx	"لا توجد عقود"
+app/my-orders.tsx	"طلبات العقود التي تنشرها تظهر هنا مع عروض السائقين"
+app/my-orders.tsx	`${CT_CATS[curCt.contract_category] || '📄 عقد'} • ${unitOf(curCt.contract_unit).label}`
+app/my-orders.tsx	"من"
+app/my-orders.tsx	"إلى"
+app/my-orders.tsx	"أيام الدوام"
+app/my-orders.tsx	"عدد الأشخاص"
+app/my-orders.tsx	`${it.count - it.left} من ${it.count}`
+app/my-orders.tsx	"إلغاء الطلب"
+app/my-orders.tsx	"إنهاء العقد"
+app/my-orders.tsx	"السائق"
+app/my-orders.tsx	>ينتهي التعاقد مع هذه المركبة من الآن. لا يمكن التراجع عن الإنهاء.<
+app/my-orders.tsx	"الانطلاق"
+app/my-orders.tsx	"الوصول"
+app/my-orders.tsx	"المسافة"
+app/my-orders.tsx	`${Number(openCargo.route_info.km).toFixed(1)} كم`
+app/my-orders.tsx	"الميزانية"
+app/my-orders.tsx	'طلب عروض أسعار'
+app/my-orders.tsx	"ملاحظات"
+app/my-orders.tsx	"تعديل الموعد والملاحظات"
+app/my-orders.tsx	"الناقل"
+app/my-orders.tsx	"مركبة الناقل"
+app/my-orders.tsx	"السعر المتفق عليه"
+app/my-orders.tsx	>العروض<
+app/my-orders.tsx	"بانتظار عروض الناقلين"
+app/my-orders.tsx	"تصلك العروض من الناقلين القريبين ضمن 10 كم"
+app/my-orders.tsx	"قبول العرض"
+app/my-orders.tsx	>اسم الناقل ورقمه يظهران بعد قبول العرض.<
+app/my-orders.tsx	"تعديل الطلب"
+app/my-orders.tsx	>الموعد<
+app/my-orders.tsx	"فوري"
+app/my-orders.tsx	"مجدول"
+app/my-orders.tsx	'📅 التاريخ'
+app/my-orders.tsx	'🕒 الساعة'
+app/my-orders.tsx	>ملاحظات للناقل<
+app/my-orders.tsx	"مثال: البناء بجانب الصيدلية"
+app/my-orders.tsx	'بعد الاتفاق يمكن تعديل الموعد والملاحظات فقط، ويصل التعديل للناقل. لتغيير أمر آخر تواصل معه.'
+app/my-orders.tsx	'يصل الطلب المعدّل للناقلين القريبين.'
+app/my-orders.tsx	"حفظ التعديل"
+app/my-orders.tsx	"تاريخ النقل"
+app/my-orders.tsx	"ساعة النقل"
+app/my-orders.tsx	>يُلغى الطلب وتُرفض العروض المعلّقة عليه. لا يمكن التراجع عن الإلغاء.<
+app/my-orders.tsx	"تأكيد قبول العرض"
+app/my-orders.tsx	`السعر ${unitOf(confirm.offer.unit).per}`
+app/my-orders.tsx	'السعر'
+app/my-orders.tsx	"الإجمالي"
+app/my-orders.tsx	>بعد القبول يظهر لك اسم {
+app/my-orders.tsx	'السائق'
+app/my-orders.tsx	} ورقم هاتفه للتواصل.<
+app/my-orders.tsx	"قبول"
+app/my-orders.tsx	"تم قبول العرض"
+app/my-orders.tsx	"الاسم"
+app/my-orders.tsx	"مقبول"
+app/my-orders.tsx	"مرفوض"
+app/my-orders.tsx	} مقعد<
+app/my-orders.tsx	"رفض"
+app/my-orders.tsx	'مقبول'
+app/my-orders.tsx	>الإجمالي: {
+app/notifications.tsx	'هلق'
+app/notifications.tsx	`قبل ${mins} د`
+app/notifications.tsx	`اليوم ${hm}`
+app/notifications.tsx	`مبارح ${hm}`
+app/notifications.tsx	"الإشعارات"
+app/notifications.tsx	} جديد<
+app/notifications.tsx	>ما في إشعارات لهلق<
+app/notifications.tsx	>أي عرض أو قبول أو مكافأة رح يوصلك هون<
+app/notifications.tsx	>افتح ←<
+app/rental-provider.tsx	'أبيض'
+app/rental-provider.tsx	'أسود'
+app/rental-provider.tsx	'رمادي'
+app/rental-provider.tsx	'أحمر'
+app/rental-provider.tsx	'أزرق'
+app/rental-provider.tsx	'أخضر'
+app/rental-provider.tsx	'بيج'
+app/rental-provider.tsx	'بني'
+app/rental-provider.tsx	'معروضة'
+app/rental-provider.tsx	'موقوفة مؤقتاً'
+app/rental-provider.tsx	'مؤجّرة'
+app/rental-provider.tsx	'اسمح بالوصول للصور'
+app/rental-provider.tsx	'أضف الصور الثلاث: أمامية وخلفية وجانبية'
+app/rental-provider.tsx	'اكتب الماركة والموديل وسنة صحيحة'
+app/rental-provider.tsx	'حدد موقع السيارة على الخريطة'
+app/rental-provider.tsx	'اختر مدة إيجار واحدة على الأقل'
+app/rental-provider.tsx	> 0))) return toast.show('اكتب السعر لكل مدة', 'err');
+    setSaving(true);
+    try {
+app/rental-provider.tsx	'تم حفظ التعديل ✓'
+app/rental-provider.tsx	'تم نشر السيارة ✓'
+app/rental-provider.tsx	"المؤجّر — سياراتي"
+app/rental-provider.tsx	"+ سيارة"
+app/rental-provider.tsx	'سياراتي'
+app/rental-provider.tsx	'طلبات عامة'
+app/rental-provider.tsx	"لا توجد سيارات بعد"
+app/rental-provider.tsx	"اضغط «+ سيارة» وانشر أول سيارة للإيجار"
+app/rental-provider.tsx	"يقبل عروض"
+app/rental-provider.tsx	`${x.pending} طلب بانتظارك`
+app/rental-provider.tsx	"المستأجر"
+app/rental-provider.tsx	"المجموع"
+app/rental-provider.tsx	"أشهر العمولة"
+app/rental-provider.tsx	`${x.booking.months_charged} من ${x.booking.unit_count}`
+app/rental-provider.tsx	"✅ تم الاستلام — إعادة نشر"
+app/rental-provider.tsx	'رجعت السيارة معروضة ✓'
+app/rental-provider.tsx	"⏸ إيقاف مؤقت"
+app/rental-provider.tsx	'تم الإيقاف'
+app/rental-provider.tsx	"▶️ تفعيل"
+app/rental-provider.tsx	'السيارة معروضة ✓'
+app/rental-provider.tsx	"✏️ تعديل"
+app/rental-provider.tsx	"🗑 حذف"
+app/rental-provider.tsx	'تم الحذف'
+app/rental-provider.tsx	"لا توجد طلبات جديدة"
+app/rental-provider.tsx	`السعر لل${UNIT[r.unit as Unit].n}`
+app/rental-provider.tsx	`$${money(r.unit_price)} (سعرك $${money(r.listed_price)})`
+app/rental-provider.tsx	>العمولة عند القبول: ${
+app/rental-provider.tsx	' عن الشهر الأول، وبعدها كل شهر'
+app/rental-provider.tsx	} • بيانات الزبون بتظهر بعد القبول<
+app/rental-provider.tsx	'تم القبول ✓ — السيارة انخفت من العرض'
+app/rental-provider.tsx	'تم الرفض'
+app/rental-provider.tsx	"لا توجد طلبات عامة تناسب سياراتك"
+app/rental-provider.tsx	"بتظهر هون طلبات الزبائن ضمن 50 كم من سياراتك"
+app/rental-provider.tsx	>زبون بدو سيارة • {
+app/rental-provider.tsx	>يبدأ {
+app/rental-provider.tsx	>وافق باختيار إحدى سياراتك:<
+app/rental-provider.tsx	`${l.brand_model} ${l.year} • ≈ ${l.km} كم`
+app/rental-provider.tsx	'وصلت موافقتك للزبون ✓'
+app/rental-provider.tsx	'تعديل السيارة'
+app/rental-provider.tsx	'سيارة جديدة للإيجار'
+app/rental-provider.tsx	>الصور (3 إجبارية)<
+app/rental-provider.tsx	>📷 كاميرا<
+app/rental-provider.tsx	>الماركة والموديل<
+app/rental-provider.tsx	"مثال: كيا ريو"
+app/rental-provider.tsx	>سنة الصنع<
+app/rental-provider.tsx	>ناقل الحركة<
+app/rental-provider.tsx	>اللون (اختياري)<
+app/rental-provider.tsx	>الوقود (اختياري)<
+app/rental-provider.tsx	'❄️ مكيّف ✓'
+app/rental-provider.tsx	'❄️ بدون مكيّف'
+app/rental-provider.tsx	>موقع السيارة<
+app/rental-provider.tsx	'📍 محدد — اضغط للتغيير'
+app/rental-provider.tsx	'📍 حدد على الخريطة'
+app/rental-provider.tsx	>الزبون بيشوف المسافة التقريبية فقط، والموقع الدقيق بعد القبول.<
+app/rental-provider.tsx	>الشروط<
+app/rental-provider.tsx	>طريقة التسعير<
+app/rental-provider.tsx	'💲 سعر ثابت'
+app/rental-provider.tsx	'🤝 يستقبل عروض'
+app/rental-provider.tsx	'الزبون بيطلب بسعرك فقط.'
+app/rental-provider.tsx	'السعر اختياري كاقتراح، والزبون بيقدر يقدّم سعره.'
+app/rental-provider.tsx	>مدد الإيجار{
+app/rental-provider.tsx	' والسعر ($)'
+app/rental-provider.tsx	' والسعر المقترح ($)'
+app/rental-provider.tsx	`بال${UNIT[u].n}`
+app/rental-provider.tsx	`السعر${UNIT[u].per}`
+app/rental-provider.tsx	'اختياري'
+app/rental-provider.tsx	'حفظ التعديل'
+app/rental-provider.tsx	'نشر السيارة'
+app/rental-provider.tsx	"موقع السيارة"
+app/rental.tsx	`≈ ${x.road.toFixed(1)} كم`
+app/rental.tsx	`≈ ${Number(x.km).toFixed(1)} كم`
+app/rental.tsx	'بانتظار رد المؤجّر'
+app/rental.tsx	'مقبول ✓'
+app/rental.tsx	'مرفوض'
+app/rental.tsx	'ملغي'
+app/rental.tsx	"يقبل عروض أسعار"
+app/rental.tsx	'اختر موعداً لاحقاً'
+app/rental.tsx	> 0)) return toast.show('اكتب السعر', 'err');
+    call('rental_request_listing', {
+app/rental.tsx	'تم إرسال الطلب للمؤجّر ✓'
+app/rental.tsx	'حدد موقعك على الخريطة'
+app/rental.tsx	> 0)) return toast.show('اكتب السعر', 'err');
+    call('rental_post_general', {
+app/rental.tsx	'وصل طلبك لكل المؤجّرين ضمن 50 كم ✓'
+app/rental.tsx	"تأجير سيارات"
+app/rental.tsx	"📣 طلب عام"
+app/rental.tsx	'السيارات القريبة'
+app/rental.tsx	'طلباتي'
+app/rental.tsx	"الكل"
+app/rental.tsx	"لا توجد سيارات متاحة ضمن 50 كم"
+app/rental.tsx	"قدّم «طلب عام» ليصل لكل المؤجّرين القريبين"
+app/rental.tsx	"لا توجد طلبات بعد"
+app/rental.tsx	>📣 طلب عام • {
+app/rental.tsx	>الموافقات ({
+app/rental.tsx	}) — اختر سيارة واحدة<
+app/rental.tsx	>بانتظار موافقات المؤجّرين…<
+app/rental.tsx	"اختيار هالسيارة"
+app/rental.tsx	'تم الحجز ✓ — شوف بيانات المؤجّر'
+app/rental.tsx	"إلغاء الطلب العام"
+app/rental.tsx	'تم الإلغاء'
+app/rental.tsx	>تم تأجير السيارة لشخص آخر<
+app/rental.tsx	"المؤجّر"
+app/rental.tsx	"📍 موقع السيارة"
+app/rental.tsx	"الموديل"
+app/rental.tsx	"ناقل الحركة"
+app/rental.tsx	"المقاعد"
+app/rental.tsx	"اللون"
+app/rental.tsx	"الوقود"
+app/rental.tsx	"مكيّف"
+app/rental.tsx	'نعم'
+app/rental.tsx	'لا'
+app/rental.tsx	>شروط المؤجّر<
+app/rental.tsx	'سعر ثابت'
+app/rental.tsx	'يقبل عروض أسعار'
+app/rental.tsx	"بالسعر المقترح"
+app/rental.tsx	"أقدّم سعري"
+app/rental.tsx	>بيانات المؤجّر ورقمه بتظهر بعد موافقته على الطلب.<
+app/rental.tsx	`إرسال الطلب • $${periodTotal(period)}`
+app/rental.tsx	"📣 طلب عام لكل المؤجّرين"
+app/rental.tsx	>بيوصل لكل المؤجّرين ضمن 50 كم، واللي بيوافق بيختار سيارة من سياراته، وإنت بتختار وحدة.<
+app/rental.tsx	>موقعك<
+app/rental.tsx	`إرسال • $${periodTotal(gPeriod)}`
+app/rental.tsx	"موقعك"
+app/sos-settings.tsx	'تم حفظ إعدادات الطوارئ'
+app/sos-settings.tsx	>🆘 إعدادات الطوارئ<
+app/sos-settings.tsx	>👨‍👩‍👦 أرقام الأهل — الأولوية الأولى<
+app/sos-settings.tsx	>يصلهم رابط موقعك المباشر وبيانات الرحلة عند الضغط على زر الطوارئ<
+app/sos-settings.tsx	"الاسم (1)"
+app/sos-settings.tsx	"مثلاً: أبي"
+app/sos-settings.tsx	"الرقم (1)"
+app/sos-settings.tsx	"الاسم (2)"
+app/sos-settings.tsx	"مثلاً: أخي"
+app/sos-settings.tsx	"الرقم (2)"
+app/sos-settings.tsx	>🚨 رقم الطوارئ — ثانوي<
+app/sos-settings.tsx	>يُتصل به عند اختيار «الأهل + الطوارئ»<
+app/sos-settings.tsx	"الرقم"
+app/sos-settings.tsx	'جاري...'
+app/sos-settings.tsx	'حفظ'
+app/taxi-shared.tsx	'تمت إضافتك للرحلة'
+app/taxi-shared.tsx	'اعتذر السائق عن هذا الطلب'
+app/taxi-shared.tsx	'تعذر إلغاء الطلب'
+app/taxi-shared.tsx	'تم إلغاء طلب الانضمام'
+app/taxi-shared.tsx	'جاري حساب الالتفاف على الطريق...'
+app/taxi-shared.tsx	'تعذر حساب الالتفاف، حاول مرة أخرى'
+app/taxi-shared.tsx	'تم إرسال طلبك للسائق'
+app/taxi-shared.tsx	'سجل دخول أولاً'
+app/taxi-shared.tsx	'الرحلة مكتملة'
+app/taxi-shared.tsx	'تعذر إرسال الطلب'
+app/taxi-shared.tsx	'الرحلة اكتملت'
+app/taxi-shared.tsx	'تعذر إرسال الرد'
+app/taxi-shared.tsx	'تم رفض المبلغ الإضافي'
+app/taxi-shared.tsx	>👥 تكسي راكب — رحلات مشتركة<
+app/taxi-shared.tsx	>حدد موقع ركوبك ونزولك واختر رحلة مناسبة<
+app/taxi-shared.tsx	>📍 موقع ركوبي<
+app/taxi-shared.tsx	>🏁 موقع نزولي<
+app/taxi-shared.tsx	'اضغط على الخريطة لتحديد موقع ركوبك'
+app/taxi-shared.tsx	'اضغط على الخريطة لتحديد موقع نزولك'
+app/taxi-shared.tsx	>لا توجد رحلات متاحة حالياً<
+app/taxi-shared.tsx	'⚠️ تعذر حساب مسار الرحلة'
+app/taxi-shared.tsx	`🛣️ ${t.km!.toFixed(1)} كم على الطريق • ${fmtMin(t.min!)}`
+app/taxi-shared.tsx	'⏳ جاري حساب المسار...'
+app/taxi-shared.tsx	} / مقعد<
+app/taxi-shared.tsx	>📍 حدد موقع ركوبك ونزولك على الخريطة لمعرفة ملاءمة الرحلة<
+app/taxi-shared.tsx	>↩️ موقع نزولك قبل موقع ركوبك على اتجاه هذه الرحلة — يحتاج موافقة السائق<
+app/taxi-shared.tsx	>✅ على مسار الرحلة — ركوب {
+app/taxi-shared.tsx	} م عن المسار<
+app/taxi-shared.tsx	>📍 بعيد عن المسار — ركوب {
+app/taxi-shared.tsx	}يتطلب موافقة السائق وقد يطلب مبلغاً إضافياً<
+app/taxi-shared.tsx	>⏳ بانتظار موافقة السائق<
+app/taxi-shared.tsx	>إلغاء الطلب<
+app/taxi-shared.tsx	>💬 السائق طلب مبلغاً إضافياً — عرض<
+app/taxi-shared.tsx	'📨 إرسال طلب انضمام للسائق'
+app/taxi-shared.tsx	'👥 انضم للرحلة'
+app/taxi-shared.tsx	>📨 موقعك بعيد عن مسار الرحلة<
+app/taxi-shared.tsx	>البعد عن المسار<
+app/taxi-shared.tsx	>وقت إضافي<
+app/taxi-shared.tsx	>سيصل طلبك للسائق ليقرر القبول، وقد يطلب مبلغاً إضافياً مقابل الالتفاف — لن تُضاف إلا بموافقتك<
+app/taxi-shared.tsx	>إرسال الطلب للسائق<
+app/taxi-shared.tsx	>💬 السائق وافق بمبلغ إضافي<
+app/taxi-shared.tsx	>مقابل الالتفاف إلى موقع ركوبك ونزولك<
+app/taxi-shared.tsx	>رمادي متقطع: مسار الرحلة • برتقالي: مع الالتفاف إليك<
+app/taxi-shared.tsx	>الإجمالي عليك للمقعد<
+app/taxi-shared.tsx	>موافق<
+app/taxi.tsx	'تم قبول طلبك، السائق في الطريق'
+app/taxi.tsx	'وصل السائق'
+app/taxi.tsx	'انتهت الرحلة'
+app/taxi.tsx	'تعذر حساب المسار على الطرق، حاول مرة أخرى'
+app/taxi.tsx	'جاري البحث ضمن 10 كم...'
+app/taxi.tsx	`تم التوسيع إلى 10 كم — توجد ${RATES[k].name}`
+app/taxi.tsx	`لا توجد ${RATES[k].name} قريبة حالياً`
+app/taxi.tsx	'اختر فئة متوفرة'
+app/taxi.tsx	'سجل دخول'
+app/taxi.tsx	'نقطة مختارة على الخريطة'
+app/taxi.tsx	'تم نشر طلب التكسي'
+app/taxi.tsx	'بانتظار قبول سائق'
+app/taxi.tsx	'سيصلك إشعار عند قبول طلبك'
+app/taxi.tsx	'السائق في الطريق إليك'
+app/taxi.tsx	'سيتواصل معك السائق عند الحاجة'
+app/taxi.tsx	'السائق بانتظارك عند نقطة الانطلاق'
+app/taxi.tsx	'الرحلة جارية'
+app/taxi.tsx	'الدفع بعد الوصول'
+app/taxi.tsx	>0? `ادفع نقداً أو من التطبيق ووفّر ${
+app/taxi.tsx	` : 'ادفع نقداً أو من التطبيق'},
+  };
+  const st=active? (ST[active.status]||ST.pending) : null;
+  return (
+    <View style={s.page}>
+      <View style={s.header}>
+        <Text style={s.h1}>🚕 طلب تكسي</Text>
+        <Text style={s.sub}>اضغط على الخريطة لتحديد الانطلاق والوصول</Text>
+      </View>
+      <Pressable onPress={()=> router.push('/taxi-shared' as any)} style={{margin:8, height:42, borderRadius:12, borderWidth:1.5, borderColor:'#4F46E5', backgroundColor:'#eef2ff', alignItems:'center', justifyContent:'center'}}><Text style={{color:'#4F46E5', fontWeight:'900'}}>👥 رحلات راكب مشتركة — تصفح على طول المسار</Text></Pressable>
+      <View style={s.modeBar}>
+        <Pressable onPress={()=> setMode('pick')} style={[s.modeBtn, mode==='pick' && s.modeActive]}><Text style={[s.modeT, mode==='pick' && s.modeTActive]}>📍 الانطلاق</Text></Pressable>
+        <Pressable onPress={()=> setMode('drop')} style={[s.modeBtn, mode==='drop' && s.modeActive]}><Text style={[s.modeT, mode==='drop' && s.modeTActive]}>🏁 الوصول</Text></Pressable>
+        <Pressable onPress={useMyLocation} style={[s.modeBtn,{backgroundColor:'#f1f5f9'}]}><Text style={s.modeT}>📍 موقعي</Text></Pressable>
+      </View>
+      <View style={{flex:1, marginHorizontal:10, borderRadius:14, overflow:'hidden', borderWidth:1, borderColor:'#e2e8f0'}}>
+        {pickup && (
+          <MapView style={{flex:1}} initialRegion={{latitude:pickup[0], longitude:pickup[1], latitudeDelta:0.02, longitudeDelta:0.02}} onPress={onMapPress}>
+            <UrlTile urlTemplate="https://a.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png" maximumZ={19} flipY={false}/>
+            <Marker coordinate={{latitude:pickup[0], longitude:pickup[1]}} pinColor="green"/>
+            {dropoff && <Marker coordinate={{latitude:dropoff[0], longitude:dropoff[1]}} pinColor="red"/>}
+            {route && <Polyline coordinates={route.path} strokeColor="#4F46E5" strokeWidth={5}/>}
+            {carPos && <Marker coordinate={{latitude:carPos[0], longitude:carPos[1]}} anchor={{x:.5,y:.5}}><Text style={{fontSize:26}}>🚕</Text></Marker>}
+            {!showActive && cars.map((c,i)=> <Marker key={'car'+i} coordinate={{latitude:c.lat, longitude:c.lng}} anchor={{x:.5,y:.5}} tracksViewChanges={false}><Text style={{fontSize:20}}>🚕</Text></Marker>)}
+          </MapView>
+        )}
+        <View style={s.hint}><Text style={s.hintT}>{routeState==='loading'? '⏳ جاري حساب المسار...' : routeState==='error'? '⚠️ تعذر حساب المسار' : route? `
+app/taxi.tsx	` : (mode==='pick'? 'اضغط على الخريطة لتحديد الانطلاق' : 'اضغط على الخريطة لتحديد الوصول')}</Text></View>
+      </View>
+      {showActive && st && (
+        <View style={s.activeWrap}>
+          <View style={{flexDirection:'row-reverse', alignItems:'center', gap:10}}>
+            <Text style={{fontSize:28}}>{st.icon}</Text>
+            <View style={{flex:1}}>
+              <Text style={s.activeT}>{st.t}</Text>
+              <Text style={s.activeS}>{st.sub}</Text>
+            </View>
+            <Text style={s.activeFare}>${aFare.toFixed(2)}</Text>
+          </View>
+          {!!active.driver_name && active.status!=='completed' && (
+            <View style={s.driverBox}>
+              <Text style={{fontWeight:'900', textAlign:'right'}}>👤 {active.driver_name}</Text>
+              <Stars r={drvRating} small />
+              {!!(active.vehicle_model||active.vehicle_color||active.vehicle_plate) && <Text style={s.activeS}>🚗 {[active.vehicle_model, active.vehicle_color, active.vehicle_plate].filter(Boolean).join(' • ')}</Text>}
+              {moving && trackEta!=null && active.status!=='arrived' && <Text style={[s.activeS,{color:'#047857', fontWeight:'900'}]}>🕒 {active.status==='in_progress'? 'الوصول للوجهة خلال' : 'يصل السائق خلال'} {fmtMin(Math.max(1,trackEta))}</Text>}
+              {moving && !carPos && <Text style={s.activeS}>📡 بانتظار موقع السائق...</Text>}
+            </View>
+          )}
+          {active.status==='completed' && (
+            <View style={s.payBox}>
+              <View style={s.payRow}><Text style={s.payK}>أجرة الرحلة</Text><Text style={s.payV}>${aFare.toFixed(2)}</Text></View>
+              {aDisc>0 && <View style={s.payRow}><Text style={[s.payK,{color:'#047857'}]}>خصم الدفع من التطبيق {pct}%</Text><Text style={[s.payV,{color:'#047857'}]}>−${aDisc.toFixed(2)}</Text></View>}
+              <View style={s.payRow}><Text style={[s.payK,{fontWeight:'900'}]}>عند الدفع من التطبيق</Text><Text style={[s.payV,{color:'#4F46E5'}]}>${aPay.toFixed(2)}</Text></View>
+            </View>
+          )}
+          <View style={{flexDirection:'row-reverse', gap:8, marginTop:10}}>
+            <Pressable onPress={payActive} disabled={active.status!=='completed'} style={[s.aBtn,{flex:2, backgroundColor: active.status==='completed'? '#22c55e' : '#e2e8f0'}]}>
+              <Text style={[s.aBtnT,{color: active.status==='completed'? '#fff' : '#64748b'}]}>{active.status==='completed'? `
+app/taxi.tsx	>0? ` • خصم ${
+app/taxi.tsx	>إغلاق<
+app/taxi.tsx	>اختر الفئة — اسحب يمين/يسار • {
+app/taxi.tsx	}$/كم<
+app/taxi.tsx	'غير متوفرة حالياً'
+app/taxi.tsx	'متوفرة'
+app/taxi.tsx	`📢 نشر الطلب — ${RATES[selected].name} • $${fare(selected)}`
+app/taxi.tsx	'جاري البحث عن سيارات قريبة...'
+app/taxi.tsx	`لا توجد سيارات ضمن ${radius} كم${radius===5? ' — اضغط على فئة للتوسيع' : ''}`
+app/taxi.tsx	'تم التوسيع إلى 10 كم'
+app/taxi.tsx	`سيُرسل ضمن ${radius} كم`
+app/transport.tsx	'المسافة الفعلية على الطريق'
+app/transport.tsx	>طلب نقل جديد<
+app/transport.tsx	>خدمة نقل احترافية<
+app/transport.tsx	>🚚 نقل<
+app/transport.tsx	>📦 نوع الحمولة<
+app/transport.tsx	'مفروشات'
+app/transport.tsx	'مواد تموينية'
+app/transport.tsx	'أجهزة كهربائية'
+app/transport.tsx	'مواد بناء'
+app/transport.tsx	'أخرى'
+app/transport.tsx	"مثال: مفروشات..."
+app/transport.tsx	>الوزن التقريبي <
+app/transport.tsx	>غير إلزامي<
+app/transport.tsx	"500 كغ، 2 طن..."
+app/transport.tsx	>🚚 المركبة المطلوبة<
+app/transport.tsx	>1? `يصل طلبك لأصحاب: ${
+app/transport.tsx	'، '
+app/transport.tsx	>📍 نقاط الاستلام ({
+app/transport.tsx	'موقع الاستلام '
+app/transport.tsx	'نقطة استلام '
+app/transport.tsx	"تفاصيل هذه النقطة: غرفة نوم، خزانة..."
+app/transport.tsx	>✕ حذف<
+app/transport.tsx	>+ إضافة نقطة استلام<
+app/transport.tsx	>🏁 نقاط التسليم ({
+app/transport.tsx	'موقع التسليم '
+app/transport.tsx	'نقطة تسليم '
+app/transport.tsx	"تفاصيل التسليم..."
+app/transport.tsx	>+ إضافة نقطة تسليم<
+app/transport.tsx	>🛣️ مسار النقل<
+app/transport.tsx	>👷 العمال<
+app/transport.tsx	>بدون عمال<
+app/transport.tsx	>مع عمال 👷<
+app/transport.tsx	>🔧 المعدات<
+app/transport.tsx	>بدون معدات<
+app/transport.tsx	>مع معدات 🔧<
+app/transport.tsx	"مثال: رافعة صغيرة، عربة نقل..."
+app/transport.tsx	>🏢 التوصيل والطوابق<
+app/transport.tsx	>⬆️ رفع إلى طابق معين<
+app/transport.tsx	"إلى طابق رقم"
+app/transport.tsx	"المصعد: يوجد/لا يوجد/صغير"
+app/transport.tsx	>⬇️ تنزيل من طابق معين<
+app/transport.tsx	"من طابق رقم"
+app/transport.tsx	"ملاحظات الطوابق (اختياري)"
+app/transport.tsx	>⏰ التوقيت<
+app/transport.tsx	>⚡ مستعجل<
+app/transport.tsx	>أسرع سائق<
+app/transport.tsx	>📅 موعد محدد<
+app/transport.tsx	>اختر تاريخ<
+app/transport.tsx	"التاريخ YYYY-MM-DD"
+app/transport.tsx	"الساعة HH:MM"
+app/transport.tsx	>💰 الميزانية<
+app/transport.tsx	>💰 تحديد ميزانية<
+app/transport.tsx	>📩 طلب عروض أسعار<
+app/transport.tsx	>📩 سيقوم السائقون بتقديم عروض أسعار<
+app/transport.tsx	>ستظهر العروض لديك وتختار الأنسب<
+app/transport.tsx	'📢 نشر الطلب'
+app/transport.tsx	'📩 طلب عروض أسعار'
+app/transport.tsx	>التسجيل مطلوب لنشر الطلب<
+app/wallet.tsx	`تمت إضافة ${money(data.amount)} إلى رصيدك`
+app/wallet.tsx	'أدخل معرّف المحفظة (8 أرقام) أو رقم الهاتف'
+app/wallet.tsx	'رصيدك لا يكفي'
+app/wallet.tsx	> limitLeft) return toast.show(`تجاوزت حد التحويل اليومي. المتبقي اليوم: ${
+app/wallet.tsx	` : 'تم الدفع');
+    }
+    loadAll();
+  };
+
+  const onPin = async (pin: string) => {
+    if (!pinMode || !pinAction) return;
+    setPinErr(null);
+    if (pinMode === 'enter') return runAction(pinAction, pin);
+    if (pinMode === 'old') { setOldPin(pin); return setPinMode('create1'); }
+    if (pinMode === 'create1') { setNewPin(pin); return setPinMode('create2'); }
+    if (pin !== newPin) { setNewPin(null); setPinMode('create1'); return setPinErr('الرمزان غير متطابقين، أعد المحاولة'); }
+    setPinBusy(true);
+    const { data, error } = await supabase.rpc('set_wallet_pin', { p_new: pin, p_old: oldPin });
+    setPinBusy(false);
+    if (error) { setNewPin(null); setPinMode('create1'); return setPinErr(errMsg(error)); }
+    if (data?.error) {
+      if (data.error === 'PIN_LOCKED') { closePin(); refresh(); return toast.show(errMsg('PIN_LOCKED'), 'err'); }
+      setOldPin(null); setNewPin(null); setPinMode('old'); return setPinErr('الرمز الحالي غير صحيح');
+    }
+    await refresh();
+    if (pinAction.type === 'change') { closePin(); return toast.show(oldPin ? 'تم تغيير الرمز السري' : 'تم إنشاء الرمز السري'); }
+    runAction(pinAction, pin);
+  };
+  const pinTitle = pinMode === 'enter' ? 'أدخل الرمز السري' : pinMode === 'old' ? 'أدخل الرمز الحالي'
+    : pinMode === 'create1' ? (pinAction?.type === 'change' && oldPin ? 'أدخل الرمز الجديد' : 'أنشئ رمزاً سرياً للمحفظة') : 'أكّد الرمز السري';
+  const pinSub = pinMode === 'enter'
+    ? (pinAction?.type === 'transfer' ? `
+app/wallet.tsx	` : undefined)
+    : pinMode === 'create1' ? '4 أرقام تُطلب قبل كل تحويل أو دفع' : undefined;
+
+
+  if (authed === false) {
+    return (
+      <View style={ui.page}>
+        <Header title="المحفظة" onBack={() => router.back()} />
+        <Empty icon="👛" title="سجّل الدخول لعرض محفظتك" />
+        {toast.node}
+      </View>
+    );
+  }
+
+  return (
+    <View style={ui.page}>
+      <Header title="المحفظة" onBack={() => router.back()} />
+      <ScrollView contentContainerStyle={{ padding: 12, paddingBottom: 40 }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}>
+        {}
+        <View style={[s.balCard, wallet?.blocked && s.balNeg]}>
+          <Text style={s.balL}>الرصيد الحالي</Text>
+          <Text style={[s.balV, wallet?.blocked && { color: C.err }]}>{wallet ? money(balance) : '—'}</Text>
+          <Text style={s.idT}>معرّف المحفظة: <Text style={s.idV}>{fmtWalletId(wallet?.wallet_id)}</Text></Text>
+          {wallet?.blocked && <Text style={s.neg}>الرصيد سالب، اشحن لمتابعة استقبال الطلبات</Text>}
+          <View style={s.actions}>
+            <Pressable onPress={() => setTopupOpen(true)} style={[s.act, { backgroundColor: C.brand }]}><Text style={s.actI}>＋</Text><Text style={[s.actT, { color: '#fff' }]}>إضافة رصيد</Text></Pressable>
+            <Pressable onPress={() => setTrOpen(true)} style={[s.act, { backgroundColor: '#eef2ff' }]}><Text style={[s.actI, { color: C.brand }]}>⇄</Text><Text style={[s.actT, { color: C.brand }]}>تحويل رصيد</Text></Pressable>
+          </View>
+        </View>
+
+        {pct > 0 && (
+          <View style={[ui.banner, { backgroundColor: C.okBg, borderColor: '#a7f3d0' }]}>
+            <Text style={{ color: C.ok, fontWeight: '900', textAlign: 'right' }}>ادفع من التطبيق ووفّر {pct}% من قيمة كل طلب</Text>
+          </View>
+        )}
+        {isDriver && Number(wallet?.free_days_left || 0) > 0 && (
+          <View style={[ui.banner, { backgroundColor: '#f0fdf4', borderColor: '#bbf7d0' }]}>
+            <Text style={{ color: '#166534', fontWeight: '800', textAlign: 'right' }}>الفترة المجانية: متبقٍ {wallet?.free_days_left} يوم بدون عمولة</Text>
+          </View>
+        )}
+
+        <View style={[ui.card, { flexDirection: 'row-reverse', alignItems: 'center', gap: 10 }]}>
+          <Text style={{ fontSize: 20 }}>🔒</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={[ui.h, { fontSize: 14 }]}>الرمز السري</Text>
+            <Text style={ui.sub}>{wallet?.has_pin ? 'يُطلب قبل كل تحويل أو دفع' : 'لم يُنشأ بعد، يُطلب عند أول تحويل أو دفع'}{limit > 0 ? `
+app/wallet.tsx	` : ''}</Text>
+          </View>
+          <Btn small tone="ghost" label={wallet?.has_pin ? 'تغيير' : 'إنشاء'} onPress={() => wallet?.has_pin ? requirePin({ type: 'change' }) : (setPinAction({ type: 'change' }), setPinErr(null), setPinMode('create1'))} />
+        </View>
+        {wallet?.is_admin && (
+          <Pressable onPress={() => router.push('/admin-wallet' as any)} style={[ui.banner, { backgroundColor: '#eef2ff', borderColor: '#c7d2fe' }]}>
+            <Text style={{ color: C.brand, fontWeight: '900', textAlign: 'right' }}>🛠️ إدارة المحافظ والبطاقات ←</Text>
+          </Pressable>
+        )}
+
+        {}
+        {!!payables?.length && <>
+          <Text style={s.sec}>بانتظار الدفع</Text>
+          {payables.map(p => (
+            <View key={`
+app/wallet.tsx	`} style={ui.card}>
+              <View style={ui.cardTop}>
+                <Text style={ui.h}>{p.title}</Text>
+                <Pill text={SVC_NAME[p.service] || p.service} tone="brand" />
+              </View>
+              {!!p.payee_name && <Text style={ui.sub}>إلى: {p.payee_name}</Text>}
+              {!!p.done_at && <Text style={ui.sub}>{fmtDateTime(p.done_at)}</Text>}
+              <View style={ui.metrics}>
+                <View style={ui.metric}><Text style={ui.metricV}>{money(p.gross)}</Text><Text style={ui.metricK}>السعر المتفق عليه</Text></View>
+                {Number(p.discount) > 0 && <View style={ui.metric}><Text style={[ui.metricV, { color: C.ok }]}>−{money(p.discount)}</Text><Text style={ui.metricK}>خصم {p.discount_pct}%</Text></View>}
+                <View style={ui.metric}><Text style={[ui.metricV, { color: C.brand }]}>{money(p.to_pay)}</Text><Text style={ui.metricK}>تدفع</Text></View>
+              </View>
+              <View style={ui.btns}><Btn label={`
+app/wallet.tsx	`} tone="ok" onPress={() => setPayFor(p)} /></View>
+            </View>
+          ))}
+        </>}
+
+        {}
+        <Text style={s.sec}>الحركات</Text>
+        {!tx ? <Text style={ui.note}>جاري التحميل…</Text> : tx.length === 0 ? (
+          <Empty icon="🧾" title="لا توجد حركات بعد" sub="الشحن والدفع والتحويلات تظهر هنا" />
+        ) : (
+          <View style={[ui.card, { paddingVertical: 4 }]}>
+            {tx.map((t, i) => (
+              <View key={t.id} style={[s.txRow, i === tx.length - 1 && { borderBottomWidth: 0 }]}>
+                <View style={{ flex: 1 }}>
+                  <Text style={s.txT}>{txLabel(t)}</Text>
+                  <Text style={s.txS}>{fmtDateTime(t.created_at)}{t.note && !['payment_out', 'payment_in'].includes(t.kind) ? `
+app/wallet.tsx	` : ''}</Text>
+                </View>
+                <Text style={[s.txA, { color: Number(t.amount) < 0 ? C.err : C.ok }]}>{Number(t.amount) > 0 ? '+' : ''}{money(t.amount)}</Text>
+              </View>
+            ))}
+          </View>
+        )}
+      </ScrollView>
+
+      {}
+      <Sheet visible={topupOpen} onClose={() => { setTopupOpen(false); setCard(''); }} title="إضافة رصيد">
+        <Text style={ui.label}>رقم بطاقة الشحن</Text>
+        <TextInput value={fmtCard(card)} onChangeText={v => setCard(v.replace(/\D/g, '').slice(0, 14))} keyboardType="number-pad"
+          placeholder="0000 0000 0000 00" maxLength={17} style={[ui.input, s.cardInput]} autoFocus />
+        <Text style={ui.note}>أدخل الرقم المكوّن من 14 رقماً الموجود على البطاقة. كل بطاقة تُستخدم مرة واحدة.</Text>
+        <View style={ui.btns}>
+          <Btn label="شحن الرصيد" onPress={redeem} loading={busy} disabled={card.length !== 14} />
+          <Btn label="رجوع" tone="ghost" onPress={() => { setTopupOpen(false); setCard(''); }} />
+        </View>
+        {toast.node}
+      </Sheet>
+
+      {}
+      <Sheet visible={trOpen && !pinMode} onClose={closeTransfer} title="تحويل رصيد">
+        {!trUser ? <>
+          <Text style={ui.label}>معرّف المحفظة أو رقم الهاتف</Text>
+          <TextInput value={trQuery} onChangeText={v => setTrQuery(v.replace(/[^\d+ ]/g, ''))} keyboardType="phone-pad"
+            placeholder="مثال: 1234 5678 أو 09xxxxxxxx" style={ui.input} autoFocus />
+          <View style={ui.btns}>
+            <Btn label="متابعة" onPress={findUser} loading={busy} />
+            <Btn label="رجوع" tone="ghost" onPress={closeTransfer} />
+          </View>
+        </> : <>
+          <View style={[ui.banner, { backgroundColor: '#eef2ff', borderColor: '#c7d2fe', marginBottom: 0 }]}>
+            <Text style={{ fontWeight: '900', textAlign: 'right', color: C.txt }}>{trUser.name}</Text>
+            <Text style={[ui.sub, { marginTop: 2 }]}>معرّف المحفظة: {fmtWalletId(trUser.wallet_id)}</Text>
+          </View>
+          <Text style={ui.label}>المبلغ</Text>
+          <TextInput value={trAmount} onChangeText={v => setTrAmount(v.replace(/[^\d.,]/g, ''))} keyboardType="decimal-pad" placeholder="0" style={[ui.input, { fontSize: 20, fontWeight: '900' }]} autoFocus />
+          <Text style={ui.note}>رصيدك: {money(balance)}{limit > 0 ? `
+app/wallet.tsx	` : ''}</Text>
+          <Text style={ui.label}>ملاحظة (اختياري)</Text>
+          <TextInput value={trNote} onChangeText={setTrNote} maxLength={80} placeholder="مثال: أجرة مشتركة" style={ui.input} />
+          <View style={ui.btns}>
+            <Btn label={amountNum > 0 ? `
+app/wallet.tsx	` : 'تحويل'} onPress={sendTransfer} loading={pinBusy} disabled={!(amountNum > 0) || amountNum > balance} />
+            <Btn label="تغيير المستلم" tone="ghost" onPress={() => setTrUser(null)} />
+          </View>
+          {amountNum > balance && <Text style={[ui.note, { color: C.err }]}>المبلغ أكبر من رصيدك</Text>}
+        </>}
+        {toast.node}
+      </Sheet>
+
+      {}
+      <Sheet visible={!!payFor && !pinMode} onClose={() => setPayFor(null)} title="الدفع من التطبيق">
+        {payFor && <>
+          <Row k="الخدمة" v={payFor.title} />
+          {!!payFor.payee_name && <Row k="إلى" v={payFor.payee_name} />}
+          <Row k="السعر المتفق عليه" v={money(payFor.gross)} />
+          {Number(payFor.discount) > 0 && <Row k={`
+app/wallet.tsx	`} />}
+          <Row k="المبلغ المدفوع" v={money(payFor.to_pay)} strong />
+          <Row k="رصيدك بعد الدفع" v={money(balance - Number(payFor.to_pay))} />
+          {balance < Number(payFor.to_pay) ? <>
+            <Text style={[ui.note, { color: C.err }]}>رصيدك لا يكفي. أضف رصيداً ثم ادفع.</Text>
+            <View style={ui.btns}>
+              <Btn label="إضافة رصيد" onPress={() => { setPayFor(null); setTopupOpen(true); }} />
+              <Btn label="رجوع" tone="ghost" onPress={() => setPayFor(null)} />
+            </View>
+          </> : (
+            <View style={ui.btns}>
+              <Btn label={`
+components/ContractMap.tsx	`انطلاق ${i + 1}`
+components/ContractMap.tsx	`وجهة ${i + 1}`
+components/ContractMap.tsx	`تنزيل ${i + 1}`
+components/DatePicker.tsx	'كانون الثاني'
+components/DatePicker.tsx	'شباط'
+components/DatePicker.tsx	'آذار'
+components/DatePicker.tsx	'نيسان'
+components/DatePicker.tsx	'أيار'
+components/DatePicker.tsx	'حزيران'
+components/DatePicker.tsx	'تموز'
+components/DatePicker.tsx	'آب'
+components/DatePicker.tsx	'أيلول'
+components/DatePicker.tsx	'تشرين الأول'
+components/DatePicker.tsx	'تشرين الثاني'
+components/DatePicker.tsx	'كانون الأول'
+components/DatePicker.tsx	`;
+export const parseYmd = (s?: string | null) => { if (!s) return null; const [y, m, d] = s.split('-').map(Number); return y ? new Date(y, m - 1, d) : null; };
+
+export default function DatePicker({ visible, value, minDate, title, onClose, onPick }:
+  { visible: boolean; value?: string | null; minDate?: Date; title?: string; onClose: () => void; onPick: (v: string) => void }) {
+  const init = parseYmd(value) || new Date();
+  const [view, setView] = useState(new Date(init.getFullYear(), init.getMonth(), 1));
+  useEffect(() => { if (visible) { const d = parseYmd(value) || new Date(); setView(new Date(d.getFullYear(), d.getMonth(), 1)); } }, [visible]);
+  const min = minDate ? new Date(minDate.getFullYear(), minDate.getMonth(), minDate.getDate()) : null;
+  const first = view.getDay();
+  const dim = new Date(view.getFullYear(), view.getMonth() + 1, 0).getDate();
+  const cells: (number | null)[] = [...Array(first).fill(null), ...Array.from({ length: dim }, (_, i) => i + 1)];
+  while (cells.length % 7) cells.push(null);
+  const canPrev = !min || new Date(view.getFullYear(), view.getMonth(), 0) >= min;
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <Pressable style={s.shade} onPress={onClose} />
+      <View style={s.box}>
+        {!!title && <Text style={s.title}>{title}</Text>}
+        <View style={s.nav}>
+          <Pressable disabled={!canPrev} onPress={() => setView(new Date(view.getFullYear(), view.getMonth() - 1, 1))} style={[s.navBtn, !canPrev && { opacity: 0.3 }]}><Text style={s.navT}>›</Text></Pressable>
+          <Text style={s.month}>{MONTHS[view.getMonth()]} {view.getFullYear()}</Text>
+          <Pressable onPress={() => setView(new Date(view.getFullYear(), view.getMonth() + 1, 1))} style={s.navBtn}><Text style={s.navT}>‹</Text></Pressable>
+        </View>
+        <View style={s.grid}>
+          {WD.map(w => <Text key={w} style={s.wd}>{w}</Text>)}
+          {cells.map((d, i) => {
+            if (!d) return <View key={i} style={s.cell} />;
+            const date = new Date(view.getFullYear(), view.getMonth(), d);
+            const off = !!min && date < min;
+            const on = value === ymd(date);
+            return (
+              <Pressable key={i} disabled={off} onPress={() => { onPick(ymd(date)); onClose(); }} style={[s.cell, on && s.cellOn]}>
+                <Text style={[s.cellT, off && { color: '#cbd5e1' }, on && { color: '#fff' }]}>{d}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
+        <Pressable onPress={onClose} style={s.close}><Text style={{ fontWeight: '900' }}>إغلاق</Text></Pressable>
+      </View>
+    </Modal>
+  );
+}
+
+const s = StyleSheet.create({
+  shade: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(15,23,42,.45)' },
+  box: { position: 'absolute', left: 16, right: 16, top: '18%', backgroundColor: '#fff', borderRadius: 20, padding: 14 },
+  title: { fontWeight: '900', fontSize: 15, textAlign: 'center', marginBottom: 8 },
+  nav: { flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
+  navBtn: { width: 38, height: 38, borderRadius: 12, backgroundColor: '#f1f5f9', alignItems: 'center', justifyContent: 'center' },
+  navT: { fontSize: 22, fontWeight: '900' },
+  month: { fontWeight: '900', fontSize: 15 },
+  grid: { flexDirection: 'row-reverse', flexWrap: 'wrap' },
+  wd: { width: `
+components/DriverUI.tsx	`📞 اتصال ${phone}`
+components/EventMap.tsx	'🚘 سيارة'
+components/EventMap.tsx	`الوجهة ${i + 1}`
+components/MyRatingCard.tsx	'⭐ جديد'
+components/MyRatingCard.tsx	>⭐ تقييمي <
+components/MyRatingCard.tsx	`(${n} تقييم)`
+components/MyRatingCard.tsx	'لا توجد تقييمات بعد'
+components/MyRatingCard.tsx	'إخفاء'
+components/MyRatingCard.tsx	'عرض التفاصيل'
+components/MyRatingCard.tsx	>🏆 حوافزي ومكافأة الشهر ←<
+components/MySharedJoins.tsx	>🎫 رحلاتي<
+components/MySharedJoins.tsx	'✅ انتهت'
+components/MySharedJoins.tsx	'❌ أُلغيت'
+components/MySharedJoins.tsx	'🛣️ انطلقت'
+components/MySharedJoins.tsx	'⏳ بانتظار الانطلاق'
+components/MySharedJoins.tsx	>0? ` (شامل إضافي ${
+components/MySharedJoins.tsx	` : ''}</Text>
+            <Text style={s.m}>🚗 {j.driver_name||'السائق'}{j.vehicle_model? ' • '+j.vehicle_model : ''}{j.vehicle_color? ' • '+j.vehicle_color : ''}</Text>
+            {j.trip_status!=='cancelled' && j.trip_status!=='completed' && <View style={{marginTop:8, flexDirection:'row'}}><ShareTripBtn service="taxi_shared" refId={j.request_id}/></View>}
+            {j.trip_status!=='cancelled' && (j.paid
+              ? <Text style={[s.m,{color:'#047857', fontWeight:'800'}]}>✅ تم الدفع من التطبيق</Text>
+              : <Pressable onPress={()=> router.push('/wallet' as any)} style={s.pay}><Text style={s.payT}>💳 ادفع من التطبيق ${app.toFixed(2)}{pct>0? `
+components/NewOrdersToggle.tsx	} إشعارات الطلبات الجديدة<
+components/NewOrdersToggle.tsx	'بيوصلك إشعار بكل طلب جديد قريب منك حتى لو التطبيق مسكّر'
+components/NewOrdersToggle.tsx	'موقّفة — إشعارات طلباتك الحالية بتضل توصل'
+components/PointPicker.tsx	>اضغط على الخريطة لتحديد الموقع<
+components/PointPicker.tsx	>🎯 موقعي<
+components/PointPicker.tsx	'لم يتم تحديد موقع بعد'
+components/PointPicker.tsx	'⏳ جاري تحديد اسم المكان...'
+components/PointPicker.tsx	'موقع محدد على الخريطة'
+components/PointPicker.tsx	>تأكيد الموقع<
+components/PointRow.tsx	'اختياري — لم تُحدد'
+components/PointRow.tsx	'لم تُحدد بعد'
+components/PointRow.tsx	'✏️ تغيير'
+components/RatingPrompt.tsx	' • نهاية العقد'
+components/RatingPrompt.tsx	` • الفترة ${it.period}`
+components/RatingPrompt.tsx	>كيف كانت {
+components/RatingPrompt.tsx	'الخدمة'
+components/RatingPrompt.tsx	}؟<
+components/RatingPrompt.tsx	`مع ${cur.provider_name}`
+components/RatingPrompt.tsx	>إرسال<
+components/RatingPrompt.tsx	>تخطّي<
+components/RentalPeriod.tsx	>مدة الإيجار<
+components/RentalPeriod.tsx	>بال{
+components/RentalPeriod.tsx	>بداية الإيجار<
+components/RentalPeriod.tsx	>السعر لل{
+components/RentalPeriod.tsx	} (سعر ثابت)<
+components/RentalPeriod.tsx	"اكتب سعرك"
+components/RentalPeriod.tsx	>المجموع<
+components/RentalPeriod.tsx	"بداية الإيجار"
+components/RentalPeriod.tsx	"ساعة الاستلام"
+components/ShareTripBtn.tsx	'📤 مشاركة الرحلة'
+components/SharedTripsDriver.tsx	'حان وقت الانطلاق، اضغط «بدء الرحلة» أو ألغِها'
+components/SharedTripsDriver.tsx	>👥 رحلاتي المشتركة ({
+components/SharedTripsDriver.tsx	} من 4 اليوم)<
+components/SharedTripsDriver.tsx	' • 🛣️ جارية'
+components/SharedTripsDriver.tsx	' • ⏰ فات الموعد'
+components/SharedTripsDriver.tsx	>لا يوجد ركاب منضمون بعد<
+components/SharedTripsDriver.tsx	>راكب {
+components/SharedTripsDriver.tsx	>0? ` (إضافي ${
+components/SharedTripsDriver.tsx	`)}><Text style={s.link}>📍 نقطة الركوب</Text></Pressable>
+                      <Pressable onPress={()=> Linking.openURL(`
+components/SharedTripsDriver.tsx	`)}><Text style={s.link}>🏁 نقطة النزول</Text></Pressable>
+                      {p.paid && <Text style={[s.m,{color:'#047857'}]}>✅ دفع من التطبيق</Text>}
+                    </View>
+                  </View>
+                  {!!p.phone && <Pressable onPress={()=> Linking.openURL('tel:'+p.phone)} style={s.call}><Text style={s.callT}>📞 اتصال</Text></Pressable>}
+                </View>
+              ))}
+            </View>
+          )}
+          <View style={{flexDirection:'row-reverse', gap:8, marginTop:10}}>
+            {!t.started_at
+              ? <Pressable onPress={()=> act('driver_start_shared_trip', t, d=> d?.passengers? `
+components/SharedTripsDriver.tsx	'انطلقت الرحلة'
+components/SharedTripsDriver.tsx	>▶️ بدء الرحلة<
+components/SharedTripsDriver.tsx	>🏁 إنهاء الرحلة<
+components/SosButton.tsx	> `🆘 حالة طارئة — ${
+components/SosButton.tsx	'أنا'
+components/SosButton.tsx	'🆘 نشطة'
+components/SosButton.tsx	>🆘 هل أنت في خطر؟<
+components/SosButton.tsx	>يُرسل موقعك المباشر وبيانات الرحلة لأهلك، ويصل تنبيه للإدارة<
+components/SosButton.tsx	'👨‍👩‍👦 الأهل فقط'
+components/SosButton.tsx	>🚨 الأهل + الطوارئ<
+components/SosButton.tsx	>⚙️ إعدادات الطوارئ<
+components/SosButton.tsx	>🆘 حالة الطوارئ مفعّلة<
+components/SosButton.tsx	>اضغط «إرسال» لكل رقم — الرابط يعرض موقعك المباشر وبيانات الرحلة<
+components/SosButton.tsx	>⚠️ لم يُسمح بالموقع «دائماً» — يُرسل موقعك فقط والتطبيق مفتوح<
+components/SosButton.tsx	'رقم الأهل '
+components/SosButton.tsx	>واتساب<
+components/SosButton.tsx	>رسالة<
+components/SosButton.tsx	>لم تضف أرقام الأهل بعد — اضغط للإضافة<
+components/SosButton.tsx	>📤 إرسال لأي شخص آخر<
+components/SosButton.tsx	>📞 اتصال بالطوارئ {
+components/SosButton.tsx	>🚨 إضافة الطوارئ ({
+components/SosButton.tsx	>✅ أنا بخير — إنهاء الطوارئ<
+components/SosButton.tsx	>إخفاء (تبقى الحالة مفعّلة)<
+components/SosButton.tsx	>هل أنت بخير فعلاً؟<
+components/SosButton.tsx	>سيتوقف إرسال موقعك ويظهر للأهل «انتهت حالة الطوارئ»<
+components/SosButton.tsx	'نعم، إنهاء الطوارئ'
+components/Stars.tsx	'✨ جديد'
+components/TimePicker.tsx	`${h12}:${p2(m || 0)} ${h < 12 ? 'صباحاً' : 'مساءً'}`
+components/TimePicker.tsx	>الساعة<
+components/TimePicker.tsx	'ص'
+components/TimePicker.tsx	'م'
+components/TimePicker.tsx	>الدقيقة<
+components/TimePicker.tsx	'اختر الساعة'
+components/TimePicker.tsx	`تأكيد ${timeLabel(`
+components/TripRouteMap.tsx	`⏳ ${sg.name}: جاري حساب المسار...`
+components/TripRouteMap.tsx	`${sg.icon} ${sg.name}: ${r.km!.toFixed(1)} كم على الطريق • ${fmtMin(r.min!)}`
+components/TripRouteMap.tsx	`⚠️ ${sg.name}: تعذر حساب المسار`
+components/WalletSheet.tsx	>الرصيد الحالي<
+components/WalletSheet.tsx	>الرصيد سالب، توقف ظهور الطلبات حتى الشحن<
+components/WalletSheet.tsx	>الفترة المجانية: متبقٍ {
+components/WalletSheet.tsx	} يوم<
+components/WalletSheet.tsx	>بدون عمولة حتى {
+components/WalletSheet.tsx	}، ثم عمولة 12% من السعر المتفق عليه<
+components/WalletSheet.tsx	>الحركات<
+components/WalletSheet.tsx	>لا توجد حركات بعد<
+components/WalletSheet.tsx	` • السعر ${money(t.gross)}`
+components/WalletSheet.tsx	>إضافة رصيد وتحويل<
+utils/contracts.ts	'يومي'
+utils/contracts.ts	'يوم'
+utils/contracts.ts	'أيام'
+utils/contracts.ts	'لليوم'
+utils/contracts.ts	'أسبوعي'
+utils/contracts.ts	'أسبوع'
+utils/contracts.ts	'أسابيع'
+utils/contracts.ts	'للأسبوع'
+utils/contracts.ts	'شهري'
+utils/contracts.ts	'شهر'
+utils/contracts.ts	'أشهر'
+utils/contracts.ts	'للشهر'
+utils/contracts.ts	`${u.one} واحد`
+utils/contracts.ts	'ان'
+utils/contracts.ts	'🏫 مدارس'
+utils/contracts.ts	'🧸 روضة'
+utils/contracts.ts	'🎓 جامعات'
+utils/contracts.ts	'🏭 مصانع'
+utils/contracts.ts	'🏢 شركة'
+utils/contracts.ts	'👷 عمال'
+utils/contracts.ts	'إثنين'
+utils/contracts.ts	'ثلاثاء'
+utils/contracts.ts	'أربعاء'
+utils/errors.ts	'الطلب لسا بأولوية لسائق أعلى مستوى — جرّب بعد ثواني'
+utils/errors.ts	'التحويل من 100 نقطة وفوق'
+utils/errors.ts	'نقاطك ما بتكفي'
+utils/errors.ts	'رمز الدعوة غير صحيح'
+utils/errors.ts	'ما فيك تستعمل رمزك'
+utils/errors.ts	'تم تسجيل رمز دعوة من قبل'
+utils/errors.ts	'رمز الدعوة للحسابات الجديدة فقط'
+utils/errors.ts	'اختر نجوم أو ملاحظة'
+utils/errors.ts	'انتهت مدة التقييم'
+utils/errors.ts	'تقييم غير صالح'
+utils/errors.ts	'لا يمكن تعديل الرحلة بعد انضمام ركاب'
+utils/errors.ts	'أكمل بيانات السيارة وحدد موقعها'
+utils/errors.ts	'السعر الثابت مطلوب لكل مدة'
+utils/errors.ts	'السيارة لم تعد متاحة'
+utils/errors.ts	'المدة غير متاحة'
+utils/errors.ts	'اكتب السعر'
+utils/errors.ts	'عندك طلب على هالسيارة بانتظار الرد'
+utils/errors.ts	'المشاركة متاحة فقط أثناء الرحلة'
+utils/errors.ts	'رقمين للأهل كحد أقصى'
+utils/errors.ts	'اكتب رقم الطوارئ'
+utils/errors.ts	'الطلب لم يعد متاحاً'
+utils/errors.ts	'العرض لم يعد متاحاً'
+utils/errors.ts	'لا يمكن سحب هذا العرض'
+utils/errors.ts	'هذا الطلب يستقبل عروض أسعار فقط'
+utils/errors.ts	'مركبتك لا تناسب هذا الطلب'
+utils/errors.ts	'رصيدك سالب، اشحن الرصيد لمتابعة استقبال الطلبات'
+utils/errors.ts	'أدخل سعراً صحيحاً'
+utils/errors.ts	'السعر يجب أن يكون ضمن ميزانية الزبون'
+utils/errors.ts	'لديك عرض قائم على هذا الطلب'
+utils/errors.ts	'اكتمل هذا النوع من المركبات'
+utils/errors.ts	'لا يمكن الإلغاء بعد قبول عرض'
+utils/errors.ts	'غير مسموح'
+utils/errors.ts	'يجب تسجيل الدخول'
+utils/errors.ts	'بعد الاتفاق يمكن تعديل الموعد والملاحظات فقط'
+utils/errors.ts	'رقم البطاقة غير صحيح'
+utils/errors.ts	'هذه البطاقة مستخدمة سابقاً'
+utils/errors.ts	'محاولات كثيرة خاطئة، حاول بعد ساعة'
+utils/errors.ts	'لا يوجد مستخدم بهذا المعرّف أو الرقم'
+utils/errors.ts	'لا يمكن التحويل إلى حسابك'
+utils/errors.ts	'تم دفع هذا الطلب سابقاً'
+utils/errors.ts	'هذا الطلب غير متاح للدفع'
+utils/errors.ts	'أدخل الرمز السري'
+utils/errors.ts	'الرمز السري غير صحيح'
+utils/errors.ts	'تم إيقاف المحفظة مؤقتاً بعد محاولات خاطئة، حاول بعد 15 دقيقة'
+utils/errors.ts	'أنشئ رمزاً سرياً للمحفظة أولاً'
+utils/errors.ts	'الرمز السري 4 أرقام'
+utils/errors.ts	'رمز سهل التخمين، اختر رمزاً آخر'
+utils/errors.ts	'تجاوزت حد التحويل اليومي'
+utils/errors.ts	'فات موعد رحلة سابقة، اضغط «بدء الرحلة» عليها أولاً'
+utils/errors.ts	'وصلت الحد: 4 رحلات مشتركة في اليوم'
+utils/errors.ts	'يتداخل موعدها مع رحلة أخرى لك'
+utils/errors.ts	'تم إيقاف استقبال الطلبات بسبب كثرة الإلغاءات، تواصل مع الإدارة'
+utils/errors.ts	'اختر سبب الإلغاء'
+utils/errors.ts	'استخدم زر إلغاء الرحلة'
+utils/errors.ts	'لديك طلب تالٍ بالفعل، أنهِ رحلتك أولاً'
+utils/errors.ts	'أنهِ الرحلة الجارية أولاً'
+utils/errors.ts	'لا يمكن تنفيذ هذه الخطوة الآن'
+utils/errors.ts	'قبل السائق طلبك، لا يمكن الإلغاء الآن. تواصل معه'
+utils/errors.ts	'حدث خطأ، حاول مرة أخرى'
+utils/errors.ts	'تحقق من الاتصال بالإنترنت'
+utils/events.ts	'سيارة زفاف'
+utils/events.ts	'باص كبير 50'
+utils/events.ts	'باص متوسط 27'
+utils/events.ts	'باص متوسط 21'
+utils/events.ts	'باص متوسط 18'
+utils/events.ts	'باص صغير 14'
+utils/events.ts	'👨‍👩‍👧‍👦 رحلة عائلية'
+utils/events.ts	'🏖️ رحلة سياحية'
+utils/events.ts	'✨ مناسبة'
+utils/events.ts	'مع زينة'
+utils/events.ts	'بدون زينة'
+utils/push.ts	'الإشعارات'
+utils/push.ts	'طلبات التكسي الجديدة'
+utils/rating.ts	'🚗 سواقة آمنة'
+utils/rating.ts	'⏱️ ملتزم بالوقت'
+utils/rating.ts	'✨ السيارة نظيفة'
+utils/rating.ts	'😊 أسلوب محترم'
+utils/rating.ts	'🗺️ بيعرف الطريق'
+utils/rating.ts	'📦 حريص على الأغراض'
+utils/rating.ts	'🔑 السيارة مطابقة للإعلان'
+utils/rating.ts	'⚠️ سواقة متهورة'
+utils/rating.ts	'⌛ تأخّر'
+utils/rating.ts	'🧹 السيارة غير نظيفة'
+utils/rating.ts	'😠 أسلوب سيء'
+utils/rating.ts	'💵 طلب مبلغ زيادة'
+utils/rating.ts	'📦 ضرر بالأغراض'
+utils/rating.ts	'🔑 السيارة غير مطابقة'
+utils/rating.ts	'رحلة التكسي'
+utils/rating.ts	'الرحلة المشتركة'
+utils/rating.ts	'المناسبة'
+utils/rating.ts	'العقد'
+utils/rating.ts	'الإيجار'
+utils/rental.ts	'ساعة'
+utils/rental.ts	'ساعات'
+utils/rental.ts	'/ساعة'
+utils/rental.ts	'/يوم'
+utils/rental.ts	'/أسبوع'
+utils/rental.ts	'/شهر'
+utils/rental.ts	'ساعتين'
+utils/rental.ts	'يومين'
+utils/rental.ts	'أسبوعين'
+utils/rental.ts	'شهرين'
+utils/rental.ts	'🪪 رخصة قيادة سارية'
+utils/rental.ts	'🛂 هوية أو جواز سفر'
+utils/rental.ts	'💵 تأمين نقدي مسترد'
+utils/rental.ts	'🎂 العمر 21 وفوق'
+utils/rental.ts	'⛽ نفس مستوى الوقود'
+utils/rental.ts	'🚭 ممنوع التدخين'
+utils/rental.ts	'📄 عقد إيجار عند الاستلام'
+utils/rental.ts	'أوتوماتيك'
+utils/rental.ts	'عادي'
+utils/rental.ts	'بنزين'
+utils/rental.ts	'ديزل'
+utils/rental.ts	'كهرباء'
+utils/rental.ts	'هايبرد'
+utils/rental.ts	'أمامية'
+utils/rental.ts	'خلفية'
+utils/rental.ts	'جانبية'
+utils/rental.ts	` : null, l.color, FUEL[l.fuel], l.ac ? 'مكيّف' : null].filter(Boolean).join(' • ');
+export const priceLine = (l: any) => {
+  const p = (l.units || []).filter((u: Unit) => l.prices?.[u]).map((u: Unit) => `
+utils/rental.ts	`);
+  return p.length ? p.join(' • ') : 'السعر حسب العرض';
+};
+export const fmtDT = (s?: string | null) => {
+  if (!s) return '—';
+  const d = new Date(s);
+  return `
+utils/route.ts	`${m} د`
+utils/route.ts	`${Math.floor(m / 60)} س ${m % 60} د`
+utils/route.ts	`${Math.round(km * 1000)} م`
+utils/route.ts	`${km.toFixed(1)} كم`
+utils/share.ts	'تعذرت المشاركة'
+utils/share.ts	`📍 تابع رحلتي مباشرة (موقع السيارة وبيانات السائق):\n${url}`
+utils/sosTask.ts	'🆘 مشاركة الموقع مفعّلة'
+utils/sosTask.ts	'يُرسل موقعك حتى تضغط «أنا بخير»'
+utils/vehicles.ts	'بيك آب صغير'
+utils/vehicles.ts	'متوسط'
+utils/vehicles.ts	'شاحنة'
+utils/vehicles.ts	'800 كغ'
+utils/vehicles.ts	'1200 كغ'
+utils/vehicles.ts	'1500 كغ'
+utils/vehicles.ts	'2000 كغ'
+utils/vehicles.ts	'3 طن'
+utils/vehicles.ts	'4 طن'
+utils/vehicles.ts	'5 طن'
+utils/vehicles.ts	'6 طن'
+utils/vehicles.ts	'7 طن'
+utils/vehicles.ts	`${g.icon} شاحنة`
+utils/wallet.ts	'تكسي مشترك'
+utils/wallet.ts	'شحن رصيد'
+utils/wallet.ts	'شحن ببطاقة'
+utils/wallet.ts	`عمولة ${svc}`
+utils/wallet.ts	' (مجانية)'
+utils/wallet.ts	`دفع ${svc}${t.counterparty ? `
+utils/wallet.ts	`دفعة ${svc}${t.counterparty ? `
+utils/wallet.ts	`تحويل إلى ${t.counterparty || 'مستخدم'}`
+utils/wallet.ts	`تحويل من ${t.counterparty || 'مستخدم'}`
+utils/wallet.ts	'تسوية من الإدارة'
+utils/wallet.ts	`🏆 ${t.note || 'مكافأة شهرية'}`
+utils/wallet.ts	`🎁 ${t.note || 'تحويل نقاط'}`
+utils/wallet.ts	'تسوية'

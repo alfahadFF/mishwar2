@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>نقل - طلب جديد - نَقْل</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:#F8F9FA;direction:rtl}
+.topbar{height:52px;background:#fff;display:flex;align-items:center;gap:12px;padding:0 14px;box-shadow:0 1px 10px rgba(0,0,0,.06);position:sticky;top:0;z-index:20}
+.back{width:36px;height:36px;border-radius:10px;background:#F3F4F6;display:flex;align-items:center;justify-content:center;border:none;cursor:pointer}
+.topbar h1{font-size:14px;font-weight:900} .topbar p{font-size:11px;color:#6B7280}
+.section{margin:12px;background:#fff;border-radius:16px;padding:14px;border:1px solid #E5E7EB;box-shadow:0 2px 12px rgba(0,0,0,.05)}
+.section h2{font-size:13px;font-weight:900;margin-bottom:4px;display:flex;align-items:center;gap:8px}
+.hint{font-size:11px;color:#6B7280;margin-bottom:12px;line-height:1.4}
+.field{margin-bottom:12px} .field label{font-size:11px;font-weight:800;color:#374151;display:flex;align-items:center;gap:6px;margin-bottom:6px}
+.field label span.opt{font-weight:600;color:#9CA3AF;font-size:10px;background:#F3F4F6;padding:2px 6px;border-radius:999px}
+.input,.textarea,select.input{width:100%;border:1.5px solid #E5E7EB;border-radius:12px;padding:12px;font-size:13px;background:#fff;outline:none}
+.input:focus,.textarea:focus{border-color:#4F46E5} .textarea{min-height:70px;resize:vertical}
+.chips{display:flex;flex-wrap:wrap;gap:8px} .chip{padding:8px 14px;border-radius:999px;border:1.5px solid #E5E7EB;background:#fff;font-size:12px;font-weight:800;cursor:pointer}
+.chip.active{background:#4F46E5;color:#fff;border-color:#4F46E5;box-shadow:0 4px 12px rgba(79,70,229,.25)}
+.location-card{background:#F8FAFC;border:1.5px solid #E5E7EB;border-radius:14px;padding:12px;margin-bottom:10px;position:relative}
+.location-card.pick{border-color:#A7F3D0;background:#F0FDF4} .location-card.drop{border-color:#FECACA;background:#FEF2F2}
+.loc-head{display:flex;align-items:center;gap:8px;margin-bottom:8px} .loc-badge{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900;color:#fff}
+.loc-badge.pick{background:#059669} .loc-badge.drop{background:#DC2626} .loc-head b{font-size:12px} .loc-head span{font-size:11px;color:#6B7280;margin-right:auto}
+.btn-map{width:100%;height:42px;border-radius:10px;border:1.5px dashed #CBD5E1;background:#fff;display:flex;align-items:center;justify-content:center;gap:8px;font-size:12px;font-weight:800;cursor:pointer;color:#1A1A2E}
+.btn-map.has{border-style:solid;border-color:#4F46E5;background:#EEF2FF;color:#4F46E5}
+.remove{position:absolute;top:8px;left:8px;width:26px;height:26px;border-radius:50%;background:#fff;border:1px solid #E5E7EB;display:flex;align-items:center;justify-content:center;cursor:pointer}
+.add-btn{width:100%;height:42px;border-radius:12px;border:1.5px dashed #818CF8;background:#EEF2FF;color:#4F46E5;font-weight:800;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px}
+.add-btn.drop{border-color:#FCA5A5;background:#FEF2F2;color:#DC2626}
+.timing{display:grid;grid-template-columns:1fr 1fr;gap:10px} .time-opt{border:1.5px solid #E5E7EB;border-radius:12px;padding:12px;text-align:center;cursor:pointer;background:#fff}
+.time-opt.active{border-color:#F59E0B;background:#FFFBEB;box-shadow:0 4px 12px rgba(245,158,11,.15)} .time-opt b{font-size:12px} .time-opt span{font-size:11px;color:#6B7280}
+.budget{display:flex;gap:8px;align-items:center} .budget input{flex:1;min-width:0;height:44px;border:1.5px solid #E5E7EB;border-radius:12px;padding:0 12px;font-size:14px;font-weight:800;text-align:center;background:#fff}
+.budget span{font-weight:800;color:#6B7280}
+.range-preview{background:#F8FAFC;border:1px solid #E5E7EB;border-radius:10px;padding:8px;text-align:center;font-size:11px;color:#6B7280;margin-top:8px}
+.cta{margin:12px;background:#fff;padding:12px;border-radius:16px;box-shadow:0 -4px 20px rgba(0,0,0,.06);position:sticky;bottom:0}
+.btn-publish{width:100%;height:54px;border-radius:14px;background:linear-gradient(135deg,#4F46E5,#7C3AED);color:#fff;border:none;font-weight:900;font-size:15px;cursor:pointer;box-shadow:0 6px 16px rgba(79,70,229,.3)}
+.btn-publish:disabled{opacity:.4;cursor:not-allowed;box-shadow:none} .note{font-size:10px;color:#6B7280;text-align:center;margin-top:8px}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:flex-end;z-index:50} .modal.open{display:flex}
+.sheet{width:100%;height:82vh;max-height:82vh;background:#fff;border-radius:20px 20px 0 0;overflow:hidden;display:flex;flex-direction:column}
+.sheet-head{padding:14px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #E5E7EB} .sheet-head h3{font-size:13px;font-weight:800} .sheet-head button{width:32px;height:32px;border-radius:50%;background:#F3F4F6;border:none;cursor:pointer}
+.map-container{flex:1;position:relative;overflow:hidden;background:#E5E7EB}
+.map-img{width:100%;height:100%;object-fit:cover;display:block;user-select:none;-webkit-user-drag:none}
+.pin{position:absolute;top:50%;left:50%;width:44px;height:44px;transform:translate(-50%,-100%);z-index:10;pointer-events:none;filter:drop-shadow(0 4px 8px rgba(0,0,0,.3))}
+.pin-head{width:36px;height:36px;background:#4F46E5;border:3px solid #fff;border-radius:50% 50% 50% 0;transform:rotate(-45deg);display:flex;align-items:center;justify-content:center;position:relative;left:4px;top:4px}
+.pin-head span{transform:rotate(45deg);color:#fff;font-size:16px} .pin-shadow{position:absolute;bottom:-6px;left:50%;transform:translateX(-50%);width:18px;height:6px;background:rgba(0,0,0,.25);border-radius:50%;filter:blur(2px)}
+.crosshair{position:absolute;top:50%;left:50%;width:40px;height:40px;transform:translate(-50%,-50%);pointer-events:none;z-index:5}
+.crosshair::before,.crosshair::after{content:'';position:absolute;background:rgba(26,26,46,.35)} .crosshair::before{left:50%;top:0;width:1px;height:100%} .crosshair::after{top:50%;left:0;width:100%;height:1px}
+.coord-bar{position:absolute;bottom:12px;left:10px;right:10px;background:rgba(26,26,46,.92);color:#fff;padding:8px 12px;border-radius:12px;display:flex;justify-content:space-between;align-items:center;z-index:10}
+.coord-bar b{font-size:11px} .coord-bar span{font-size:10px;opacity:.7}
+.sheet-foot{padding:12px;border-top:1px solid #E5E7EB} .btn-confirm{width:100%;height:46px;border-radius:12px;background:#1A1A2E;color:#fff;border:none;font-weight:800;cursor:pointer}
+@media(min-width:480px){body{display:flex;justify-content:center;background:#E5E7EB} .phone{width:390px;min-height:100vh;background:#F8F9FA;box-shadow:0 0 0 8px #1A1A2E,0 20px 60px rgba(0,0,0,.25)}}
+</style>
+</head>
+<body>
+<div class="phone">
+ <div class="topbar"><button class="back" onclick="history.back()">→</button><div><h1>طلب نقل جديد</h1><p>خدمة نقل احترافية</p></div><div style="margin-right:auto;background:#EEF2FF;border:1px solid #C7D2FE;padding:6px 10px;border-radius:999px;font-size:11px;font-weight:800;color:#4338CA">🚚 نقل</div></div>
+ <div class="section">
+ <h2>📦 نوع الحمولة</h2>
+ <div class="chips" id="typeChips">
+  <div class="chip" onclick="selectType(this,'مفروشات')">🛋️ مفروشات</div>
+  <div class="chip" onclick="selectType(this,'مواد تموينية')">🧃 تموينية</div>
+  <div class="chip" onclick="selectType(this,'أجهزة كهربائية')">🔌 أجهزة</div>
+  <div class="chip" onclick="selectType(this,'مواد بناء')">🧱 بناء</div>
+  <div class="chip" onclick="selectType(this,'أخرى')">✏️ أخرى</div>
+ </div>
+ <div class="field" style="margin-top:12px"><label>نوع الحمولة</label><input class="input" id="cargoTypeInput" placeholder="مثال: مفروشات..." oninput="updatePublish()"></div>
+ <div class="field"><label>الوزن التقريبي <span class="opt">غير إلزامي</span></label><input class="input" id="weight" placeholder="500 كغ..." oninput="updatePublish()"></div>
+ </div>
+ <div class="section">
+ <h2>📍 نقاط الاستلام <span style="background:#ECFDF5;color:#065F46;padding:3px 8px;border-radius:999px;font-size:10px" id="pickCount">1</span></h2>
+ <p class="hint">الحمولة موزعة؟ أضف كل نقطة مع تفاصيلها</p>
+ <div id="pickList"></div>
+ <button class="add-btn" onclick="addPick()">+ إضافة نقطة استلام</button>
+ </div>
+ <div class="section">
+ <h2>🏁 نقاط التسليم <span style="background:#FEF2F2;color:#991B1B;padding:3px 8px;border-radius:999px;font-size:10px" id="dropCount">1</span></h2>
+ <div id="dropList"></div>
+ <button class="add-btn drop" onclick="addDrop()">+ إضافة نقطة تسليم</button>
+ </div>
+ <div class="section">
+ <h2>👷 العمال</h2>
+ <p class="hint">هل تحتاج عمال للتحميل/التفريغ؟</p>
+ <div class="chips" style="margin-bottom:10px">
+  <div class="chip active" id="workersNo" onclick="setWorkers(false)">بدون عمال</div>
+  <div class="chip" id="workersYes" onclick="setWorkers(true)">مع عمال 👷</div>
+ </div>
+ <div id="workersBox" style="display:none;background:#F8FAFC;border:1.5px solid #E5E7EB;border-radius:12px;padding:12px">
+  <div class="field" style="margin-bottom:0">
+  <label>عدد العمال المطلوب</label>
+  <div style="display:flex;align-items:center;gap:10px">
+   <button type="button" onclick="changeWorkers(-1)" style="width:44px;height:44px;border-radius:12px;border:1.5px solid #E5E7EB;background:#fff;font-weight:900;font-size:18px;cursor:pointer">−</button>
+   <input class="input" id="workersCount" type="number" value="2" min="1" max="20" style="flex:1;text-align:center;font-weight:900;font-size:16px" oninput="updatePublish()">
+   <button type="button" onclick="changeWorkers(1)" style="width:44px;height:44px;border-radius:12px;border:1.5px solid #4F46E5;background:#4F46E5;color:#fff;font-weight:900;font-size:18px;cursor:pointer">+</button>
+  </div>
+  <div style="font-size:10px;color:#6B7280;margin-top:6px;text-align:center">من 1 إلى 20 عامل</div>
+  </div>
+ </div>
+ </div>
+ <div class="section">
+ <h2>🔧 المعدات</h2>
+ <p class="hint">هل تحتاج معدات خاصة؟</p>
+ <div class="chips" style="margin-bottom:10px">
+  <div class="chip active" id="equipNo" onclick="setEquipment(false)">بدون معدات</div>
+  <div class="chip" id="equipYes" onclick="setEquipment(true)">مع معدات 🔧</div>
+ </div>
+ <div id="equipBox" style="display:none;background:#F8FAFC;border:1.5px solid #E5E7EB;border-radius:12px;padding:12px">
+  <div class="field" style="margin-bottom:0">
+  <label>وضّح المعدات المطلوبة</label>
+  <textarea class="textarea" id="equipDetail" placeholder="مثال: رافعة صغيرة، عربة نقل، حبال تثبيت..." oninput="updatePublish()"></textarea>
+  </div>
+ </div>
+ </div>
+ <div class="section">
+ <h2>🏢 التوصيل والطوابق</h2>
+ <p class="hint">هل يوجد رفع إلى طابق أو تنزيل من طابق؟</p>
+ <div style="background:#FFFBEB;border:1.5px solid #FDE68A;border-radius:12px;padding:12px;margin-bottom:10px">
+  <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:800;font-size:12px">
+  <input type="checkbox" id="liftUpCheck" onchange="toggleLiftUp()" style="width:18px;height:18px;accent-color:#4F46E5">
+  <span>⬆️ رفع إلى طابق معين</span>
+  </label>
+  <div id="liftUpBox" style="display:none;margin-top:10px;background:#fff;border:1.5px solid #E5E7EB;border-radius:10px;padding:10px">
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+   <div class="field" style="margin:0"><label>إلى الطابق رقم</label><input class="input" id="floorTo" type="number" placeholder="3" min="0" max="50" oninput="updatePublish()"></div>
+   <div class="field" style="margin:0"><label>المصعد</label><select class="input" id="elevatorTo" onchange="updatePublish()"><option value="">اختر</option><option value="يوجد مصعد">✅ يوجد مصعد</option><option value="لا يوجد مصعد">❌ لا يوجد</option><option value="مصعد صغير">⚠️ صغير</option></select></div>
+  </div>
+  </div>
+ </div>
+ <div style="background:#FEF2F2;border:1.5px solid #FECACA;border-radius:12px;padding:12px">
+  <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:800;font-size:12px">
+  <input type="checkbox" id="liftDownCheck" onchange="toggleLiftDown()" style="width:18px;height:18px;accent-color:#DC2626">
+  <span>⬇️ تنزيل من طابق معين</span>
+  </label>
+  <div id="liftDownBox" style="display:none;margin-top:10px;background:#fff;border:1.5px solid #E5E7EB;border-radius:10px;padding:10px">
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+   <div class="field" style="margin:0"><label>من الطابق رقم</label><input class="input" id="floorFrom" type="number" placeholder="4" min="0" max="50" oninput="updatePublish()"></div>
+   <div class="field" style="margin:0"><label>المصعد</label><select class="input" id="elevatorFrom" onchange="updatePublish()"><option value="">اختر</option><option value="يوجد مصعد">✅ يوجد مصعد</option><option value="لا يوجد مصعد">❌ لا يوجد</option><option value="مصعد صغير">⚠️ صغير</option></select></div>
+  </div>
+  </div>
+ </div>
+ <div class="field" style="margin-top:12px;margin-bottom:0"><label>ملاحظات الطوابق <span class="opt">اختياري</span></label><input class="input" id="floorNote" placeholder="الدرج ضيق، مدخل جانبي..." oninput="updatePublish()"></div>
+ </div>
+ <div class="section">
+ <h2>⏰ التوقيت</h2>
+ <div class="timing">
+  <div class="time-opt active" id="optUrgent" onclick="setTiming('urgent')"><b>⚡ مستعجل</b><span>أسرع سائق</span></div>
+  <div class="time-opt" id="optScheduled" onclick="setTiming('scheduled')"><b>📅 موعد محدد</b><span>اختر تاريخ وساعة</span></div>
+ </div>
+ <div id="scheduleBox" style="display:none;margin-top:12px">
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+  <div class="field" style="margin:0"><label>التاريخ</label><input class="input" type="date" id="schedDate"></div>
+  <div class="field" style="margin:0"><label>الساعة</label><input class="input" type="time" id="schedTime"></div>
+  </div>
+ </div>
+ </div>
+     <div class="section" style="border:2px solid #4F46E5">
+    <h2>💰 الميزانية <span style="background:#fef9c3;color:#854d0e;padding:2px 8px;border-radius:999px;font-size:10px">مهم</span></h2>
+    <p class="hint">هل تريد تحديد ميزانية أم طلب عروض أسعار من السائقين؟</p>
+    <div style="display:flex;gap:8px;margin-bottom:12px">
+      <div class="chip active" id="budgetFixed" onclick="setBudgetType('fixed')" style="flex:1;text-align:center">💰 تحديد ميزانية</div>
+      <div class="chip" id="budgetQuote" onclick="setBudgetType('quote')" style="flex:1;text-align:center">📩 طلب عروض أسعار</div>
+    </div>
+    <div id="budgetFixedBox">
+      <div class="budget"><input type="number" id="budgetFrom" value="10" oninput="updateBudget()"><span>—</span><input type="number" id="budgetTo" value="50" oninput="updateBudget()"></div>
+      <div class="range-preview" id="budgetPreview"> $10 — $50 • متوسط $30</div>
+    </div>
+    <div id="budgetQuoteBox" style="display:none;background:#F0FDF4;border:1.5px solid #A7F3D0;border-radius:12px;padding:12px;text-align:center">
+      <div style="font-weight:800;color:#065F46">📩 سيقوم السائقون بتقديم عروض أسعار</div>
+      <div style="font-size:11px;color:#047857;margin-top:4px">ستظهر العروض لديك وتختار الأنسب • الطلب يبقى ظاهر حتى تقبل عرضاً</div>
+    </div>
+  </div>
+  </div>
+ <div id="routeInfo" style="display:none;margin:0 14px 10px;background:#eef2ff;border:1px solid #c7d2fe;border-radius:12px;padding:10px;text-align:center;font-size:13px;font-weight:900;color:#3730a3"></div>
+ <div class="cta"><button class="btn-publish" id="publishBtn" disabled onclick="publish()">📢 نشر الطلب</button><div class="note">التسجيل مطلوب لنشر الطلب</div></div>
+</div>
+<div class="modal" id="mapModal">
+ <div class="sheet">
+ <div class="sheet-head"><h3 id="mapTitle">اختر النقطة</h3><button onclick="closeMap()">✕</button></div>
+ <div class="map-container" id="mapContainer">
+  <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:1;text-align:center;background:#fff;padding:12px;border-radius:12px;border:2px solid #4F46E5;box-shadow:0 4px 20px rgba(0,0,0,.15)">
+  <div style="font-weight:900;color:#1A1A2E">🗺️ الخريطة</div><div style="font-size:11px;color:#6B7280">اسحب لتحديد الموقع</div><div style="font-size:10px;color:#4F46E5;margin-top:4px">دمشق</div>
+  </div>
+  <div class="pin"><div class="pin-head"><span>📍</span></div><div class="pin-shadow"></div></div>
+  <div class="crosshair"></div>
+  <div class="coord-bar"><div><b id="coordText">33.5138, 36.2765</b><br><span>دمشق — اسحب الخريطة</span></div><div style="background:#4F46E5;color:#fff;padding:6px 10px;border-radius:999px;font-size:11px;font-weight:800">تحديد دقيق</div></div>
+ </div>
+ <div class="sheet-foot"><button class="btn-confirm" onclick="confirmMap()">تأكيد الموقع ✓</button></div>
+ </div>
+</div>
+<script>
+// ===== توجيه حقيقي على الطرق (OSRM) — بديل الخط المستقيم =====
+const ROUTE_CACHE={}
+async function getRoute(points){
+ const key=points.map(p=>p[0].toFixed(5)+','+p[1].toFixed(5)).join(';')
+ if(ROUTE_CACHE[key]) return ROUTE_CACHE[key]
+ const coords=points.map(p=>p[1]+','+p[0]).join(';')
+ const ctrl=new AbortController(); const tm=setTimeout(()=>ctrl.abort(),10000)
+ try{
+   const r=await fetch('https://router.project-osrm.org/route/v1/driving/'+coords+'?overview=full&geometries=geojson',{signal:ctrl.signal})
+   const j=await r.json()
+   if(j.code!=='Ok'||!j.routes||!j.routes.length) throw new Error('no route')
+   const rt=j.routes[0]
+   const res={ok:true, km:rt.distance/1000, min:rt.duration/60, latlngs:rt.geometry.coordinates.map(c=>[c[1],c[0]])}
+   ROUTE_CACHE[key]=res; return res
+ }catch(e){ return {ok:false} } finally{ clearTimeout(tm) }
+}
+function fmtMin(m){ m=Math.round(m); return m<60? m+' د' : Math.floor(m/60)+' س '+(m%60)+' د' }
+let routeKm=0, routeMin=0, routeReq=0
+async function updateRoute(){
+ const pts=[...pickPoints, ...dropPoints].filter(p=>p.lat).map(p=>[p.lat,p.lng])
+ const info=document.getElementById('routeInfo')
+ if(!pickPoints.some(p=>p.lat) || !dropPoints.some(p=>p.lat)){ info.style.display='none'; routeKm=0; return }
+ info.style.display='block'; info.textContent='⏳ جاري حساب المسار على الطرق...'
+ const my=++routeReq; const r=await getRoute(pts)
+ if(my!==routeReq) return
+ if(!r.ok){ routeKm=0; info.textContent='⚠️ تعذر حساب المسار — حاول مرة أخرى'; return }
+ routeKm=r.km; routeMin=r.min
+ info.textContent=`🛣️ المسافة الفعلية على الطريق: ${routeKm.toFixed(1)} كم • ${fmtMin(routeMin)}`
+}
+let pickPoints=[], dropPoints=[], currentMode=null, currentIndex=null;
+let centerLat=33.5138, centerLng=36.2765, offsetX=0, offsetY=0, isDragging=false, startX=0, startY=0;
+const coordText=document.getElementById('coordText');
+let needWorkers=false, needEquip=false, timing='urgent', budgetType='fixed';
+function setBudgetType(t){budgetType=t;document.getElementById('budgetFixed').className=t==='fixed'?'chip active':'chip';document.getElementById('budgetQuote').className=t==='quote'?'chip active':'chip';document.getElementById('budgetFixedBox').style.display=t==='fixed'?'block':'none';document.getElementById('budgetQuoteBox').style.display=t==='quote'?'block':'none';updatePublish();}
+function selectType(el,val){document.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));el.classList.add('active');document.getElementById('cargoTypeInput').value=val;updatePublish();}
+function createPick(i){const d=document.createElement('div');d.className='location-card pick';d.innerHTML=`<div class="loc-head"><div class="loc-badge pick">A${i+1}</div><b>استلام ${i+1}</b><span id="pickLabel${i}">لم تحدد</span></div><button class="btn-map" id="pickBtn${i}" onclick="openMap('pick',${i})">📍 اختر على الخريطة</button><div class="field" style="margin-top:10px;margin-bottom:0"><label>تفاصيل هذه النقطة</label><textarea class="textarea" id="pickDetail${i}" placeholder="غرفة نوم، خزانة..." oninput="updatePublish()"></textarea></div>${i>0?`<button class="remove" onclick="removePick(${i})">✕</button>`:''}`;return d;}
+function createDrop(i){const d=document.createElement('div');d.className='location-card drop';d.innerHTML=`<div class="loc-head"><div class="loc-badge drop">B${i+1}</div><b>تسليم ${i+1}</b><span id="dropLabel${i}">لم تحدد</span></div><button class="btn-map" id="dropBtn${i}" onclick="openMap('drop',${i})">🏁 اختر على الخريطة</button><div class="field" style="margin-top:10px;margin-bottom:0"><label>تفاصيل</label><input class="input" id="dropDetail${i}" placeholder="تفاصيل التسليم..." oninput="updatePublish()"></div>${i>0?`<button class="remove" onclick="removeDrop(${i})">✕</button>`:''}`;return d;}
+function renderPicks(){const l=document.getElementById('pickList');l.innerHTML='';pickPoints.forEach((p,i)=>{l.appendChild(createPick(i));if(p.lat){const b=document.getElementById('pickBtn'+i),lb=document.getElementById('pickLabel'+i);b.textContent='✓ '+p.lat.toFixed(5)+', '+p.lng.toFixed(5);b.classList.add('has');lb.textContent='تم ✓';lb.style.color='#059669'}});document.getElementById('pickCount').textContent=pickPoints.length;}
+function renderDrops(){const l=document.getElementById('dropList');l.innerHTML='';dropPoints.forEach((p,i)=>{l.appendChild(createDrop(i));if(p.lat){const b=document.getElementById('dropBtn'+i),lb=document.getElementById('dropLabel'+i);b.textContent='✓ '+p.lat.toFixed(5)+', '+p.lng.toFixed(5);b.classList.add('has');lb.textContent='تم ✓';lb.style.color='#DC2626'}});document.getElementById('dropCount').textContent=dropPoints.length;}
+function addPick(){pickPoints.push({});renderPicks();updatePublish();} function addDrop(){dropPoints.push({});renderDrops();updatePublish();}
+function removePick(i){pickPoints.splice(i,1);renderPicks();updatePublish();updateRoute();} function removeDrop(i){dropPoints.splice(i,1);renderDrops();updatePublish();updateRoute();}
+function setWorkers(v){needWorkers=v;document.getElementById('workersYes').className=v?'chip active':'chip';document.getElementById('workersNo').className=v?'chip':'chip active';document.getElementById('workersBox').style.display=v?'block':'none';updatePublish();}
+function changeWorkers(d){const el=document.getElementById('workersCount');let n=parseInt(el.value)||2;n=Math.min(20,Math.max(1,n+d));el.value=n;updatePublish();}
+function setEquipment(v){needEquip=v;document.getElementById('equipYes').className=v?'chip active':'chip';document.getElementById('equipNo').className=v?'chip':'chip active';document.getElementById('equipBox').style.display=v?'block':'none';updatePublish();}
+function toggleLiftUp(){const c=document.getElementById('liftUpCheck').checked;document.getElementById('liftUpBox').style.display=c?'block':'none';updatePublish();}
+function toggleLiftDown(){const c=document.getElementById('liftDownCheck').checked;document.getElementById('liftDownBox').style.display=c?'block':'none';updatePublish();}
+function setTiming(t){timing=t;document.getElementById('optUrgent').className=t==='urgent'?'time-opt active':'time-opt';document.getElementById('optScheduled').className=t==='scheduled'?'time-opt active':'time-opt';document.getElementById('scheduleBox').style.display=t==='scheduled'?'block':'none';updatePublish();}
+function openMap(mode,index){currentMode=mode;currentIndex=index;document.getElementById('mapModal').classList.add('open');document.getElementById('mapTitle').textContent=mode==='pick'?'استلام '+(index+1):'تسليم '+(index+1);const ex=mode==='pick'?pickPoints[index]:dropPoints[index];if(ex && ex.lat){centerLat=ex.lat; centerLng=ex.lng;} else{centerLat=33.5138; centerLng=36.2765;} offsetX=0; offsetY=0; updateCoord();}
+function closeMap(){document.getElementById('mapModal').classList.remove('open');}
+function confirmMap(){const lat=centerLat - offsetY*0.00012, lng=centerLng + offsetX*0.00015;if(currentMode==='pick'){pickPoints[currentIndex]={lat,lng};renderPicks();} else{dropPoints[currentIndex]={lat,lng};renderDrops();} closeMap();updatePublish();updateRoute();}
+const container=document.getElementById('mapContainer');
+container.addEventListener('mousedown',e=>{isDragging=true;startX=e.clientX-offsetX;startY=e.clientY-offsetY;});
+container.addEventListener('touchstart',e=>{isDragging=true;startX=e.touches[0].clientX-offsetX;startY=e.touches[0].clientY-offsetY;},{passive:false});
+window.addEventListener('mousemove',e=>{if(!isDragging)return;offsetX=e.clientX-startX;offsetY=e.clientY-startY;updateCoord();});
+window.addEventListener('touchmove',e=>{if(!isDragging)return;offsetX=e.touches[0].clientX-startX;offsetY=e.touches[0].clientY-startY;updateCoord();e.preventDefault();},{passive:false});
+window.addEventListener('mouseup',()=>isDragging=false); window.addEventListener('touchend',()=>isDragging=false);
+function updateCoord(){const lat=centerLat - offsetY*0.00012, lng=centerLng + offsetX*0.00015;coordText.textContent=lat.toFixed(5)+', '+lng.toFixed(5);}
+function updateBudget(){const f=parseFloat(document.getElementById('budgetFrom').value)||0,t=parseFloat(document.getElementById('budgetTo').value)||0;document.getElementById('budgetPreview').textContent=` $${f} — $${t} • متوسط $${(f+t)/2}`;updatePublish();}
+function updatePublish(){
+ const type=document.getElementById('cargoTypeInput').value.trim();
+ const hasPick=pickPoints.some(p=>p.lat);
+ const hasDrop=dropPoints.some(p=>p.lat);
+ const f=parseFloat(document.getElementById('budgetFrom').value),t=parseFloat(document.getElementById('budgetTo').value);
+ const workersOk = !needWorkers || (parseInt(document.getElementById('workersCount').value)>0);
+ const equipOk = !needEquip || document.getElementById('equipDetail').value.trim().length>0;
+ const floorUpOk = !document.getElementById('liftUpCheck').checked || document.getElementById('floorTo').value.trim().length>0;
+ const floorDownOk = !document.getElementById('liftDownCheck').checked || document.getElementById('floorFrom').value.trim().length>0;
+ const valid=type && hasPick && hasDrop && f>0 && t>f && workersOk && equipOk && floorUpOk && floorDownOk;
+ document.getElementById('publishBtn').disabled=!valid;
+}
+function publish(){
+ const type=document.getElementById('cargoTypeInput').value;
+ const picks=pickPoints.filter(p=>p.lat).length,drops=dropPoints.filter(p=>p.lat).length;
+ const workers = needWorkers ? `مع عمال (${document.getElementById('workersCount').value})` : 'بدون عمال';
+ const equip = needEquip ? `مع معدات: ${document.getElementById('equipDetail').value}` : 'بدون معدات';
+ let floors=[];
+ if(document.getElementById('liftUpCheck').checked) floors.push(`رفع إلى طابق ${document.getElementById('floorTo').value} (${document.getElementById('elevatorTo').value||'غير محدد'})`);
+ if(document.getElementById('liftDownCheck').checked) floors.push(`تنزيل من طابق ${document.getElementById('floorFrom').value} (${document.getElementById('elevatorFrom').value||'غير محدد'})`);
+ const floorNote=document.getElementById('floorNote').value;
+ if(floorNote) floors.push('ملاحظة: '+floorNote);
+ const floorStr = floors.length? floors.join(' | ') : 'بدون رفع/تنزيل طوابق';
+ const time=timing==='urgent'?'مستعجل':document.getElementById('schedDate').value+' '+document.getElementById('schedTime').value;
+ alert(`نقل: ${type}\nاستلام: ${picks} تسليم: ${drops}\nعمال: ${workers}\nمعدات: ${equip}\nطوابق: ${floorStr}\nالتوقيت: ${time}\nميزانية: $${document.getElementById('budgetFrom').value}-$${document.getElementById('budgetTo').value}\n(يتطلب دخول)`);
+}
+pickPoints=[{}];dropPoints=[{}];renderPicks();renderDrops();updateBudget();
+</script>
+</body>
+</html>

@@ -1,0 +1,85 @@
+{
+  "expo": {
+    "name": "مشوار",
+    "slug": "mishwar",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "mishwar",
+    "userInterfaceStyle": "light",
+    "platforms": [
+      "ios",
+      "android",
+      "web"
+    ],
+    "icon": "./assets/icon.png",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#111111"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.mishwar.app",
+      "infoPlist": {
+        "UIBackgroundModes": [
+          "location"
+        ],
+        "NSLocationWhenInUseUsageDescription": "لعرض موقعك على الخريطة وحساب المسافات",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "عند الضغط على زر الطوارئ فقط: يُرسل موقعك لأهلك حتى لو كانت الشاشة مقفولة"
+      }
+    },
+    "android": {
+      "package": "com.mishwar.app",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#111111"
+      },
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
+        "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_LOCATION",
+        "POST_NOTIFICATIONS"
+      ]
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "single",
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      "@maplibre/maplibre-react-native",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "عند الضغط على زر الطوارئ فقط: يُرسل موقعك لأهلك حتى لو كانت الشاشة مقفولة",
+          "isAndroidBackgroundLocationEnabled": true,
+          "isAndroidForegroundServiceEnabled": true
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "نحتاج الوصول للصور لإضافة صور السيارة",
+          "cameraPermission": "نحتاج الكاميرا لتصوير السيارة"
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "sounds": [
+            "./assets/sounds/taxi_order.wav"
+          ],
+          "color": "#FF6B00"
+        }
+      ]
+    ],
+    "extra": {
+      "supabaseUrl": "https://vainkbvlruoebfgnuzea.supabase.co",
+      "supabaseAnonKey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZhaW5rYnZscnVvZWJmZ251emVhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAxMjUxMTcsImV4cCI6MjEwNTcwMTExN30.8x6U8XCcjQcrO1Ld9devWFQFPgCpxStmLgL11DB0Tv0",
+      "trackUrl": "https://USERNAME.github.io/mishwar/track.html"
+    }
+  }
+}

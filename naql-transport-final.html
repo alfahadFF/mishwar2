@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>طلب نقل — نَقْل</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+function showToast(msg, isError=false){
+  const t=document.getElementById('toast'); if(!t) return;
+  t.textContent=msg; t.className='toast'+(isError?' error':''); t.style.display='block';
+  clearTimeout(window._toastTimer); window._toastTimer=setTimeout(()=>{ t.style.display='none' },2600);
+}
+</script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:#F8F9FA;direction:rtl;color:#0f172a}
+.phone{max-width:560px;margin:0 auto;min-height:100vh;background:#F8F9FA}
+.topbar{height:52px;background:#fff;display:flex;align-items:center;gap:12px;padding:0 14px;box-shadow:0 1px 10px rgba(0,0,0,.06);position:sticky;top:0;z-index:20}
+.back{width:36px;height:36px;border-radius:10px;background:#F3F4F6;display:flex;align-items:center;justify-content:center;border:none;cursor:pointer}
+.topbar h1{font-size:14px;font-weight:900} .topbar p{font-size:11px;color:#6B7280}
+.section{margin:12px;background:#fff;border-radius:16px;padding:14px;border:1px solid #E5E7EB;box-shadow:0 2px 12px rgba(0,0,0,.05)}
+.section h2{font-size:13px;font-weight:900;margin-bottom:4px;display:flex;align-items:center;gap:8px}
+.req{background:#fef2f2;color:#991b1b;padding:2px 8px;border-radius:999px;font-size:10px}
+.hint{font-size:11px;color:#6B7280;margin-bottom:10px;line-height:1.5}
+.field{margin-bottom:12px} .field label{font-size:11px;font-weight:800;color:#374151;display:flex;align-items:center;gap:6px;margin-bottom:6px}
+.opt{font-weight:600;color:#9CA3AF;font-size:10px;background:#F3F4F6;padding:2px 6px;border-radius:999px}
+.input,.textarea,select.input{width:100%;border:1.5px solid #E5E7EB;border-radius:12px;padding:12px;font-size:13px;background:#fff;outline:none;font-family:inherit}
+.input:focus,.textarea:focus{border-color:#4F46E5} .textarea{min-height:70px;resize:vertical}
+.chips{display:flex;flex-wrap:wrap;gap:8px} .chip{padding:8px 14px;border-radius:999px;border:1.5px solid #E5E7EB;background:#fff;font-size:12px;font-weight:800;cursor:pointer;user-select:none}
+.chip.active{background:#4F46E5;color:#fff;border-color:#4F46E5;box-shadow:0 4px 12px rgba(79,70,229,.25)}
+.vGroup{margin-top:10px} .vGroup b{font-size:11px;color:#475569;display:block;margin-bottom:6px}
+.vChip{padding:9px 12px;border-radius:12px;border:1.5px solid #E5E7EB;background:#fff;font-size:12px;font-weight:800;cursor:pointer;min-width:70px;text-align:center}
+.vChip.active{background:#0f766e;color:#fff;border-color:#0f766e;box-shadow:0 4px 12px rgba(15,118,110,.25)}
+.vNote{margin-top:10px;background:#f0fdfa;border:1px solid #99f6e4;color:#115e59;border-radius:10px;padding:8px 10px;font-size:11px;font-weight:700;display:none}
+.ptDetail{width:100%;margin-top:6px;border:1px solid #e2e8f0;border-radius:8px;padding:6px 8px;font-size:11px;font-family:inherit;outline:none}
+.timing{display:grid;grid-template-columns:1fr 1fr;gap:10px} .time-opt{border:1.5px solid #E5E7EB;border-radius:12px;padding:12px;text-align:center;cursor:pointer;background:#fff}
+.time-opt.active{border-color:#F59E0B;background:#FFFBEB} .time-opt b{font-size:12px;display:block} .time-opt span{font-size:11px;color:#6B7280}
+.budget{display:flex;gap:8px;align-items:center} .budget input{flex:1;min-width:0;height:44px;border:1.5px solid #E5E7EB;border-radius:12px;padding:0 12px;font-size:14px;font-weight:800;text-align:center;background:#fff}
+.budget span{font-weight:800;color:#6B7280}
+.boxSoft{background:#F8FAFC;border:1.5px solid #E5E7EB;border-radius:12px;padding:12px}
+.cta{margin:12px;background:#fff;padding:12px;border-radius:16px;box-shadow:0 -4px 20px rgba(0,0,0,.06);position:sticky;bottom:0;z-index:10}
+.btn-publish{width:100%;height:54px;border-radius:14px;background:linear-gradient(135deg,#4F46E5,#7C3AED);color:#fff;border:none;font-weight:900;font-size:15px;cursor:pointer}
+.btn-publish:disabled{opacity:.45;cursor:not-allowed}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#065f46;color:#fff;padding:12px 20px;border-radius:999px;font-weight:800;font-size:13px;box-shadow:0 8px 24px rgba(0,0,0,.2);z-index:9999;display:none;max-width:90%;text-align:center}
+.toast.error{background:#991b1b}
+/* طلبي والعروض */
+#myOrder{display:none}
+.stBadge{display:inline-block;padding:4px 10px;border-radius:999px;font-size:11px;font-weight:900}
+.st-open{background:#fef9c3;color:#854d0e} .st-accepted{background:#dcfce7;color:#166534}
+.sumRow{font-size:12px;margin-top:6px;color:#334155}
+.offer{border:1.5px solid #e2e8f0;border-radius:14px;padding:12px;margin-top:10px;display:flex;align-items:center;gap:10px;background:#fff}
+.offer .oPrice{font-size:20px;font-weight:900;color:#4F46E5;min-width:74px;text-align:center}
+.offer .oBody{flex:1;min-width:0;font-size:11px;color:#475569}
+.offer .oBody b{display:block;font-size:12px;color:#0f172a}
+.offer button{height:38px;padding:0 14px;border-radius:10px;border:none;background:#4F46E5;color:#fff;font-weight:900;cursor:pointer}
+.offer.rejected{opacity:.5}
+.empty{text-align:center;color:#94a3b8;font-size:12px;padding:18px 0}
+.carrierCard{background:#f0fdf4;border:1.5px solid #a7f3d0;border-radius:14px;padding:12px;margin-top:10px}
+.carrierCard b{font-size:14px}
+.callBtn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:42px;padding:0 16px;border-radius:12px;background:#16a34a;color:#fff;font-weight:900;text-decoration:none;margin-top:10px}
+.overlay{position:fixed;inset:0;background:rgba(15,23,42,.55);display:none;align-items:center;justify-content:center;z-index:3000;padding:16px}
+.overlay.open{display:flex}
+.modal{background:#fff;border-radius:18px;padding:18px;width:100%;max-width:380px;text-align:center}
+.modal h3{font-size:15px;font-weight:900}
+.modal .big{font-size:30px;font-weight:900;color:#4F46E5;margin:10px 0}
+.mBtns{display:flex;gap:8px;margin-top:14px} .mBtns button{flex:1;height:44px;border-radius:12px;font-weight:900;cursor:pointer;border:1px solid #e2e8f0;background:#fff}
+.mBtns .yes{background:#4F46E5;color:#fff;border:none;flex:2}
+
+/* ===== اختيار النقاط من الخريطة ===== */
+.pt{display:flex;align-items:center;gap:10px;border:1.5px solid #e2e8f0;border-radius:14px;padding:10px;background:#fff;margin-top:8px}
+.ptBadge{min-width:30px;height:30px;border-radius:999px;color:#fff;font-weight:900;font-size:12px;display:grid;place-items:center;flex-shrink:0}
+.ptBody{flex:1;min-width:0}
+.ptTitle{font-size:12px;font-weight:900}
+.ptLabel{font-size:11px;color:#334155;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ptLabel.empty{color:#94a3b8}
+.ptBtn{height:36px;padding:0 12px;border-radius:10px;border:1.5px dashed #cbd5e1;background:#fff;font-weight:800;font-size:11px;cursor:pointer;white-space:nowrap;color:#0f172a}
+.ptBtn.has{border-style:solid;border-color:#c7d2fe;background:#eef2ff;color:#4F46E5}
+.ptX{width:30px;height:30px;border-radius:999px;border:1px solid #fecaca;background:#fff;color:#991b1b;cursor:pointer;flex-shrink:0}
+.addPt{margin-top:8px;height:38px;width:100%;border-radius:12px;border:1.5px dashed #c7d2fe;background:#f8faff;color:#4F46E5;font-weight:900;font-size:12px;cursor:pointer}
+.pkOverlay{position:fixed;inset:0;z-index:2000;background:#fff;display:none;flex-direction:column;max-width:560px;margin:0 auto}
+.pkOverlay.open{display:flex}
+.pkHead{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid #e2e8f0}
+.pkHead b{font-size:15px}
+.pkHead button{width:34px;height:34px;border-radius:10px;border:1px solid #e2e8f0;background:#fff;cursor:pointer;font-size:14px}
+.pkMapWrap{flex:1;position:relative}
+#pkMap{position:absolute;inset:0}
+.pkHint{position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:500;background:rgba(15,23,42,.85);color:#fff;font-size:11px;font-weight:800;padding:6px 12px;border-radius:999px;white-space:nowrap;pointer-events:none}
+.pkMy{position:absolute;bottom:12px;left:12px;z-index:500;height:40px;padding:0 12px;border-radius:12px;border:1px solid #e2e8f0;background:#fff;font-weight:800;font-size:12px;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,.12)}
+.pkBar{padding:12px 14px;border-top:1px solid #e2e8f0;background:#fff}
+.pkLabel{font-size:13px;font-weight:800;min-height:20px;color:#0f172a}
+.pkLabel.empty{color:#94a3b8;font-weight:700}
+.pkConfirm{width:100%;height:46px;border-radius:12px;border:none;background:#4F46E5;color:#fff;font-weight:900;font-size:14px;cursor:pointer;margin-top:10px}
+.pkConfirm:disabled{background:#cbd5e1;color:#64748b}
+.tripMap{height:220px;border-radius:12px;border:1.5px solid #e2e8f0;overflow:hidden;margin-top:10px}
+.tripInfo{margin-top:8px;display:grid;gap:6px}
+.tripInfo div{background:#eef2ff;border:1px solid #c7d2fe;color:#3730a3;border-radius:10px;padding:8px 10px;font-size:12px;font-weight:900;text-align:center}
+.tripInfo div.ret{background:#f0fdf4;border-color:#a7f3d0;color:#065f46}
+.tripInfo div.err{background:#fef2f2;border-color:#fecaca;color:#991b1b}
+
+</style>
+</head>
+<body>
+<div class="phone">
+<div class="topbar"><button class="back" onclick="history.back()">→</button><div><h1 id="pageTitle">طلب نقل جديد</h1><p>خدمة نقل احترافية</p></div></div>
+
+<div id="formView">
+ <div class="section">
+  <h2>📦 نوع الحمولة <span class="req">مطلوب</span></h2>
+  <div class="chips" id="typeChips">
+   <div class="chip" onclick="selectType(this,'مفروشات')">🛋️ مفروشات</div>
+   <div class="chip" onclick="selectType(this,'مواد تموينية')">🧃 تموينية</div>
+   <div class="chip" onclick="selectType(this,'أجهزة كهربائية')">🔌 أجهزة</div>
+   <div class="chip" onclick="selectType(this,'مواد بناء')">🧱 بناء</div>
+   <div class="chip" onclick="selectType(this,'')">✏️ أخرى</div>
+  </div>
+  <div class="field" style="margin-top:12px"><label>نوع الحمولة</label><input class="input" id="cargoType" placeholder="مثال: مفروشات منزل" oninput="updatePublish()"></div>
+  <div class="field" style="margin-bottom:0"><label>الوزن التقريبي (كغ) <span class="opt">اختياري</span></label><input class="input" id="weight" type="number" min="1" placeholder="500" oninput="updatePublish()"></div>
+ </div>
+
+ <div class="section">
+  <h2>🚚 المركبة المطلوبة <span class="req">مطلوب</span></h2>
+  <div id="vehicleBox"></div>
+  <div class="vNote" id="vNote"></div>
+ </div>
+
+ <div class="section">
+  <h2>📍 نقاط الاستلام</h2>
+  <div id="pickList"></div>
+  <button class="addPt" onclick="addPoint('picks')">＋ إضافة نقطة استلام</button>
+ </div>
+ <div class="section">
+  <h2>🏁 نقاط التسليم</h2>
+  <div id="dropList"></div>
+  <button class="addPt" onclick="addPoint('drops')">＋ إضافة نقطة تسليم</button>
+ </div>
+ <div class="section" id="tripBox" style="display:none">
+  <h2>🛣️ مسار النقل</h2>
+  <div id="tripMap" class="tripMap"></div>
+  <div class="tripInfo" id="tripInfo"></div>
+ </div>
+
+ <div class="section">
+  <h2>👷 العمال</h2>
+  <div class="chips" style="margin-bottom:10px">
+   <div class="chip active" id="workersNo" onclick="setWorkers(false)">بدون عمال</div>
+   <div class="chip" id="workersYes" onclick="setWorkers(true)">مع عمال</div>
+  </div>
+  <div id="workersBox" class="boxSoft" style="display:none">
+   <label style="font-size:11px;font-weight:800">عدد العمال</label>
+   <div style="display:flex;align-items:center;gap:10px;margin-top:6px">
+    <button type="button" onclick="changeWorkers(-1)" style="width:44px;height:44px;border-radius:12px;border:1.5px solid #E5E7EB;background:#fff;font-weight:900;font-size:18px;cursor:pointer">−</button>
+    <input class="input" id="workersCount" type="number" value="2" min="1" max="20" style="flex:1;text-align:center;font-weight:900" oninput="updatePublish()">
+    <button type="button" onclick="changeWorkers(1)" style="width:44px;height:44px;border-radius:12px;border:none;background:#4F46E5;color:#fff;font-weight:900;font-size:18px;cursor:pointer">+</button>
+   </div>
+  </div>
+ </div>
+
+ <div class="section">
+  <h2>🔧 المعدات</h2>
+  <div class="chips" style="margin-bottom:10px">
+   <div class="chip active" id="equipNo" onclick="setEquipment(false)">بدون معدات</div>
+   <div class="chip" id="equipYes" onclick="setEquipment(true)">مع معدات</div>
+  </div>
+  <div id="equipBox" style="display:none"><textarea class="textarea" id="equipDetail" placeholder="مثال: رافعة صغيرة، حبال تثبيت" oninput="updatePublish()"></textarea></div>
+ </div>
+
+ <div class="section">
+  <h2>🏢 الطوابق</h2>
+  <div class="boxSoft" style="margin-bottom:8px">
+   <label style="display:flex;align-items:center;gap:8px;font-weight:800;font-size:12px;cursor:pointer"><input type="checkbox" id="liftDown" onchange="toggleLift()" style="width:18px;height:18px"> ⬇️ تنزيل من طابق عند الاستلام</label>
+   <div id="liftDownBox" style="display:none;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">
+    <input class="input" id="floorFrom" type="number" min="0" max="50" placeholder="رقم الطابق" oninput="updatePublish()">
+    <select class="input" id="elevFrom" onchange="updatePublish()"><option value="">المصعد</option><option>يوجد مصعد</option><option>لا يوجد مصعد</option><option>مصعد صغير</option></select>
+   </div>
+  </div>
+  <div class="boxSoft">
+   <label style="display:flex;align-items:center;gap:8px;font-weight:800;font-size:12px;cursor:pointer"><input type="checkbox" id="liftUp" onchange="toggleLift()" style="width:18px;height:18px"> ⬆️ رفع إلى طابق عند التسليم</label>
+   <div id="liftUpBox" style="display:none;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">
+    <input class="input" id="floorTo" type="number" min="0" max="50" placeholder="رقم الطابق" oninput="updatePublish()">
+    <select class="input" id="elevTo" onchange="updatePublish()"><option value="">المصعد</option><option>يوجد مصعد</option><option>لا يوجد مصعد</option><option>مصعد صغير</option></select>
+   </div>
+  </div>
+  <input class="input" id="floorNote" style="margin-top:8px" placeholder="ملاحظات الطوابق (اختياري): الدرج ضيق..." oninput="updatePublish()">
+ </div>
+
+ <div class="section">
+  <h2>⏰ التوقيت</h2>
+  <div class="timing">
+   <div class="time-opt active" id="optUrgent" onclick="setTiming('urgent')"><b>⚡ مستعجل</b><span>في أقرب وقت</span></div>
+   <div class="time-opt" id="optScheduled" onclick="setTiming('scheduled')"><b>📅 موعد محدد</b><span>تاريخ وساعة</span></div>
+  </div>
+  <div id="scheduleBox" style="display:none;margin-top:10px;grid-template-columns:1fr 1fr;gap:8px">
+   <input class="input" type="date" id="schedDate" onchange="updatePublish()">
+   <input class="input" type="time" id="schedTime" onchange="updatePublish()">
+  </div>
+ </div>
+
+ <div class="section" style="border:2px solid #4F46E5">
+  <h2>💰 الميزانية</h2>
+  <div style="display:flex;gap:8px;margin:8px 0 12px">
+   <div class="chip active" id="budgetFixed" onclick="setBudgetType('fixed')" style="flex:1;text-align:center">💰 تحديد ميزانية</div>
+   <div class="chip" id="budgetQuote" onclick="setBudgetType('quote')" style="flex:1;text-align:center">📩 طلب عروض أسعار</div>
+  </div>
+  <div id="budgetFixedBox">
+   <div class="budget"><input type="number" id="budgetFrom" placeholder="من $" oninput="updatePublish()"><span>—</span><input type="number" id="budgetTo" placeholder="إلى $" oninput="updatePublish()"></div>
+   <div class="hint" style="margin:8px 0 0">يمكن للناقل القبول بالحد الأعلى مباشرة، أو تقديم عرض ضمن هذا النطاق</div>
+  </div>
+  <div id="budgetQuoteBox" style="display:none" class="hint">يقدّم الناقلون أسعارهم وتختار العرض المناسب</div>
+ </div>
+
+ <div class="cta"><button class="btn-publish" id="publishBtn" disabled onclick="publish()">📢 نشر الطلب</button></div>
+</div>
+
+<!-- طلبي: الحالة والعروض -->
+<div id="myOrder">
+ <div class="section">
+  <div style="display:flex;align-items:center;justify-content:space-between"><h2 id="moTitle">📦</h2><span class="stBadge" id="moStatus"></span></div>
+  <div id="moSummary"></div>
+ </div>
+ <div class="section" id="moOffersBox">
+  <h2>📨 عروض الناقلين <span class="stBadge st-open" id="moCount">0</span></h2>
+  <div id="moOffers"></div>
+ </div>
+ <div class="section" id="moCarrierBox" style="display:none">
+  <h2>✅ الناقل المعتمد</h2>
+  <div id="moCarrier"></div>
+ </div>
+ <div class="cta"><button class="btn-publish" style="background:#fff;color:#4F46E5;border:1.5px solid #c7d2fe" onclick="newOrder()">＋ طلب نقل جديد</button></div>
+</div>
+</div>
+
+<div class="overlay" id="acceptModal"><div class="modal">
+ <h3>قبول عرض الناقل</h3>
+ <div class="big" id="amPrice">$0</div>
+ <div class="hint" id="amInfo"></div>
+ <div class="mBtns"><button onclick="closeAccept()">رجوع</button><button class="yes" onclick="confirmAccept()">قبول العرض</button></div>
+</div></div>
+
+
+<div class="pkOverlay" id="pkOverlay">
+ <div class="pkHead"><b id="pkTitle">حدد النقطة</b><button onclick="closePicker()">✕</button></div>
+ <div class="pkMapWrap"><div id="pkMap"></div><div class="pkHint">اضغط على الخريطة لتحديد الموقع</div><button class="pkMy" onclick="pickerMyLoc()">🎯 موقعي</button></div>
+ <div class="pkBar"><div class="pkLabel empty" id="pkLabel">لم يتم تحديد موقع بعد</div><button class="pkConfirm" id="pkConfirm" disabled onclick="pickerConfirm()">تأكيد الموقع</button></div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+// ===== فئات المركبات: تطابق الفئة نفسها والأكبر ضمن المجموعة =====
+const VGROUPS=[
+ {g:'pickup', name:'بيك آب صغير', icon:'🛻'},
+ {g:'medium', name:'متوسط', icon:'🚚'},
+ {g:'truck',  name:'شاحنة', icon:'🚛'},
+]
+const VCLASS=[
+ {k:'pk800', g:'pickup', r:1, short:'800 كغ'},
+ {k:'pk1200',g:'pickup', r:2, short:'1200 كغ'},
+ {k:'pk1500',g:'pickup', r:3, short:'1500 كغ'},
+ {k:'pk2000',g:'pickup', r:4, short:'2000 كغ'},
+ {k:'md3', g:'medium', r:1, short:'3 طن'},
+ {k:'md4', g:'medium', r:2, short:'4 طن'},
+ {k:'md5', g:'medium', r:3, short:'5 طن'},
+ {k:'md6', g:'medium', r:4, short:'6 طن'},
+ {k:'md7', g:'medium', r:5, short:'7 طن'},
+ {k:'truck',g:'truck', r:1, short:'شاحنة'},
+]
+function vOf(k){ return VCLASS.find(v=>v.k===k) }
+function vName(k){ const v=vOf(k); if(!v) return '—'; const g=VGROUPS.find(x=>x.g===v.g); return v.g==='truck'? g.icon+' شاحنة' : g.icon+' '+g.name+' '+v.short }
+function vehicleFits(orderK, carrierK){ const o=vOf(orderK), c=vOf(carrierK); return !!(o&&c&&o.g===c.g&&c.r>=o.r) }
+
+// ===== العمولة والمحفظة =====
+// نسبة العمولة الموحّدة لكل الخدمات
+const CARGO_COMMISSION=0.12
+const COMMISSION_PCT=Math.round(CARGO_COMMISSION*100)+'%'
+function commissionOf(price){ return Math.round(Number(price)*CARGO_COMMISSION*100)/100 }
+const money=v=> (v<0?'−':'')+'$'+Math.abs(Number(v)).toFixed(2)
+
+// ===== الجسر بين الشاشتين (نسخة التجربة) =====
+const K_ORDERS='naql_cargo_orders', K_OFFERS='naql_cargo_offers', K_WALLET='naql_wallet_', K_CARRIER='naql_carrier_profile'
+// تخزين محلي، مع بديل في الذاكرة إذا كان المتصفح يمنعه
+const STORE=(()=>{ try{ const s=window.localStorage; s.getItem('_t'); return s }catch(e){ const m={}; return {getItem:k=> k in m? m[k]:null, setItem:(k,v)=>{ m[k]=String(v) }, removeItem:k=>{ delete m[k] }} } })()
+const lsGet=(k,d)=>{ try{ const v=JSON.parse(STORE.getItem(k)); return v==null? d : v }catch(e){ return d } }
+const lsSet=(k,v)=> STORE.setItem(k, JSON.stringify(v))
+const loadOrders=()=> lsGet(K_ORDERS,[]), saveOrders=v=> lsSet(K_ORDERS,v)
+const loadOffers=()=> lsGet(K_OFFERS,[]), saveOffers=v=> lsSet(K_OFFERS,v)
+const DEMO_CARRIER={id:'carrier-1', name:'أبو خالد', phone:'0933 222 111'}
+const DEMO_CUSTOMER={id:'customer-1', name:'أحمد محمد', phone:'0944 123 456'}
+// الفترة المجانية: أسبوعان من تاريخ التسجيل، بدون عمولة في كل الخدمات (في التطبيق من app_settings.free_days)
+const FREE_DAYS=14, DAY_MS=864e5
+function loadWallet(id){
+ const w=lsGet(K_WALLET+id,null); if(w && w.registered_at) return w
+ // الحسابات التجريبية مسجّلة قبل 5 أيام
+ const n=Object.assign({balance:0, tx:[]}, w||{}, {registered_at:Date.now()-5*DAY_MS}); saveWallet(id,n); return n
+}
+function saveWallet(id,w){ lsSet(K_WALLET+id, w) }
+function freeDaysLeft(id){ const w=loadWallet(id); return Math.max(0, Math.ceil((w.registered_at+FREE_DAYS*DAY_MS-Date.now())/DAY_MS)) }
+function inFreePeriod(id){ return freeDaysLeft(id)>0 }
+function daysAr(n){ return n===1? 'يوم واحد' : n===2? 'يومان' : n<=10? n+' أيام' : n+' يوماً' }
+function nextCommission(id, price){ return inFreePeriod(id)? 0 : commissionOf(price) }
+// خصم العمولة: لا عمولة ضمن الفترة المجانية، وبعدها تُخصم دائماً حتى لو صار الرصيد سالباً (دين يُسدد من الشحن التالي)
+function chargeCommission(carrierId, orderId, price){
+ const free=inFreePeriod(carrierId), w=loadWallet(carrierId), c= free? 0 : commissionOf(price)
+ w.balance=Math.round((w.balance-c)*100)/100
+ w.tx.unshift({kind:'commission', amount:-c, order_id:orderId, price:Number(price), balance_after:w.balance, free, at:Date.now()})
+ saveWallet(carrierId,w); return {commission:c, balance:w.balance, free}
+}
+function topUp(carrierId, amount){
+ const w=loadWallet(carrierId); const before=w.balance
+ w.balance=Math.round((w.balance+Number(amount))*100)/100
+ w.tx.unshift({kind:'topup', amount:Number(amount), debt_paid: before<0? Math.min(-before, Number(amount)) : 0, balance_after:w.balance, at:Date.now()})
+ saveWallet(carrierId,w); return w
+}
+const uid=()=> Date.now().toString(36)+Math.random().toString(36).slice(2,7)
+function timeAgo(t){ const m=Math.round((Date.now()-t)/60000); return m<1? 'الآن' : m<60? 'منذ '+m+' د' : 'منذ '+Math.floor(m/60)+' س' }
+function orderTiming(o){ return o.timing==='urgent'? '⚡ مستعجل' : '📅 '+(o.sched_date||'')+' '+(o.sched_time||'') }
+function orderBudget(o){ return o.budget_type==='fixed'? `💰 ${money(o.budget_from)} – ${money(o.budget_to)}` : '📩 بانتظار عروض الأسعار' }
+function orderExtras(o){
+ const x=[]
+ if(o.weight_kg) x.push('⚖️ '+o.weight_kg+' كغ')
+ if(o.need_workers) x.push('👷 '+o.workers_count+' عمال')
+ if(o.need_equipment) x.push('🔧 '+o.equipment_detail)
+ if(o.lift_up) x.push('⬆️ رفع للطابق '+o.floor_to+(o.elevator_to? ' • '+o.elevator_to:''))
+ if(o.lift_down) x.push('⬇️ تنزيل من الطابق '+o.floor_from+(o.elevator_from? ' • '+o.elevator_from:''))
+ if(o.floor_note) x.push('📝 '+o.floor_note)
+ return x
+}
+function beep(freq){ try{ const ctx=new (window.AudioContext||window.webkitAudioContext)(); const o=ctx.createOscillator(),g=ctx.createGain(); o.connect(g); g.connect(ctx.destination); o.frequency.value=freq||740; g.gain.value=0.2; o.start(); setTimeout(()=>{o.stop(); ctx.close()},350) }catch(e){} }
+function notify(freq){ beep(freq); if(navigator.vibrate) navigator.vibrate([200,100,200]) }
+
+
+// ===== توجيه حقيقي على الطرق (OSRM) =====
+const ROUTE_CACHE={}
+async function getRoute(points){
+ const key=points.map(p=>p[0].toFixed(5)+','+p[1].toFixed(5)).join(';')
+ if(ROUTE_CACHE[key]) return ROUTE_CACHE[key]
+ const coords=points.map(p=>p[1]+','+p[0]).join(';')
+ const ctrl=new AbortController(); const tm=setTimeout(()=>ctrl.abort(),12000)
+ try{
+   const r=await fetch('https://router.project-osrm.org/route/v1/driving/'+coords+'?overview=full&geometries=geojson',{signal:ctrl.signal})
+   const j=await r.json()
+   if(j.code!=='Ok'||!j.routes||!j.routes.length) throw new Error('no route')
+   const rt=j.routes[0]
+   const res={ok:true, km:rt.distance/1000, min:rt.duration/60, latlngs:rt.geometry.coordinates.map(c=>[c[1],c[0]])}
+   ROUTE_CACHE[key]=res; return res
+ }catch(e){ return {ok:false} } finally{ clearTimeout(tm) }
+}
+function fmtMin(m){ m=Math.round(m); return m<60? m+' د' : Math.floor(m/60)+' س '+(m%60)+' د' }
+
+// ===== اسم المكان من الخريطة (بدون كتابة) =====
+const GEO_CACHE={}
+async function placeName(ll){
+ const key=ll[0].toFixed(5)+','+ll[1].toFixed(5)
+ if(GEO_CACHE[key]) return GEO_CACHE[key]
+ try{
+   const r=await fetch('https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=17&accept-language=ar&lat='+ll[0]+'&lon='+ll[1])
+   const j=await r.json(); const a=j.address||{}
+   const parts=[a.road||a.pedestrian||a.amenity||a.building, a.neighbourhood||a.suburb||a.quarter||a.city_district, a.city||a.town||a.village||a.state]
+     .filter(Boolean).filter((v,i,arr)=> arr.indexOf(v)===i)
+   const name=parts.length? parts.join('، ') : 'موقع محدد على الخريطة'
+   GEO_CACHE[key]=name; return name
+ }catch(e){ return 'موقع محدد على الخريطة' }
+}
+
+// ===== نافذة اختيار نقطة =====
+const PK={map:null, marker:null, ll:null, label:'', cb:null, color:'#4F46E5', req:0}
+function pkIcon(c){ return L.divIcon({html:`<div style="background:${c};width:26px;height:26px;border-radius:999px 999px 999px 0;transform:rotate(-45deg);border:3px solid #fff;box-shadow:0 3px 10px rgba(0,0,0,.35)"></div>`, iconSize:[26,26], iconAnchor:[13,26]}) }
+function openPicker(title,color,current,cb){
+ PK.cb=cb; PK.color=color; PK.ll=null; PK.label=''
+ document.getElementById('pkTitle').textContent=title
+ document.getElementById('pkOverlay').classList.add('open')
+ document.body.style.overflow='hidden'
+ setTimeout(()=>{
+   if(!PK.map){
+     PK.map=L.map('pkMap',{zoomControl:false}).setView(DEFAULT_CENTER,13)
+     L.tileLayer('https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png',{maxZoom:19}).addTo(PK.map)
+     PK.map.on('click', e=> pickerSet([e.latlng.lat,e.latlng.lng]))
+   }
+   PK.map.invalidateSize()
+   if(PK.marker){ PK.map.removeLayer(PK.marker); PK.marker=null }
+   if(current){ pickerSet(current); PK.map.setView(current,15) } else { setPkLabel(null) }
+ },60)
+}
+function setPkLabel(t, loading){
+ const el=document.getElementById('pkLabel'), btn=document.getElementById('pkConfirm')
+ if(!t){ el.textContent='لم يتم تحديد موقع بعد'; el.className='pkLabel empty'; btn.disabled=true; return }
+ el.textContent=(loading?'⏳ ':'📍 ')+t; el.className='pkLabel'; btn.disabled=!!loading
+}
+async function pickerSet(ll){
+ PK.ll=ll
+ if(PK.marker) PK.marker.setLatLng(ll); else PK.marker=L.marker(ll,{icon:pkIcon(PK.color)}).addTo(PK.map)
+ const my=++PK.req
+ setPkLabel('جاري تحديد اسم المكان...', true)
+ const name=await placeName(ll)
+ if(my!==PK.req) return
+ PK.label=name; setPkLabel(name)
+}
+function pickerMyLoc(){
+ if(!navigator.geolocation) return showToast('تعذر تحديد موقعك')
+ navigator.geolocation.getCurrentPosition(p=>{ const ll=[p.coords.latitude,p.coords.longitude]; PK.map.setView(ll,16); pickerSet(ll) }, ()=> showToast('لم يتم السماح بالوصول للموقع'))
+}
+function closePicker(){ document.getElementById('pkOverlay').classList.remove('open'); document.body.style.overflow='' }
+function pickerConfirm(){
+ if(!PK.ll) return
+ const ll=PK.ll, label=PK.label||'موقع محدد على الخريطة', cb=PK.cb
+ closePicker(); if(cb) cb(ll,label)
+}
+
+// ===== بطاقات النقاط =====
+function pointRowHtml(kind,i,item,cfg){
+ const n=cfg.single? '' : (i+1)
+ return `<div class="pt"><div class="ptBadge" style="background:${cfg.color}">${cfg.letter}${n}</div>
+  <div class="ptBody"><div class="ptTitle">${cfg.title}${cfg.single?'':' '+n}</div><div class="ptLabel ${item.ll?'':'empty'}">${item.ll? item.label : (cfg.optional? 'اختياري — لم تُحدد' : 'لم تُحدد بعد')}</div>${cfg.extra? cfg.extra(i,item):''}</div>
+  <button class="ptBtn ${item.ll?'has':''}" onclick="pickPoint('${kind}',${i})">${item.ll?'✏️ تغيير':'📍 حدد على الخريطة'}</button>
+  ${(cfg.removable && i>0) || (cfg.optional && item.ll)? `<button class="ptX" onclick="removePoint('${kind}',${i})">✕</button>`:''}</div>`
+}
+function renderPoints(kind){
+ const cfg=POINTS[kind], box=document.getElementById(cfg.box); if(!box) return
+ box.innerHTML=cfg.get().map((it,i)=> pointRowHtml(kind,i,it,cfg)).join('')
+}
+function pickPoint(kind,i){
+ const cfg=POINTS[kind], item=cfg.get()[i]
+ openPicker(cfg.title+(cfg.single?'':' '+(i+1)), cfg.color, item.ll, (ll,label)=>{ item.ll=ll; item.label=label; renderPoints(kind); onPointsChanged() })
+}
+function removePoint(kind,i){
+ const cfg=POINTS[kind], arr=cfg.get()
+ if(cfg.optional && arr.length===1){ arr[0].ll=null; arr[0].label='' } else arr.splice(i,1)
+ renderPoints(kind); onPointsChanged()
+}
+function addPoint(kind){ POINTS[kind].get().push({ll:null,label:''}); renderPoints(kind) }
+
+// ===== خريطة ملخص الرحلة: المسار الفعلي (معلومة فقط) =====
+let tripMap=null, tripLayer=null, tripReq=0
+function numIcon(txt,c){ return L.divIcon({html:`<div style="background:${c};color:#fff;min-width:24px;height:24px;padding:0 5px;border-radius:999px;display:grid;place-items:center;font-size:10px;font-weight:900;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.3)">${txt}</div>`, iconSize:[24,24], iconAnchor:[12,12]}) }
+async function drawTrip(){
+ const box=document.getElementById('tripBox'); if(!box) return
+ const segs=tripSegments()
+ const info=document.getElementById('tripInfo')
+ const markers=tripMarkers()
+ if(!segs.length || segs[0].pts.length<2){ box.style.display='none'; return }
+ box.style.display='block'
+ if(!tripMap){
+   tripMap=L.map('tripMap',{zoomControl:false,attributionControl:false}).setView(DEFAULT_CENTER,12)
+   L.tileLayer('https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png',{maxZoom:19}).addTo(tripMap)
+   tripLayer=L.featureGroup().addTo(tripMap)
+ }
+ setTimeout(()=> tripMap.invalidateSize(),100)
+ tripLayer.clearLayers()
+ markers.forEach(m=> L.marker(m.ll,{icon:numIcon(m.txt,m.color)}).addTo(tripLayer))
+ info.innerHTML=segs.map(s=> `<div class="${s.cls||''}">⏳ ${s.name}: جاري حساب المسار...</div>`).join('')
+ tripMap.fitBounds(tripLayer.getBounds(),{padding:[24,24]})
+ const my=++tripReq
+ const res=await Promise.all(segs.map(s=> getRoute(s.pts)))
+ if(my!==tripReq) return
+ info.innerHTML=''
+ res.forEach((r,i)=>{
+   const s=segs[i]
+   if(r.ok){
+     L.polyline(r.latlngs,{color:s.color, weight:s.cls==='ret'?4:5, opacity:.9, dashArray:s.cls==='ret'?'8 6':null}).addTo(tripLayer)
+     info.innerHTML+=`<div class="${s.cls||''}">${s.icon} ${s.name}: ${r.km.toFixed(1)} كم على الطريق • ${fmtMin(r.min)}</div>`
+     s.result={km:Number(r.km.toFixed(2)), min:Math.round(r.min)}
+   } else info.innerHTML+=`<div class="err">⚠️ ${s.name}: تعذر حساب المسار</div>`
+ })
+ window.lastTrip=segs.map(s=>({name:s.key, ...(s.result||{})}))
+ tripMap.fitBounds(tripLayer.getBounds(),{padding:[24,24]})
+}
+
+const DEFAULT_CENTER=[33.5138,36.2765]
+let picks=[{ll:null,label:'',detail:''}], drops=[{ll:null,label:'',detail:''}]
+let vehicle=null, needWorkers=false, needEquip=false, timing='urgent', budgetType='fixed'
+const esc=s=> String(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))
+const detailBox=(kind)=>(i,it)=> `<input class="ptDetail" placeholder="تفاصيل (اختياري): بناء، طابق، علامة مميزة" value="${esc(it.detail)}" oninput="POINTS['${kind}'].get()[${i}].detail=this.value">`
+const POINTS={
+ picks:{box:'pickList', get:()=>picks, title:'استلام', letter:'A', color:'#059669', removable:true, extra:detailBox('picks')},
+ drops:{box:'dropList', get:()=>drops, title:'تسليم', letter:'B', color:'#DC2626', removable:true, extra:detailBox('drops')},
+}
+function onPointsChanged(){ updatePublish(); drawTrip() }
+function tripSegments(){
+ const pts=[...picks,...drops].filter(p=>p.ll).map(p=>p.ll)
+ if(!picks.some(p=>p.ll) || !drops.some(p=>p.ll)) return []
+ return [{key:'route', name:'مسار النقل', icon:'🛣️', color:'#4F46E5', pts}]
+}
+function tripMarkers(){
+ const m=[]
+ picks.forEach((p,i)=> p.ll && m.push({ll:p.ll, txt:'A'+(i+1), color:'#059669'}))
+ drops.forEach((p,i)=> p.ll && m.push({ll:p.ll, txt:'B'+(i+1), color:'#DC2626'}))
+ return m
+}
+// ===== المركبة =====
+function renderVehicles(){
+ document.getElementById('vehicleBox').innerHTML=VGROUPS.map(g=> `<div class="vGroup"><b>${g.icon} ${g.name}</b><div class="chips">${
+   VCLASS.filter(v=>v.g===g.g).map(v=> `<div class="vChip ${vehicle===v.k?'active':''}" onclick="setVehicle('${v.k}')">${v.g==='truck'?'شاحنة':v.short}</div>`).join('')}</div></div>`).join('')
+ const n=document.getElementById('vNote')
+ if(!vehicle){ n.style.display='none'; return }
+ const v=vOf(vehicle), fit=VCLASS.filter(x=> vehicleFits(vehicle,x.k))
+ n.style.display='block'
+ n.textContent= fit.length>1? `يصل طلبك لأصحاب: ${fit.map(x=>x.short).join('، ')}` : `يصل طلبك لأصحاب فئة ${vName(vehicle).replace(/^\S+ /,'')}`
+}
+function setVehicle(k){ vehicle=k; renderVehicles(); updatePublish() }
+function selectType(el,val){ document.querySelectorAll('#typeChips .chip').forEach(c=>c.classList.remove('active')); el.classList.add('active'); const i=document.getElementById('cargoType'); i.value=val; if(!val) i.focus(); updatePublish() }
+function setWorkers(v){ needWorkers=v; workersYes.className=v?'chip active':'chip'; workersNo.className=v?'chip':'chip active'; workersBox.style.display=v?'block':'none'; updatePublish() }
+function changeWorkers(d){ const el=document.getElementById('workersCount'); el.value=Math.min(20,Math.max(1,(parseInt(el.value)||2)+d)); updatePublish() }
+function setEquipment(v){ needEquip=v; equipYes.className=v?'chip active':'chip'; equipNo.className=v?'chip':'chip active'; equipBox.style.display=v?'block':'none'; updatePublish() }
+function toggleLift(){ liftUpBox.style.display=liftUp.checked?'grid':'none'; liftDownBox.style.display=liftDown.checked?'grid':'none'; updatePublish() }
+function setTiming(t){ timing=t; optUrgent.className=t==='urgent'?'time-opt active':'time-opt'; optScheduled.className=t==='scheduled'?'time-opt active':'time-opt'; scheduleBox.style.display=t==='scheduled'?'grid':'none'; updatePublish() }
+function setBudgetType(t){ budgetType=t; budgetFixed.className=t==='fixed'?'chip active':'chip'; budgetQuote.className=t==='quote'?'chip active':'chip'; budgetFixedBox.style.display=t==='fixed'?'block':'none'; budgetQuoteBox.style.display=t==='quote'?'block':'none'; updatePublish() }
+function missing(){
+ if(!cargoType.value.trim()) return 'حدد نوع الحمولة'
+ if(!vehicle) return 'اختر المركبة المطلوبة'
+ if(!picks.some(p=>p.ll)) return 'حدد نقطة الاستلام على الخريطة'
+ if(!drops.some(p=>p.ll)) return 'حدد نقطة التسليم على الخريطة'
+ if(needEquip && !equipDetail.value.trim()) return 'وضّح المعدات المطلوبة'
+ if(liftUp.checked && floorTo.value==='') return 'حدد طابق التسليم'
+ if(liftDown.checked && floorFrom.value==='') return 'حدد طابق الاستلام'
+ if(timing==='scheduled' && (!schedDate.value || !schedTime.value)) return 'حدد تاريخ وساعة النقل'
+ if(budgetType==='fixed'){ const f=parseFloat(budgetFrom.value), t=parseFloat(budgetTo.value); if(!(f>0) || !(t>=f)) return 'حدد الميزانية (من — إلى)' }
+ return ''
+}
+function updatePublish(){ const m=missing(); publishBtn.disabled=!!m; publishBtn.textContent= m || '📢 نشر الطلب' }
+function publish(){
+ if(missing()) return
+ const P=p=>({label:p.label, lat:p.ll[0], lng:p.ll[1], detail:(p.detail||'').trim()||null})
+ const seg=(window.lastTrip||[])[0]||{}
+ const o={
+  id:uid(), created_at:Date.now(), customer_id:DEMO_CUSTOMER.id, customer:DEMO_CUSTOMER,
+  cargo_type:cargoType.value.trim(), weight_kg: parseFloat(weight.value)||null, vehicle_class:vehicle,
+  pickup_points:picks.filter(p=>p.ll).map(P), dropoff_points:drops.filter(p=>p.ll).map(P),
+  route_info: seg.km? {km:seg.km, min:seg.min} : null,
+  need_workers:needWorkers, workers_count: needWorkers? parseInt(workersCount.value):null,
+  need_equipment:needEquip, equipment_detail: needEquip? equipDetail.value.trim():null,
+  lift_down:liftDown.checked, floor_from: liftDown.checked? parseInt(floorFrom.value):null, elevator_from: liftDown.checked? elevFrom.value||null:null,
+  lift_up:liftUp.checked, floor_to: liftUp.checked? parseInt(floorTo.value):null, elevator_to: liftUp.checked? elevTo.value||null:null,
+  floor_note: floorNote.value.trim()||null,
+  timing, sched_date: timing==='scheduled'? schedDate.value:null, sched_time: timing==='scheduled'? schedTime.value:null,
+  budget_type:budgetType, budget_from: budgetType==='fixed'? parseFloat(budgetFrom.value):null, budget_to: budgetType==='fixed'? parseFloat(budgetTo.value):null,
+  status:'open', carrier_id:null, agreed_price:null
+ }
+ const all=loadOrders(); all.unshift(o); saveOrders(all)
+ STORE.setItem('naql_my_cargo_order', o.id)
+ showToast('تم نشر الطلب')
+ showMyOrder()
+}
+// ===== طلبي =====
+let seenOffers={}, lastStatus=null
+function myOrder(){ const id=STORE.getItem('naql_my_cargo_order'); return id? loadOrders().find(o=>o.id===id) : null }
+function showMyOrder(){ formView.style.display='none'; document.getElementById('myOrder').style.display='block'; pageTitle.textContent='طلبي'; window.scrollTo(0,0); renderMyOrder() }
+function newOrder(){ STORE.removeItem('naql_my_cargo_order'); location.reload() }
+function renderMyOrder(){
+ const o=myOrder(); if(!o) return
+ moTitle.textContent='📦 '+o.cargo_type
+ moStatus.className='stBadge '+(o.status==='open'?'st-open':'st-accepted')
+ moStatus.textContent= o.status==='open'? '⏳ بانتظار ناقل' : o.status==='completed'? '✔️ مكتمل' : '✅ تم الاتفاق'
+ moSummary.innerHTML=`
+  <div class="sumRow">🚚 ${vName(o.vehicle_class)}</div>
+  <div class="sumRow">🟢 ${o.pickup_points.map(p=>esc(p.label)).join(' ← ')}</div>
+  <div class="sumRow">🔴 ${o.dropoff_points.map(p=>esc(p.label)).join(' ← ')}</div>
+  ${o.route_info? `<div class="sumRow">🛣️ ${o.route_info.km.toFixed(1)} كم • ${fmtMin(o.route_info.min)}</div>`:''}
+  <div class="sumRow">${orderTiming(o)} • ${orderBudget(o)}</div>`
+ const offers=loadOffers().filter(x=> x.order_id===o.id && x.status!=='withdrawn').sort((a,b)=> a.price-b.price)
+ offers.forEach(x=>{ if(!seenOffers[x.id]){ if(Object.keys(seenOffers).length || lastStatus!==null){ notify(); showToast('وصلك عرض جديد: '+money(x.price)) } seenOffers[x.id]=1 } })
+ if(o.status==='open'){
+   moOffersBox.style.display='block'; moCarrierBox.style.display='none'
+   moCount.textContent=offers.length
+   moOffers.innerHTML= offers.length? offers.map(x=> `<div class="offer">
+     <div class="oPrice">${money(x.price)}</div>
+     <div class="oBody"><b>${vName(x.carrier_vehicle)}</b>${x.message? esc(x.message)+'<br>':''}${timeAgo(x.created_at)}</div>
+     <button onclick="openAccept('${x.id}')">قبول</button></div>`).join('')
+     : `<div class="empty">${o.budget_type==='fixed'? 'بانتظار قبول ناقل أو وصول عروض' : 'بانتظار عروض الناقلين'}</div>`
+ } else {
+   moOffersBox.style.display='none'; moCarrierBox.style.display='block'
+   const c=o.carrier||DEMO_CARRIER
+   moCarrier.innerHTML=`<div class="carrierCard"><b>${esc(c.name)}</b><div class="sumRow">${vName(o.carrier_vehicle)}</div><div class="sumRow">💵 السعر المتفق عليه: <b>${money(o.agreed_price)}</b></div>
+     <a class="callBtn" href="tel:${c.phone.replace(/\s/g,'')}">📞 اتصال ${esc(c.phone)}</a></div>`
+ }
+ if(lastStatus==='open' && o.status==='accepted' && o.accepted_via==='direct'){ notify(880); showToast('✅ قبل ناقل طلبك') }
+ lastStatus=o.status
+}
+let acceptId=null
+function openAccept(id){
+ const x=loadOffers().find(f=>f.id===id); if(!x) return
+ acceptId=id; amPrice.textContent=money(x.price)
+ amInfo.textContent=`${vName(x.carrier_vehicle)} — بعد القبول تُغلق بقية العروض وتظهر لك بيانات الناقل`
+ acceptModal.classList.add('open')
+}
+function closeAccept(){ acceptModal.classList.remove('open') }
+function confirmAccept(){
+ const offers=loadOffers(), x=offers.find(f=>f.id===acceptId); const orders=loadOrders(), o=orders.find(q=>q.id===x.order_id)
+ if(!x || !o || o.status!=='open' || x.status!=='pending'){ closeAccept(); showToast('العرض لم يعد متاحاً', true); renderMyOrder(); return }
+ offers.forEach(f=>{ if(f.order_id===o.id && f.status==='pending') f.status= f.id===x.id? 'accepted' : 'rejected' })
+ Object.assign(o,{status:'accepted', carrier_id:x.carrier_id, carrier:x.carrier, carrier_vehicle:x.carrier_vehicle, agreed_price:x.price, accepted_via:'offer', accepted_at:Date.now()})
+ const ch=chargeCommission(x.carrier_id, o.id, x.price); x.commission=ch.commission; o.commission=ch.commission
+ saveOffers(offers); saveOrders(orders)
+ closeAccept(); showToast('تم قبول العرض'); renderMyOrder()
+}
+setInterval(()=>{ if(document.getElementById('myOrder').style.display==='block') renderMyOrder() },2000)
+// ===== بداية =====
+renderVehicles(); renderPoints('picks'); renderPoints('drops'); updatePublish()
+if(myOrder()) showMyOrder()
+</script>
+</body>
+</html>

@@ -1,0 +1,11 @@
+<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>اختبار زر الميزانية</title><style>body{font-family:system-ui;padding:20px;background:#f8f9fa} .chip{padding:10px 16px;border-radius:999px;border:1.5px solid #e5e7eb;background:#fff;font-weight:800;cursor:pointer;display:inline-block;margin:4px} .chip.active{background:#4F46E5;color:#fff}</style></head><body>
+<h1>اختبار زر طلب عروض</h1>
+<p>يجب أن ترى زرين هنا:</p>
+<div>
+<span class="chip active" id="a" onclick="document.getElementById('a').className='chip active';document.getElementById('b').className='chip';document.getElementById('box').style.display='block';document.getElementById('box2').style.display='none'">💰 تحديد ميزانية</span>
+<span class="chip" id="b" onclick="document.getElementById('b').className='chip active';document.getElementById('a').className='chip';document.getElementById('box').style.display='none';document.getElementById('box2').style.display='block'">📩 طلب عروض أسعار</span>
+</div>
+<div id="box" style="margin-top:12px;background:#fff;border:1px solid #e5e7eb;padding:12px;border-radius:12px">📦 هنا حقول الميزانية من - إلى</div>
+<div id="box2" style="display:none;margin-top:12px;background:#f0fdf4;border:1px solid #a7f3d0;padding:12px;border-radius:12px;text-align:center"><b>📩 طلب عروض أسعار مفعّل</b></div>
+<p style="margin-top:20px;color:#6b7280">إذا رأيت الزرين، فالملف الكامل يحتوي نفس الزرين في قسم الميزانية.</p>
+</body></html>

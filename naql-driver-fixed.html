@@ -1,0 +1,223 @@
+<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>سائق - لوحة</title><link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/><script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script><style>body{font-family:system-ui;max-width:520px;margin:0 auto;background:#f8fafc} .header{position:sticky;top:0;z-index:10;background:#fff;border-bottom:1px solid #e2e8f0;padding:10px 14px;display:flex;justify-content:space-between;align-items:center} #map{height:280px;border-radius:14px;border:1px solid #e2e8f0;margin:10px;overflow:hidden} .list{padding:0 10px;display:grid;gap:8px} .card{border:1px solid #e2e8f0;border-radius:14px;padding:12px;background:#fff;display:flex;justify-content:space-between;align-items:center} .btn{padding:8px 14px;border-radius:999px;border:none;font-weight:900;cursor:pointer} .accept{background:#22c55e;color:#fff} .call{width:100%;height:44px;border-radius:12px;background:#4F46E5;color:#fff;font-weight:900;display:none;margin:10px} .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#065f46;color:#fff;padding:12px 20px;border-radius:999px;display:none;z-index:999} .modalOverlay{position:fixed;inset:0;background:rgba(15,23,42,.6);backdrop-filter:blur(4px);display:none;align-items:center;justify-content:center;z-index:100;padding:16px} .modalOverlay.open{display:flex} .modal{background:#fff;border-radius:20px;padding:16px;width:100%;max-width:400px;box-shadow:0 20px 40px rgba(0,0,0,.2)} .miniMap{height:120px;border-radius:12px;border:1px solid #e2e8f0;overflow:hidden;margin:10px 0}</style></head><body>
+<div class="header"><div><h1>🚕 لوحة السائق</h1><p style="font-size:11px;color:#64748b">الطلبات ضمن نطاقك</p></div><span style="font-size:11px;background:#f0fdf4;color:#065f46;padding:4px 8px;border-radius:999px">● متاح</span></div>
+<div id="map"></div>
+<div style="padding:10px;display:flex;gap:8px"><button class="btn" style="flex:1;background:#fff;border:1px solid #e2e8f0" onclick="simulateNewRequest()">🔔 محاكاة طلب جديد</button><button class="btn" style="flex:1;background:#fffbeb;border:1px solid #fde68a;color:#92400e" onclick="simulateJoinRequest()">👤 محاكاة طلب راكب</button><button class="btn" style="flex:1;background:#4F46E5;color:#fff" onclick="location.href='naql-driver-shared-publish.html'">👥 نشر رحلة راكب</button></div>
+<div class="list" id="list"></div>
+<button id="callBtn" class="call" onclick="location.href='tel:+963900000000'">📞 اتصال بالعميل</button>
+<div id="toast" class="toast"></div>
+<div class="modalOverlay" id="joinModal" style="z-index:110"><div class="modal">
+ <h2 style="text-align:center;font-weight:900">👤 طلب انضمام راكب</h2>
+ <div id="jTrip" style="text-align:center;font-size:12px;color:#64748b;margin-top:4px"></div>
+ <div id="jWarn" style="display:none;margin-top:8px;background:#fef2f2;border:1px solid #fecaca;color:#991b1b;border-radius:10px;padding:6px;text-align:center;font-size:11px;font-weight:800">↩️ نزول الراكب قبل موقع ركوبه على اتجاه رحلتك</div>
+ <div id="joinMap" class="miniMap" style="height:190px"></div>
+ <div style="display:flex;gap:10px;justify-content:center;font-size:10px;color:#64748b;margin-top:-4px;margin-bottom:8px"><span><i style="display:inline-block;width:14px;height:3px;background:#94a3b8;vertical-align:middle"></i> مسارك الأصلي</span><span><i style="display:inline-block;width:14px;height:3px;background:#f59e0b;vertical-align:middle"></i> مع الراكب</span><span>🟢 ركوب</span><span>🔴 نزول</span></div>
+ <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;text-align:center">
+  <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:8px"><b id="jOff">—</b><div style="font-size:10px;color:#64748b">البعد عن مسارك</div></div>
+  <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:12px;padding:8px"><b id="jKm" style="color:#92400e">—</b><div style="font-size:10px;color:#64748b">التفاف إضافي</div></div>
+  <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:8px"><b id="jSeat">—</b><div style="font-size:10px;color:#64748b">سعر المقعد</div></div>
+ </div>
+ <div id="jDetail" style="font-size:11px;color:#64748b;text-align:center;margin-top:6px"></div>
+ <div id="extraBox" style="display:none;margin-top:10px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:10px">
+  <div style="font-size:12px;font-weight:900;margin-bottom:6px">المبلغ الإضافي المطلوب من الراكب</div>
+  <div style="display:flex;gap:6px;align-items:center"><span style="font-weight:900">+$</span><input id="extraInput" type="number" min="0.25" step="0.25" style="flex:1;height:42px;border:1.5px solid #e2e8f0;border-radius:10px;padding:0 10px;font-size:15px;font-weight:900"></div>
+  <div id="extraHint" style="font-size:10px;color:#64748b;margin-top:4px"></div>
+  <div style="display:flex;gap:6px;margin-top:8px"><button class="btn" style="flex:1;height:42px;border-radius:12px;background:#fff;border:1px solid #e2e8f0" onclick="cancelExtra()">رجوع</button><button class="btn" style="flex:2;height:42px;border-radius:12px;background:#4F46E5;color:#fff" onclick="sendCounter()">إرسال للراكب</button></div>
+ </div>
+ <div id="jBtns" style="display:flex;gap:6px;margin-top:12px">
+  <button class="btn" style="flex:1;background:#fff;border:1px solid #fecaca;color:#991b1b;height:44px;border-radius:12px" onclick="answerJoin('rejected')">رفض</button>
+  <button class="btn" style="flex:1.3;background:#fff;border:1.5px solid #4F46E5;color:#4F46E5;height:44px;border-radius:12px" onclick="showExtra()">قبول بمبلغ إضافي</button>
+  <button class="btn accept" style="flex:1;height:44px;border-radius:12px" onclick="answerJoin('accepted')">قبول</button>
+ </div>
+</div></div>
+
+<div class="modalOverlay" id="modal"><div class="modal"><h2 style="text-align:center;font-weight:900">🔔 طلب جديد ضمن نطاقك</h2><div id="mRoute" style="text-align:center;font-weight:900;margin:8px 0"></div><div id="miniMap" class="miniMap"></div><div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;text-align:center"><div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:8px"><b id="mDist">—</b><div style="font-size:10px;color:#64748b">المسافة</div></div><div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:8px"><b id="mCat">—</b><div style="font-size:10px;color:#64748b">الفئة</div></div><div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:8px"><b id="mPrice">—</b><div style="font-size:10px;color:#64748b">الأجرة</div></div></div><div style="display:flex;gap:8px;margin-top:12px"><button class="btn" style="flex:1;background:#fff;border:1px solid #fecaca;color:#991b1b" onclick="closeModal()">رفض</button><button class="btn accept" style="flex:1" onclick="acceptModal()">قبول</button></div></div></div>
+<script>
+const reqs=[
+ {id:1, from:'الحي الشمالي', to:'المركز', fromLL:[33.52,36.27], toLL:[33.54,36.29], catKey:'ordinary'},
+ {id:2, from:'المزة', to:'الجامعة', fromLL:[33.50,36.26], toLL:[33.55,36.30], catKey:'economy'},
+]
+// ===== توجيه حقيقي على الطرق (OSRM) — بديل الخط المستقيم =====
+const ROUTE_CACHE={}
+async function getRoute(points){
+ const key=points.map(p=>p[0].toFixed(5)+','+p[1].toFixed(5)).join(';')
+ if(ROUTE_CACHE[key]) return ROUTE_CACHE[key]
+ const coords=points.map(p=>p[1]+','+p[0]).join(';')
+ const ctrl=new AbortController(); const tm=setTimeout(()=>ctrl.abort(),10000)
+ try{
+   const r=await fetch('https://router.project-osrm.org/route/v1/driving/'+coords+'?overview=full&geometries=geojson',{signal:ctrl.signal})
+   const j=await r.json()
+   if(j.code!=='Ok'||!j.routes||!j.routes.length) throw new Error('no route')
+   const rt=j.routes[0]
+   const res={ok:true, km:rt.distance/1000, min:rt.duration/60, latlngs:rt.geometry.coordinates.map(c=>[c[1],c[0]])}
+   ROUTE_CACHE[key]=res; return res
+ }catch(e){ return {ok:false} } finally{ clearTimeout(tm) }
+}
+function fmtMin(m){ m=Math.round(m); return m<60? m+' د' : Math.floor(m/60)+' س '+(m%60)+' د' }
+const RATES={ordinary:{name:'عادية',base:1.0,perKm:0.60}, economy:{name:'اقتصادية',base:0.8,perKm:0.50}, luxury:{name:'فاخرة',base:2.0,perKm:1.20}}
+let map, miniMap, current=null
+async function enrich(r){
+ r.cat=RATES[r.catKey].name
+ const rt=await getRoute([r.fromLL,r.toLL])
+ if(rt.ok){ r.km=rt.km; r.path=rt.latlngs; r.dist=rt.km.toFixed(1)+' كم • '+fmtMin(rt.min); r.price='$'+(RATES[r.catKey].base+RATES[r.catKey].perKm*rt.km).toFixed(2) }
+ else { r.dist='تعذر حساب المسار'; r.price='—'; r.path=null }
+ return r
+}
+function showToast(m){ const t=document.getElementById('toast'); t.textContent=m; t.style.display='block'; setTimeout(()=> t.style.display='none',2500); }
+function initMap(){
+ try{
+   map=L.map('map',{zoomControl:false}).setView([33.5138,36.2765],12)
+   L.tileLayer('https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map)
+   reqs.forEach(r=>{
+     L.marker(r.fromLL,{icon:L.divIcon({html:'<div style="background:#4F46E5;width:14px;height:14px;border-radius:999px;border:2px solid #fff"></div>',iconSize:[14,14]})}).addTo(map)
+   })
+   setTimeout(()=> map.invalidateSize(),200)
+ }catch(e){ console.log('map error',e); }
+}
+function render(){
+ const c=document.getElementById('list'); c.innerHTML=''
+ reqs.forEach(r=>{
+   const d=document.createElement('div'); d.className='card'
+   d.innerHTML=`<div><b>${r.from} → ${r.to}</b><div style="font-size:11px;color:#64748b">${r.dist||'⏳ جاري حساب المسار...'} • ${r.cat||''} • ${r.price||''}</div></div><div style="display:flex;gap:6px"><button class="btn" style="background:#fff;border:1px solid #e2e8f0" onclick="openModal(${r.id})">عرض</button><button class="btn accept" onclick="quickAccept(${r.id})">قبول</button></div>`
+   c.appendChild(d)
+ })
+}
+function openModal(id){
+ const r=reqs.find(x=> x.id===id); if(!r) return; current=r
+ document.getElementById('mRoute').textContent=r.from+' → '+r.to
+ document.getElementById('mDist').textContent=r.dist
+ document.getElementById('mCat').textContent=r.cat
+ document.getElementById('mPrice').textContent=r.price
+ document.getElementById('modal').classList.add('open')
+ setTimeout(()=>{
+   try{
+     if(miniMap) miniMap.remove()
+     miniMap=L.map('miniMap',{zoomControl:false, dragging:false}).setView(r.fromLL,12)
+     L.tileLayer('https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png',{maxZoom:19}).addTo(miniMap)
+     const line=L.polyline(r.path||[r.fromLL,r.toLL],{color:'#4F46E5',weight:4, dashArray: r.path? null : '6 6'}).addTo(miniMap)
+     L.marker(r.fromLL,{icon:L.divIcon({html:'<div style="background:#22c55e;width:10px;height:10px;border-radius:999px;border:2px solid #fff"></div>',iconSize:[10,10]})}).addTo(miniMap)
+     L.marker(r.toLL,{icon:L.divIcon({html:'<div style="background:#ef4444;width:10px;height:10px;border-radius:999px;border:2px solid #fff"></div>',iconSize:[10,10]})}).addTo(miniMap)
+     miniMap.fitBounds(line.getBounds(),{padding:[10,10]})
+     setTimeout(()=> miniMap.invalidateSize(),150)
+   }catch(e){}
+ },100)
+ // تنبيه صوتي بسيط
+ try{ const ctx=new (window.AudioContext||window.webkitAudioContext)(); const o=ctx.createOscillator(),g=ctx.createGain(); o.connect(g); g.connect(ctx.destination); o.frequency.value=880; g.gain.value=0.2; o.start(); setTimeout(()=>{o.stop(); ctx.close()},500);}catch(e){}
+}
+function closeModal(){ document.getElementById('modal').classList.remove('open'); }
+function quickAccept(id){
+ const r=reqs.find(x=> x.id===id); if(!r) return; current=r; acceptModal();
+}
+function acceptModal(){
+ if(!current) return;
+ showToast('تم قبول الطلب');
+ document.getElementById('callBtn').style.display='block'
+ document.getElementById('callBtn').onclick=()=> location.href='tel:+9639'+Math.floor(10000000+Math.random()*89999999)
+ // إزالة الطلب
+ const idx=reqs.findIndex(x=> x.id===current.id); if(idx>-1) reqs.splice(idx,1)
+ closeModal(); render();
+}
+async function simulateNewRequest(){
+ const keys=Object.keys(RATES)
+ const r={id:Date.now(), from:'طلب جديد', to:'وجهة جديدة', fromLL:[33.50+Math.random()*0.03,36.26+Math.random()*0.03], toLL:[33.52+Math.random()*0.04,36.28+Math.random()*0.04], catKey:keys[Math.floor(Math.random()*keys.length)]}
+ await enrich(r)
+ reqs.push(r); render(); openModal(r.id);
+}
+setTimeout(async ()=>{ initMap(); render(); await Promise.all(reqs.map(enrich)); render(); },100)
+setTimeout(simulateNewRequest,3000)
+
+// ===== طلبات انضمام الركاب للرحلات المشتركة =====
+// المعاينة: جسر localStorage مع شاشة الراكب — في التطبيق: جدول taxi_shared_requests + Realtime
+const BRIDGE='naql_join_requests'
+function loadReqs(){ try{ return JSON.parse(localStorage.getItem(BRIDGE)||'[]') }catch(e){ return [] } }
+function saveReqs(a){ try{ localStorage.setItem(BRIDGE, JSON.stringify(a)) }catch(e){} }
+let joinQueue=[], joinCur=null, joinMap=null, joinBeep=null
+const shownJoin={}
+function beepOnce(){ try{ const ctx=new (window.AudioContext||window.webkitAudioContext)(); const o=ctx.createOscillator(),g=ctx.createGain(); o.connect(g); g.connect(ctx.destination); o.frequency.value=660; g.gain.value=0.2; o.start(); setTimeout(()=>{o.stop(); ctx.close()},350) }catch(e){} }
+const lastStatus={}
+function driverNotify(msg, freq){ beepOnce(); if(navigator.vibrate) navigator.vibrate([200,100,200]); showToast(msg) }
+function pollJoin(){
+ const all=loadReqs()
+ // قرارات الراكب: موافقة/رفض المبلغ الإضافي أو إلغاء الطلب
+ all.forEach(r=>{
+   const prev=lastStatus[r.id]; lastStatus[r.id]=r.status
+   if(!prev || prev===r.status) return
+   if(prev==='counter' && r.status==='confirmed') driverNotify(`✅ وافق الراكب على +$${Number(r.extra).toFixed(2)} — تمت إضافته لرحلتك`)
+   else if(r.status==='declined_by_passenger') driverNotify('رفض الراكب المبلغ الإضافي')
+   else if(r.status==='cancelled'){
+     joinQueue=joinQueue.filter(x=> x.id!==r.id)
+     if(joinCur && joinCur.id===r.id){ clearInterval(joinBeep); document.getElementById('joinModal').classList.remove('open'); joinCur=null }
+     driverNotify('ألغى الراكب طلب الانضمام')
+   }
+ })
+ all.filter(r=> r.status==='pending' && !shownJoin[r.id]).forEach(r=>{ shownJoin[r.id]=1; joinQueue.push(r) })
+ if(!joinCur && joinQueue.length) openJoin(joinQueue.shift())
+}
+function openJoin(r){
+ joinCur=r
+ document.getElementById('jTrip').textContent=`رحلتك: ${r.trip_from} ← ${r.trip_to} • ${r.trip_time}`
+ document.getElementById('jWarn').style.display=r.wrong_dir?'block':'none'
+ document.getElementById('jOff').textContent=Math.max(r.off_pick_km,r.off_drop_km).toFixed(1)+' كم'
+ document.getElementById('jKm').textContent='+'+r.detour_km.toFixed(1)+' كم'
+ document.getElementById('jSeat').textContent='$'+Number(r.seat_price).toFixed(2)
+ document.getElementById('jDetail').textContent=`ركوب ${r.off_pick_km.toFixed(1)} كم • نزول ${r.off_drop_km.toFixed(1)} كم عن مسارك • وقت إضافي +${fmtMin(r.detour_min)}`
+ document.getElementById('extraBox').style.display='none'
+ document.getElementById('jBtns').style.display='flex'
+ document.getElementById('joinModal').classList.add('open')
+ beepOnce(); clearInterval(joinBeep); joinBeep=setInterval(beepOnce,2000)
+ if(navigator.vibrate) navigator.vibrate([200,100,200])
+ setTimeout(()=>{
+   try{
+     if(joinMap) joinMap.remove()
+     joinMap=L.map('joinMap',{zoomControl:false,attributionControl:false})
+     L.tileLayer('https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png',{maxZoom:19}).addTo(joinMap)
+     const base=L.polyline(r.base_path,{color:'#94a3b8',weight:5,dashArray:'8 6'}).addTo(joinMap)
+     const det=L.polyline(r.detour_path,{color:'#f59e0b',weight:4}).addTo(joinMap)
+     const ic=c=>L.divIcon({html:`<div style="background:${c};width:14px;height:14px;border-radius:999px;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.3)"></div>`,iconSize:[14,14],iconAnchor:[7,7]})
+     L.marker(r.pickup,{icon:ic('#22c55e')}).addTo(joinMap); L.marker(r.dropoff,{icon:ic('#ef4444')}).addTo(joinMap)
+     L.marker(r.trip_from_ll,{icon:L.divIcon({html:'<div style="font-size:14px">🚕</div>',iconSize:[16,16]})}).addTo(joinMap)
+     joinMap.fitBounds(base.getBounds().extend(det.getBounds()),{padding:[12,12]})
+     setTimeout(()=> joinMap.invalidateSize(),150)
+   }catch(e){}
+ },120)
+}
+function closeJoin(){
+ clearInterval(joinBeep); document.getElementById('joinModal').classList.remove('open'); joinCur=null
+ setTimeout(pollJoin,300)
+}
+function showExtra(){
+ const r=joinCur; if(!r) return
+ const inp=document.getElementById('extraInput'); inp.value=''; inp.placeholder='0.00'
+ document.getElementById('extraHint').textContent=`الالتفاف +${r.detour_km.toFixed(1)} كم • +${fmtMin(r.detour_min)} — اكتب المبلغ الذي تراه مناسباً`
+ document.getElementById('extraBox').style.display='block'
+ document.getElementById('jBtns').style.display='none'
+ clearInterval(joinBeep)
+ setTimeout(()=> inp.focus(),50)
+}
+function cancelExtra(){ document.getElementById('extraBox').style.display='none'; document.getElementById('jBtns').style.display='flex' }
+function updateReq(id, patch){ const all=loadReqs(); const r=all.find(x=>x.id===id); if(r){ Object.assign(r,patch); saveReqs(all); lastStatus[id]=r.status } }
+function answerJoin(status){
+ if(!joinCur) return
+ updateReq(joinCur.id,{status})
+ showToast(status==='accepted'? 'تم قبول الراكب' : 'تم رفض الطلب')
+ closeJoin()
+}
+function sendCounter(){
+ const v=Number(document.getElementById('extraInput').value)
+ if(!v || v<=0) return showToast('اكتب المبلغ الإضافي أولاً')
+ updateReq(joinCur.id,{status:'counter', extra:v})
+ showToast('تم إرسال المبلغ للراكب — بانتظار موافقته')
+ closeJoin()
+}
+async function simulateJoinRequest(){
+ const from=[33.52,36.27], to=[33.55,36.30], pickup=[33.515,36.292], dropoff=[33.548,36.312]
+ showToast('جاري تجهيز طلب تجريبي...')
+ const [b,d]=await Promise.all([getRoute([from,to]), getRoute([from,pickup,dropoff,to])])
+ if(!b.ok||!d.ok) return showToast('تعذر حساب المسار')
+ const near=(p)=>{ let m=Infinity; b.latlngs.forEach(q=>{ const k=Math.cos(p[0]*Math.PI/180); m=Math.min(m, Math.hypot((p[1]-q[1])*111.32*k,(p[0]-q[0])*110.574)) }); return m }
+ const all=loadReqs()
+ all.push({id:'demo'+Date.now(), trip_id:1, trip_from:'الحي الشمالي', trip_to:'الجامعة الرئيسية', trip_time:'اليوم 07:30', trip_from_ll:from, trip_to_ll:to, base_path:b.latlngs, base_km:b.km, pickup, dropoff, off_pick_km:near(pickup), off_drop_km:near(dropoff), wrong_dir:false, detour_km:Math.max(0,d.km-b.km), detour_min:Math.max(0,d.min-b.min), detour_path:d.latlngs, seat_price:2.0, status:'pending', extra:0, created_at:Date.now()})
+ saveReqs(all); pollJoin()
+}
+setInterval(pollJoin,1500)
+</script>
+</body></html>

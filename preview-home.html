@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>الرئيسية - خدمات النقل</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:#F8F9FA;color:#1A1A2E;direction:rtl}
+  /* Top Bar */
+  .topbar{height:56px;background:#fff;display:flex;align-items:center;justify-content:space-between;padding:0 16px;position:sticky;top:0;z-index:10;box-shadow:0 1px 12px rgba(0,0,0,.06)}
+  .logo{display:flex;align-items:center;gap:10px}
+  .logo-icon{width:40px;height:40px;background:linear-gradient(135deg,#FF6B00 0%,#FF8C42 100%);border-radius:12px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:900;font-size:18px}
+  .logo-text{font-weight:800;font-size:16px;color:#1A1A2E;line-height:1}
+  .logo-sub{font-size:11px;color:#6B7280;font-weight:600}
+  .top-actions{display:flex;gap:8px;align-items:center}
+  .icon-btn{width:36px;height:36px;border-radius:10px;background:#F3F4F6;display:flex;align-items:center;justify-content:center;border:none;cursor:pointer}
+  /* Hero */
+  .hero{margin:16px;background:linear-gradient(135deg,#1A1A2E 0%,#16213E 50%,#0F3460 100%);border-radius:20px;padding:20px;color:#fff;position:relative;overflow:hidden}
+  .hero::after{content:'';position:absolute;top:-40px;left:-40px;width:160px;height:160px;background:radial-gradient(circle,rgba(255,107,0,.18) 0%,transparent 70%);border-radius:50%}
+  .hero-badge{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.12);backdrop-filter:blur(8px);padding:6px 12px;border-radius:999px;font-size:11px;font-weight:700;letter-spacing:.3px;margin-bottom:12px}
+  .hero h1{font-size:22px;font-weight:900;line-height:1.2;margin-bottom:6px}
+  .hero p{font-size:13px;color:rgba(255,255,255,.75);line-height:1.5;margin-bottom:14px}
+  .hero-stats{display:flex;gap:10px}
+  .stat{background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:8px 12px;flex:1;text-align:center}
+  .stat b{display:block;font-size:16px;font-weight:800}
+  .stat span{font-size:10px;color:rgba(255,255,255,.7)}
+  /* Section Title */
+  .section{padding:0 16px;margin-top:18px}
+  .section-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+  .section-head h2{font-size:15px;font-weight:800;color:#1A1A2E}
+  .section-head span{font-size:11px;color:#FF6B00;font-weight:700}
+  /* Service Grid 2x2 */
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .card{border-radius:18px;padding:16px;position:relative;overflow:hidden;cursor:pointer;transition:transform .15s;border:1px solid transparent}
+  .card:active{transform:scale(.97)}
+  .card-icon{width:48px;height:48px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:22px;margin-bottom:12px}
+  .card h3{font-size:14px;font-weight:800;margin-bottom:4px}
+  .card p{font-size:11px;line-height:1.4;opacity:.8}
+  .card-arrow{position:absolute;top:12px;left:12px;width:28px;height:28px;border-radius:999px;background:rgba(255,255,255,.9);display:flex;align-items:center;justify-content:center;font-size:14px;color:#1A1A2E}
+  /* Card Colors */
+  .c-taxi{background:linear-gradient(135deg,#FF6B00 0%,#FF8C42 100%);color:#fff;border-color:#FF6B00;box-shadow:0 8px 24px rgba(255,107,0,.25)}
+  .c-taxi .card-icon{background:rgba(255,255,255,.18)}
+  .c-cargo{background:#fff;color:#1A1A2E;box-shadow:0 4px 16px rgba(0,0,0,.06);border-color:#E5E7EB}
+  .c-cargo .card-icon{background:#EEF2FF;color:#4F46E5}
+  .c-event{background:#fff;color:#1A1A2E;box-shadow:0 4px 16px rgba(0,0,0,.06);border-color:#E5E7EB}
+  .c-event .card-icon{background:#FEF3C7;color:#D97706}
+  .c-contract{background:#fff;color:#1A1A2E;box-shadow:0 4px 16px rgba(0,0,0,.06);border-color:#E5E7EB}
+  .c-contract .card-icon{background:#ECFDF5;color:#059669}
+  .badge{position:absolute;top:12px;right:12px;background:#10B981;color:#fff;font-size:9px;font-weight:800;padding:4px 8px;border-radius:999px}
+  .badge.orange{background:#FF6B00}
+  /* Auth Card */
+  .auth-card{margin:16px;background:#fff;border-radius:18px;padding:18px;box-shadow:0 4px 20px rgba(0,0,0,.06);border:1px solid #E5E7EB}
+  .auth-head{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+  .auth-icon{width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,#1A1A2E,#0F3460);display:flex;align-items:center;justify-content:center;color:#fff;font-size:18px}
+  .auth-head h3{font-size:14px;font-weight:800}
+  .auth-head p{font-size:11px;color:#6B7280;margin-top:2px}
+  .btn-primary{width:100%;height:48px;border-radius:14px;background:linear-gradient(135deg,#FF6B00,#FF8C42);color:#fff;border:none;font-weight:800;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;box-shadow:0 6px 16px rgba(255,107,0,.3)}
+  .btn-secondary{width:100%;height:48px;border-radius:14px;background:#fff;color:#1A1A2E;border:1.5px solid #E5E7EB;font-weight:800;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;margin-top:10px}
+  .divider{display:flex;align-items:center;gap:12px;margin:14px 0;color:#9CA3AF;font-size:11px}
+  .divider::before,.divider::after{content:'';flex:1;height:1px;background:#E5E7EB}
+  .guest-note{background:#FFFBEB;border:1px solid #FDE68A;border-radius:12px;padding:12px;display:flex;gap:10px;align-items:flex-start}
+  .guest-note-icon{width:28px;height:28px;border-radius:999px;background:#F59E0B;color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0}
+  .guest-note p{font-size:11px;line-height:1.5;color:#92400E}
+  .guest-note b{color:#78350F}
+  /* Bottom */
+  .bottom{height:72px}
+  .tabbar{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid #E5E7EB;display:flex;justify-content:space-around;align-items:center;height:64px;padding-bottom:6px}
+  .tab{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;color:#9CA3AF;font-size:10px;font-weight:600;border:none;background:none;cursor:pointer}
+  .tab.active{color:#FF6B00}
+  .tab i{font-size:18px;font-style:normal}
+  /* Phone frame for desktop */
+  @media(min-width:480px){
+    body{display:flex;justify-content:center;background:#E5E7EB}
+    .phone{width:390px;min-height:100vh;background:#F8F9FA;box-shadow:0 0 0 8px #1A1A2E,0 20px 60px rgba(0,0,0,.25);position:relative}
+  }
+</style>
+</head>
+<body>
+<div class="phone">
+  <!-- Topbar -->
+  <div class="topbar">
+    <div class="logo">
+      <div class="logo-icon">N</div>
+      <div>
+        <div class="logo-text">نَقْل</div>
+        <div class="logo-sub">NAQL • خدمات النقل</div>
+      </div>
+    </div>
+    <div class="top-actions">
+      <button class="icon-btn" title="الإشعارات">🔔</button>
+      <button class="icon-btn" title="المساعدة">💬</button>
+    </div>
+  </div>
+
+  <!-- Hero -->
+  <div class="hero">
+    <div class="hero-badge">⚡ متاح الآن في مدينتك</div>
+    <h1>كل خدمات النقل<br>في مكان واحد</h1>
+    <p>تكسي، نقل بضائع، مناسبات وعقود — سائقون موثوقون وأسعار واضحة</p>
+    <div class="hero-stats">
+      <div class="stat"><b>+2,400</b><span>سائق معتمد</span></div>
+      <div class="stat"><b>4.8 ★</b><span>تقييم العملاء</span></div>
+      <div class="stat"><b>24/7</b><span>خدمة دائمة</span></div>
+    </div>
+  </div>
+
+  <!-- Services -->
+  <div class="section">
+    <div class="section-head">
+      <h2>اختر خدمتك</h2>
+      <span>4 خدمات</span>
+    </div>
+    <div class="grid">
+      <!-- Taxi -->
+      <div class="card c-taxi" onclick="alert('خدمة التكسي — ستنتقل لاختيار الانطلاق والوصول')">
+        <div class="badge orange">الأكثر طلباً</div>
+        <div class="card-icon">🚕</div>
+        <h3>تكسي</h3>
+        <p>توصيل فوري خلال دقائق لأي مكان</p>
+        <div class="card-arrow">←</div>
+      </div>
+      <!-- Cargo -->
+      <div class="card c-cargo" onclick="alert('خدمة النقل — نقل بضائع وعفش')">
+        <div class="card-icon">🚚</div>
+        <h3>نقل</h3>
+        <p>نقل بضائع وعفش بأمان</p>
+        <div class="card-arrow">←</div>
+      </div>
+      <!-- Event -->
+      <div class="card c-event" onclick="alert('خدمة المناسبات — حجز للمناسبات')">
+        <div class="card-icon">🎉</div>
+        <h3>مناسبات</h3>
+        <p>حجوزات أعراس ومؤتمرات</p>
+        <div class="card-arrow">←</div>
+      </div>
+      <!-- Contract -->
+      <div class="card c-contract" onclick="alert('خدمة العقود — عقود شهرية للشركات')">
+        <span class="badge">عقود</span>
+        <div class="card-icon">📋</div>
+        <h3>عقود</h3>
+        <p>عقود شهرية للشركات</p>
+        <div class="card-arrow">←</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Auth Card -->
+  <div class="auth-card">
+    <div class="auth-head">
+      <div class="auth-icon">👤</div>
+      <div>
+        <h3>ابدأ رحلتك الآن</h3>
+        <p>سجّل دخولك لاستخدام جميع الخدمات</p>
+      </div>
+    </div>
+
+    <button class="btn-primary" onclick="alert('تسجيل / تسجيل دخول — سيتم فتح شاشة الدخول')">
+      تسجيل / تسجيل دخول
+      <span>←</span>
+    </button>
+
+    <button class="btn-secondary" onclick="alert('التصفح كضيف — يمكنك الاستعراض فقط، الطلب يتطلب تسجيل')">
+      تصفح كضيف
+      <span>👁️</span>
+    </button>
+
+    <div class="divider">ملاحظة</div>
+
+    <div class="guest-note">
+      <div class="guest-note-icon">!</div>
+      <p><b>الضيف يستطيع تصفح</b> كل محتوى التطبيق (الخدمات، الأسعار، المركبات)، <b>دون إمكانية استخدام</b> أي خدمة فعلية — <b>التسجيل أو تسجيل الدخول شرط أساسي</b> لطلب تكسي، نقل، مناسبات أو عقود.</p>
+    </div>
+  </div>
+
+  <div class="bottom"></div>
+
+  <!-- Tabbar -->
+  <div class="tabbar">
+    <button class="tab active"><i>🏠</i>الرئيسية</button>
+    <button class="tab" onclick="alert('تحتاج تسجيل دخول')"><i>🧾</i>طلباتي</button>
+    <button class="tab" onclick="alert('تحتاج تسجيل دخول')"><i>💬</i>المحادثات</button>
+    <button class="tab" onclick="alert('تحتاج تسجيل دخول')"><i>👤</i>حسابي</button>
+  </div>
+</div>
+</body>
+</html>

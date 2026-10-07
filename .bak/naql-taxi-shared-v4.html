@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>تكسي راكب - رحلات مشتركة v2</title>
+<!-- v2 fix join msg -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+function showToast(msg, isError=false){
+  const t=document.getElementById('toast');
+  if(!t) return;
+  t.textContent=msg;
+  t.className='toast'+(isError?' error':'');
+  t.style.display='block';
+  clearTimeout(window._toastTimer);
+  window._toastTimer=setTimeout(()=> t.style.display='none', 2500);
+}
+
+</script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,-apple-system,'Segoe UI',sans-serif;background:#f8fafc;color:#0f172a;max-width:560px;margin:0 auto}
+.header{position:sticky;top:0;z-index:10;background:#fff;border-bottom:1px solid #e2e8f0;padding:12px 14px;display:flex;align-items:center;gap:10px}
+.header h1{font-size:16px;font-weight:900}
+.header p{font-size:11px;color:#64748b}
+.back{width:36px;height:36px;border-radius:10px;border:1px solid #e2e8f0;background:#fff;display:grid;place-items:center;cursor:pointer}
+.info{background:#fffbeb;border:1px solid #fde68a;border-radius:12px;padding:10px;margin:10px;text-align:center;font-size:11px;color:#92400e;line-height:1.5}
+#map{height:200px;border-radius:14px;border:1px solid #e2e8f0;margin:0 10px;overflow:hidden}
+.list{padding:10px;display:grid;gap:10px;padding-bottom:80px}
+.trip{border:1px solid #e2e8f0;border-radius:16px;overflow:hidden;background:#fff}
+.trip.hidden{display:none}
+.tripHead{height:90px;position:relative;background:#eef2ff}
+.tripHead .miniMap{position:absolute;inset:0}
+.tripBody{padding:10px}
+.route{font-size:13px;font-weight:900;display:flex;align-items:center;gap:6px}
+.route span{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.time{font-size:11px;color:#4F46E5;font-weight:800;margin:4px 0}
+.seats{font-size:11px;color:#065f46;background:#f0fdf4;border:1px solid #a7f3d0;padding:4px 8px;border-radius:999px;display:inline-block}
+.seats.full{background:#fef2f2;border-color:#fecaca;color:#991b1b}
+.price{font-size:14px;font-weight:900;color:#4F46E5}
+.join{width:100%;height:40px;border-radius:12px;border:none;background:#4F46E5;color:#fff;font-weight:900;cursor:pointer;margin-top:8px}
+.join:disabled{background:#cbd5e1;color:#64748b;cursor:not-allowed}
+
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#065f46;color:#fff;padding:12px 20px;border-radius:999px;font-weight:800;font-size:13px;box-shadow:0 8px 24px rgba(0,0,0,.2);z-index:9999;display:none;max-width:90%;text-align:center}
+.toast.error{background:#991b1b}
+
+</style>
+</head>
+<body>
+<div class="header">
+<div class="back" onclick="history.back()">→</div>
+<div><h1>👥 تكسي راكب — رحلات مشتركة</h1><p>اختر رحلة مناسبة وانضم إليها</p></div>
+</div>
+
+<div id="map"></div>
+
+<div class="list" id="list"></div>
+
+<script>
+const trips=[
+ {id:1, from:'الحي الشمالي', to:'الجامعة الرئيسية', fromLL:[33.52,36.27], toLL:[33.55,36.30], time:'اليوم 07:30', total:4, left:3, price:2.0, driver:'سائق ★4.8', status:'pending'},
+ {id:2, from:'المدينة القديمة', to:'المطار', fromLL:[33.51,36.28], toLL:[33.58,36.35], time:'اليوم 14:00', total:4, left:1, price:3.5, driver:'سائق ★4.9', status:'pending'},
+ {id:3, from:'حي المزة', to:'الجامعة', fromLL:[33.50,36.26], toLL:[33.54,36.31], time:'غداً 08:00', total:4, left:0, price:2.0, driver:'سائق ★4.7', status:'full'}, // مكتمل — يجب أن يختفي
+ {id:4, from:'جرمانا', to:'المدينة الصناعية', fromLL:[33.49,36.34], toLL:[33.45,36.40], time:'اليوم 06:45', total:8, left:5, price:1.5, driver:'فان ★4.8', status:'pending'},
+]
+let map, lines=[]
+function initMap(){
+ map=L.map('map',{zoomControl:false}).setView([33.52,36.29],11)
+ L.tileLayer('https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map)
+ trips.filter(t=> t.status==='pending' && t.left>0).forEach(t=>{
+   const line=L.polyline([t.fromLL, t.toLL],{color:'#4F46E5', weight:4, opacity:0.8}).addTo(map)
+   L.marker(t.fromLL,{icon: L.divIcon({html:'<div style="background:#22c55e;width:12px;height:12px;border-radius:999px;border:2px solid #fff"></div>', iconSize:[12,12]})}).addTo(map)
+   L.marker(t.toLL,{icon: L.divIcon({html:'<div style="background:#ef4444;width:12px;height:12px;border-radius:999px;border:2px solid #fff"></div>', iconSize:[12,12]})}).addTo(map)
+   lines.push(line)
+ })
+ if(lines.length) map.fitBounds(L.featureGroup(lines).getBounds(),{padding:[20,20]})
+ setTimeout(()=> map.invalidateSize(),300)
+}
+function render(){
+ const c=document.getElementById('list'); c.innerHTML=''
+ trips.forEach(t=>{
+   const isFull = t.left===0 || t.status==='full'
+   // المكتمل لا يظهر — شرط أساسي
+   if(isFull) return
+   const div=document.createElement('div'); div.className='trip'
+   div.innerHTML=`
+     <div class="tripHead"><div style="position:absolute;inset:0;background:linear-gradient(90deg,#eef2ff,#f0fdf4);display:grid;place-items:center;color:#64748b;font-size:11px">🗺️ مسار: ${t.from} → ${t.to}</div></div>
+     <div class="tripBody">
+       <div class="route"><span>📍 ${t.from}</span><span style="color:#4F46E5">→</span><span>🏁 ${t.to}</span></div>
+       <div class="time">🕖 ${t.time} • ${t.driver}</div>
+       <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">
+         <span class="seats">${t.left>0? `✅ ${t.left} مقاعد متبقية من ${t.total}` : '❌ مكتمل'}</span>
+         <span class="price">$${t.price.toFixed(2)} / مقعد</span>
+       </div>
+       <button class="join" onclick="joinTrip(${t.id})">👥 انضم للرحلة</button>
+     </div>`
+   c.appendChild(div)
+ })
+ if(c.children.length===0){
+   c.innerHTML='<div style="text-align:center;padding:20px;color:#64748b">لا توجد رحلات متاحة على مسارك حالياً</div>'
+ }
+
+}
+function joinTrip(id){
+ const t=trips.find(x=> x.id===id)
+ if(t.left<=0) return showToast('الرحلة مكتملة')
+ t.left--
+ showToast('تمت إضافتك للرحلة')
+ if(t.left===0) t.status='full'
+ render()
+ initMap()
+}
+setTimeout(()=>{initMap(); render()},100)
+</script>
+<div id="toast" class="toast"></div>
+</body>
+</html>

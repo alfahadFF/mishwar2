@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>نقل - مناسبة جديدة</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+function showToast(msg, isError=false){
+  const t=document.getElementById('toast');
+  if(!t) return;
+  t.textContent=msg;
+  t.className='toast'+(isError?' error':'');
+  t.style.display='block';
+  clearTimeout(window._toastTimer);
+  window._toastTimer=setTimeout(()=> t.style.display='none', 2500);
+}
+
+</script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,-apple-system,'Segoe UI',sans-serif;background:#f8fafc;color:#0f172a;max-width:520px;margin:0 auto}
+.header{position:sticky;top:0;z-index:10;background:#fff;border-bottom:1px solid #e2e8f0;padding:14px 16px;display:flex;align-items:center;gap:12px}
+.header h1{font-size:18px;font-weight:900}
+.header p{font-size:12px;color:#64748b}
+.back{width:40px;height:40px;border-radius:12px;border:1px solid #e2e8f0;background:#fff;display:grid;place-items:center;cursor:pointer}
+.section{background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:14px;margin:12px}
+.section h2{font-size:14px;font-weight:900;margin-bottom:6px;display:flex;align-items:center;gap:6px}
+.section h2 span.badge{font-size:10px;padding:2px 8px;border-radius:999px;background:#f1f5f9;color:#475569;font-weight:800}
+.hint{font-size:12px;color:#64748b;margin-bottom:10px;line-height:1.5}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{padding:8px 14px;border-radius:999px;border:1.5px solid #e2e8f0;background:#fff;font-size:13px;font-weight:800;cursor:pointer;transition:.15s}
+.chip.active{background:#4F46E5;color:#fff;border-color:#4F46E5}
+.chip.small{font-size:12px;padding:6px 10px}
+.input{width:100%;height:44px;border:1.5px solid #e2e8f0;border-radius:12px;padding:0 12px;font-size:14px;background:#fff;outline:none}
+.input:focus{border-color:#4F46E5}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.row{display:flex;gap:8px;align-items:center}
+.stepper{display:flex;align-items:center;gap:6px;background:#f1f5f9;border-radius:999px;padding:4px}
+.stepper button{width:32px;height:32px;border-radius:999px;border:1px solid #e2e8f0;background:#fff;font-weight:900;cursor:pointer}
+.stepper b{min-width:24px;text-align:center}
+.pplIn{width:64px;height:32px;border:1.5px solid #e2e8f0;border-radius:10px;text-align:center;font-size:15px;font-weight:900;background:#fff;outline:none;-moz-appearance:textfield}
+.pplIn:focus{border-color:#4F46E5}
+.pplIn::-webkit-outer-spin-button,.pplIn::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+.leaflet-map{height:180px;border-radius:12px;border:1.5px solid #e2e8f0;overflow:hidden}
+.vehicle{border:1px solid #e2e8f0;border-radius:12px;padding:10px;display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;background:#fff}
+.vehicle .name{font-size:13px;font-weight:800}
+.vehicle .sub{font-size:11px;color:#64748b}
+.total{border-radius:12px;padding:10px;text-align:center;font-weight:900;margin-top:8px}
+.total.ok{background:#f0fdf4;border:1px solid #a7f3d0;color:#065f46}
+.total.warn{background:#fef2f2;border:1px solid #fecaca;color:#991b1b}
+.publish{position:sticky;bottom:0;background:#fff;border-top:1px solid #e2e8f0;padding:12px;display:flex;gap:8px}
+.publish button{flex:1;height:48px;border-radius:14px;border:none;font-weight:900;font-size:15px;cursor:pointer}
+.btn-primary{background:#4F46E5;color:#fff}
+.btn-primary:disabled{background:#cbd5e1;color:#64748b;cursor:not-allowed}
+
+.myBtn{margin-right:auto;height:38px;padding:0 12px;border-radius:12px;border:1px solid #c7d2fe;background:#eef2ff;color:#4F46E5;font-weight:900;font-size:12px;cursor:pointer;white-space:nowrap}
+.myBtn i{font-style:normal;background:#4F46E5;color:#fff;border-radius:999px;padding:1px 7px;margin-right:4px;font-size:10px}
+.stBadge{display:inline-block;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:900}
+.st-open{background:#fef9c3;color:#854d0e} .st-filled{background:#dcfce7;color:#166534}
+.sumRow{font-size:12px;margin-top:5px;color:#334155;line-height:1.6}
+.item{margin-top:12px;border-top:1px dashed #e2e8f0;padding-top:10px}
+.itemHead{display:flex;justify-content:space-between;align-items:center;font-size:13px;font-weight:900}
+.prog{font-size:11px;font-weight:900;padding:2px 8px;border-radius:999px;background:#f1f5f9;color:#475569}
+.prog.done{background:#dcfce7;color:#166534}
+.offer{border:1.5px solid #e2e8f0;border-radius:14px;padding:10px;margin-top:8px;background:#fff}
+.offer.rej{opacity:.45}
+.oTop{display:flex;gap:10px;align-items:center}
+.oPhoto{width:64px;height:48px;border-radius:10px;object-fit:cover;background:#f1f5f9;flex-shrink:0;display:grid;place-items:center;font-size:24px}
+.oBody{flex:1;min-width:0;font-size:11px;color:#475569;line-height:1.6}
+.oBody b{display:block;font-size:12px;color:#0f172a}
+.oPrice{font-size:19px;font-weight:900;color:#4F46E5;white-space:nowrap}
+.oMsg{margin-top:6px;font-size:11px;background:#f8fafc;border-radius:8px;padding:6px 8px;color:#334155}
+.oBtns{display:flex;gap:6px;margin-top:8px}
+.oBtns button{flex:1;height:38px;border-radius:10px;font-weight:900;cursor:pointer;font-size:12px}
+.oBtns .acc{background:#4F46E5;color:#fff;border:none;flex:2}
+.oBtns .rej{background:#fff;color:#991b1b;border:1px solid #fecaca}
+.subst{font-size:10px;font-weight:900;color:#9a3412;background:#fff7ed;border-radius:999px;padding:1px 7px;margin-right:4px}
+.drvCard{background:#f0fdf4;border:1.5px solid #a7f3d0;border-radius:14px;padding:10px;margin-top:8px}
+.callBtn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:38px;padding:0 14px;border-radius:10px;background:#16a34a;color:#fff;font-weight:900;font-size:12px;text-decoration:none;margin-top:8px}
+.empty{text-align:center;color:#94a3b8;font-size:12px;padding:10px 0}
+.overlay{position:fixed;inset:0;background:rgba(15,23,42,.55);display:none;align-items:center;justify-content:center;z-index:3000;padding:16px}
+.overlay.open{display:flex}
+.modal{background:#fff;border-radius:18px;padding:18px;width:100%;max-width:380px;text-align:center}
+.modal h3{font-size:15px;font-weight:900}
+.modal .big{font-size:30px;font-weight:900;color:#4F46E5;margin:10px 0}
+.mBtns{display:flex;gap:8px;margin-top:14px} .mBtns button{flex:1;height:44px;border-radius:12px;font-weight:900;cursor:pointer;border:1px solid #e2e8f0;background:#fff}
+.mBtns .yes{background:#4F46E5;color:#fff;border:none;flex:2}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#065f46;color:#fff;padding:12px 20px;border-radius:999px;font-weight:800;font-size:13px;box-shadow:0 8px 24px rgba(0,0,0,.2);z-index:9999;display:none;max-width:90%;text-align:center}
+.toast.error{background:#991b1b}
+
+
+/* ===== اختيار النقاط من الخريطة ===== */
+.pt{display:flex;align-items:center;gap:10px;border:1.5px solid #e2e8f0;border-radius:14px;padding:10px;background:#fff;margin-top:8px}
+.ptBadge{min-width:30px;height:30px;border-radius:999px;color:#fff;font-weight:900;font-size:12px;display:grid;place-items:center;flex-shrink:0}
+.ptBody{flex:1;min-width:0}
+.ptTitle{font-size:12px;font-weight:900}
+.ptLabel{font-size:11px;color:#334155;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ptLabel.empty{color:#94a3b8}
+.ptBtn{height:36px;padding:0 12px;border-radius:10px;border:1.5px dashed #cbd5e1;background:#fff;font-weight:800;font-size:11px;cursor:pointer;white-space:nowrap;color:#0f172a}
+.ptBtn.has{border-style:solid;border-color:#c7d2fe;background:#eef2ff;color:#4F46E5}
+.ptX{width:30px;height:30px;border-radius:999px;border:1px solid #fecaca;background:#fff;color:#991b1b;cursor:pointer;flex-shrink:0}
+.addPt{margin-top:8px;height:38px;width:100%;border-radius:12px;border:1.5px dashed #c7d2fe;background:#f8faff;color:#4F46E5;font-weight:900;font-size:12px;cursor:pointer}
+.pkOverlay{position:fixed;inset:0;z-index:2000;background:#fff;display:none;flex-direction:column;max-width:560px;margin:0 auto}
+.pkOverlay.open{display:flex}
+.pkHead{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid #e2e8f0}
+.pkHead b{font-size:15px}
+.pkHead button{width:34px;height:34px;border-radius:10px;border:1px solid #e2e8f0;background:#fff;cursor:pointer;font-size:14px}
+.pkMapWrap{flex:1;position:relative}
+#pkMap{position:absolute;inset:0}
+.pkHint{position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:500;background:rgba(15,23,42,.85);color:#fff;font-size:11px;font-weight:800;padding:6px 12px;border-radius:999px;white-space:nowrap;pointer-events:none}
+.pkMy{position:absolute;bottom:12px;left:12px;z-index:500;height:40px;padding:0 12px;border-radius:12px;border:1px solid #e2e8f0;background:#fff;font-weight:800;font-size:12px;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,.12)}
+.pkBar{padding:12px 14px;border-top:1px solid #e2e8f0;background:#fff}
+.pkLabel{font-size:13px;font-weight:800;min-height:20px;color:#0f172a}
+.pkLabel.empty{color:#94a3b8;font-weight:700}
+.pkConfirm{width:100%;height:46px;border-radius:12px;border:none;background:#4F46E5;color:#fff;font-weight:900;font-size:14px;cursor:pointer;margin-top:10px}
+.pkConfirm:disabled{background:#cbd5e1;color:#64748b}
+.tripMap{height:220px;border-radius:12px;border:1.5px solid #e2e8f0;overflow:hidden;margin-top:10px}
+.tripInfo{margin-top:8px;display:grid;gap:6px}
+.tripInfo div{background:#eef2ff;border:1px solid #c7d2fe;color:#3730a3;border-radius:10px;padding:8px 10px;font-size:12px;font-weight:900;text-align:center}
+.tripInfo div.ret{background:#f0fdf4;border-color:#a7f3d0;color:#065f46}
+.tripInfo div.err{background:#fef2f2;border-color:#fecaca;color:#991b1b}
+</style>
+</head>
+<body>
+<div class="header">
+<div class="back" onclick="history.back()">→</div>
+<div>
+<h1>✨ طلب مناسبة جديد</h1>
+<p>زفاف • رحلة عائلية • سياحية • أخرى</p>
+</div>
+<button class="myBtn" id="myBtn" onclick="showMine()">📋 طلباتي <i id="myCnt">0</i></button>
+</div>
+<div id="formView">
+
+<div class="section">
+<h2>🎉 نوع المناسبة <span class="badge">اختر واحداً</span></h2>
+<div class="chips" id="typeChips">
+<span class="chip" data-t="wedding" onclick="setType('wedding')">💍 زفاف</span>
+<span class="chip" data-t="family" onclick="setType('family')">👨‍👩‍👧‍👦 رحلة عائلية</span>
+<span class="chip" data-t="tourist" onclick="setType('tourist')">🏖️ رحلة سياحية</span>
+<span class="chip" data-t="other" onclick="setType('other')">✨ أخرى</span>
+</div>
+<div id="otherBox" style="display:none;margin-top:10px">
+<input id="otherType" class="input" placeholder="اكتب نوع المناسبة" oninput="updatePublish()">
+</div>
+</div>
+
+<div id="details" style="display:none">
+
+<div class="section">
+<h2>📍 المسار والمواعيد</h2>
+<p class="hint" id="routeHint">حدد نقطة التجمع والوجهات من الخريطة</p>
+
+<div id="gatherBox"></div>
+
+<div class="grid2" style="margin-top:10px">
+<div>
+<label style="font-size:12px;font-weight:800">موعد التجمع</label>
+<input id="gatherTime" type="datetime-local" class="input" style="margin-top:4px" onchange="updatePublish();autoDuration()">
+</div>
+<div>
+<label style="font-size:12px;font-weight:800">موعد الانطلاق</label>
+<input id="departTime" type="datetime-local" class="input" style="margin-top:4px" onchange="updatePublish();autoDuration()">
+</div>
+</div>
+
+<div style="margin-top:10px">
+<label style="font-size:12px;font-weight:800">الوجهة / مسار الرحلة <span style="color:#4F46E5">— أكثر من مكان</span></label>
+<div id="destList"></div>
+<button class="addPt" onclick="addDest()">＋ إضافة وجهة</button>
+</div>
+
+
+<div class="grid2" style="margin-top:10px">
+<div>
+<label style="font-size:12px;font-weight:800">المدة بالساعات</label>
+<div class="row" style="margin-top:4px">
+<div class="stepper"><button onclick="stepDur(-1)">−</button><b id="durVal">4</b><button onclick="stepDur(1)">＋</button></div>
+<span style="font-size:12px;color:#64748b">ساعة</span>
+</div>
+<label style="font-size:11px;display:flex;gap:6px;align-items:center;margin-top:6px"><input type="checkbox" id="waitCheck" checked> السائق ينتظر طوال المدة</label>
+</div>
+<div>
+<label style="font-size:12px;font-weight:800">موعد العودة</label>
+<input id="returnTime" type="datetime-local" class="input" style="margin-top:4px" onchange="updatePublish()">
+</div>
+</div>
+
+<div id="finalBox"></div>
+<div id="tripBox" style="display:none;margin-top:10px">
+<label style="font-size:12px;font-weight:800">🛣️ مسار الرحلة</label>
+<div id="tripMap" class="tripMap"></div>
+<div class="tripInfo" id="tripInfo"></div>
+</div>
+</div>
+
+<div class="section">
+<h2>👥 الأشخاص والمركبات</h2>
+<div class="row" style="justify-content:space-between">
+<span style="font-size:13px;font-weight:800">عدد الأشخاص</span>
+<div class="stepper"><button onclick="stepPeople(-1)">−</button><input id="peopleVal" class="pplIn" type="number" inputmode="numeric" min="1" max="500" value="20" oninput="setPeople(this.value,true)" onblur="setPeople(this.value)" onfocus="this.select()"><button onclick="stepPeople(1)">＋</button></div>
+</div>
+<div class="chips" id="pplQuick" style="margin-top:8px"><span class="chip small" data-n="10" onclick="setPeople(10)">10</span><span class="chip small" data-n="20" onclick="setPeople(20)">20</span><span class="chip small" data-n="50" onclick="setPeople(50)">50</span><span class="chip small" data-n="100" onclick="setPeople(100)">100</span><span class="chip small" data-n="150" onclick="setPeople(150)">150</span><span class="chip small" data-n="200" onclick="setPeople(200)">200</span><span class="chip small" data-n="300" onclick="setPeople(300)">300</span></div>
+<p style="font-size:11px;color:#64748b;margin:6px 0">المقاعد الإجمالية تُحسب تلقائياً من المركبات المختارة</p>
+<div id="vehicles"></div>
+<div id="totalBox" class="total ok">✅ المقاعد: 0 / 20</div>
+<div id="weddingCarBox" style="display:none;margin-top:10px;border:1px dashed #a5b4fc;border-radius:12px;padding:10px;background:#f8fafc">
+<p style="font-size:12px;font-weight:900;margin-bottom:6px">💍 تفاصيل سيارة الزفاف</p>
+<p style="font-size:11px;color:#64748b;margin-bottom:6px">أي سيارة حديثة أو فاخرة يقدّمها سائقو خدمة الزفاف</p>
+<div class="chips">
+<span class="chip small active" id="wcNormal" onclick="setWedding('normal')">عادية</span>
+<span class="chip small" id="wcLux" onclick="setWedding('lux')">فاخرة</span>
+<span class="chip small active" id="wcDecoYes" onclick="setDeco(true)">مع زينة ✨</span>
+<span class="chip small" id="wcDecoNo" onclick="setDeco(false)">بدون زينة</span>
+</div>
+</div>
+</div>
+
+<div class="section">
+<h2>📝 ملاحظات أو طلبات إضافية</h2>
+<textarea id="notes" rows="3" style="width:100%;border:1.5px solid #e2e8f0;border-radius:12px;padding:10px;font-size:13px;outline:none" placeholder="مثال: كراسي أطفال، توقف إضافي..."></textarea>
+</div>
+
+</div>
+
+<div class="publish">
+<button id="publishBtn" class="btn-primary" onclick="publish()" disabled>اختر نوع المناسبة أولاً</button>
+</div>
+</div>
+
+<!-- طلباتي: العروض والقبول -->
+<div id="mineView" style="display:none">
+<div id="mineList"></div>
+<div class="publish"><button class="btn-primary" style="background:#fff;color:#4F46E5;border:1.5px solid #c7d2fe" onclick="showForm()">＋ طلب مناسبة جديد</button></div>
+</div>
+
+<div class="overlay" id="acceptModal"><div class="modal">
+<h3>قبول عرض السائق</h3>
+<div class="big" id="amPrice">$0</div>
+<div id="amInfo" style="font-size:12px;color:#475569;line-height:1.7"></div>
+<div class="mBtns"><button onclick="closeAccept()">رجوع</button><button class="yes" onclick="confirmAccept()">قبول العرض</button></div>
+</div></div>
+
+<script>
+// ===== فئات المركبات: تطابق الفئة نفسها والأكبر ضمن المجموعة =====
+const VGROUPS=[
+ {g:'pickup', name:'بيك آب صغير', icon:'🛻'},
+ {g:'medium', name:'متوسط', icon:'🚚'},
+ {g:'truck',  name:'شاحنة', icon:'🚛'},
+]
+const VCLASS=[
+ {k:'pk800', g:'pickup', r:1, short:'800 كغ'},
+ {k:'pk1200',g:'pickup', r:2, short:'1200 كغ'},
+ {k:'pk1500',g:'pickup', r:3, short:'1500 كغ'},
+ {k:'pk2000',g:'pickup', r:4, short:'2000 كغ'},
+ {k:'md3', g:'medium', r:1, short:'3 طن'},
+ {k:'md4', g:'medium', r:2, short:'4 طن'},
+ {k:'md5', g:'medium', r:3, short:'5 طن'},
+ {k:'md6', g:'medium', r:4, short:'6 طن'},
+ {k:'md7', g:'medium', r:5, short:'7 طن'},
+ {k:'truck',g:'truck', r:1, short:'شاحنة'},
+]
+function vOf(k){ return VCLASS.find(v=>v.k===k) }
+function vName(k){ const v=vOf(k); if(!v) return '—'; const g=VGROUPS.find(x=>x.g===v.g); return v.g==='truck'? g.icon+' شاحنة' : g.icon+' '+g.name+' '+v.short }
+function vehicleFits(orderK, carrierK){ const o=vOf(orderK), c=vOf(carrierK); return !!(o&&c&&o.g===c.g&&c.r>=o.r) }
+
+// ===== العمولة والمحفظة =====
+// نسبة العمولة الموحّدة لكل الخدمات
+const CARGO_COMMISSION=0.12
+const COMMISSION_PCT=Math.round(CARGO_COMMISSION*100)+'%'
+function commissionOf(price){ return Math.round(Number(price)*CARGO_COMMISSION*100)/100 }
+const money=v=> (v<0?'−':'')+'$'+Math.abs(Number(v)).toFixed(2)
+
+// ===== الجسر بين الشاشتين (نسخة التجربة) =====
+const K_ORDERS='naql_cargo_orders', K_OFFERS='naql_cargo_offers', K_WALLET='naql_wallet_', K_CARRIER='naql_carrier_profile'
+// تخزين محلي، مع بديل في الذاكرة إذا كان المتصفح يمنعه
+const STORE=(()=>{ try{ const s=window.localStorage; s.getItem('_t'); return s }catch(e){ const m={}; return {getItem:k=> k in m? m[k]:null, setItem:(k,v)=>{ m[k]=String(v) }, removeItem:k=>{ delete m[k] }} } })()
+const lsGet=(k,d)=>{ try{ const v=JSON.parse(STORE.getItem(k)); return v==null? d : v }catch(e){ return d } }
+const lsSet=(k,v)=> STORE.setItem(k, JSON.stringify(v))
+const loadOrders=()=> lsGet(K_ORDERS,[]), saveOrders=v=> lsSet(K_ORDERS,v)
+const loadOffers=()=> lsGet(K_OFFERS,[]), saveOffers=v=> lsSet(K_OFFERS,v)
+const DEMO_CARRIER={id:'carrier-1', name:'أبو خالد', phone:'0933 222 111'}
+const DEMO_CUSTOMER={id:'customer-1', name:'أحمد محمد', phone:'0944 123 456'}
+// الفترة المجانية: أسبوعان من تاريخ التسجيل، بدون عمولة في كل الخدمات (في التطبيق من app_settings.free_days)
+const FREE_DAYS=14, DAY_MS=864e5
+function loadWallet(id){
+ const w=lsGet(K_WALLET+id,null); if(w && w.registered_at) return w
+ // الحسابات التجريبية مسجّلة قبل 5 أيام
+ const n=Object.assign({balance:0, tx:[]}, w||{}, {registered_at:Date.now()-5*DAY_MS}); saveWallet(id,n); return n
+}
+function saveWallet(id,w){ lsSet(K_WALLET+id, w) }
+function freeDaysLeft(id){ const w=loadWallet(id); return Math.max(0, Math.ceil((w.registered_at+FREE_DAYS*DAY_MS-Date.now())/DAY_MS)) }
+function inFreePeriod(id){ return freeDaysLeft(id)>0 }
+function daysAr(n){ return n===1? 'يوم واحد' : n===2? 'يومان' : n<=10? n+' أيام' : n+' يوماً' }
+function nextCommission(id, price){ return inFreePeriod(id)? 0 : commissionOf(price) }
+// خصم العمولة: لا عمولة ضمن الفترة المجانية، وبعدها تُخصم دائماً حتى لو صار الرصيد سالباً (دين يُسدد من الشحن التالي)
+function chargeCommission(carrierId, orderId, price){
+ const free=inFreePeriod(carrierId), w=loadWallet(carrierId), c= free? 0 : commissionOf(price)
+ w.balance=Math.round((w.balance-c)*100)/100
+ w.tx.unshift({kind:'commission', amount:-c, order_id:orderId, price:Number(price), balance_after:w.balance, free, at:Date.now()})
+ saveWallet(carrierId,w); return {commission:c, balance:w.balance, free}
+}
+function topUp(carrierId, amount){
+ const w=loadWallet(carrierId); const before=w.balance
+ w.balance=Math.round((w.balance+Number(amount))*100)/100
+ w.tx.unshift({kind:'topup', amount:Number(amount), debt_paid: before<0? Math.min(-before, Number(amount)) : 0, balance_after:w.balance, at:Date.now()})
+ saveWallet(carrierId,w); return w
+}
+const uid=()=> Date.now().toString(36)+Math.random().toString(36).slice(2,7)
+function timeAgo(t){ const m=Math.round((Date.now()-t)/60000); return m<1? 'الآن' : m<60? 'منذ '+m+' د' : 'منذ '+Math.floor(m/60)+' س' }
+function orderTiming(o){ return o.timing==='urgent'? '⚡ مستعجل' : '📅 '+(o.sched_date||'')+' '+(o.sched_time||'') }
+function orderBudget(o){ return o.budget_type==='fixed'? `💰 ${money(o.budget_from)} – ${money(o.budget_to)}` : '📩 بانتظار عروض الأسعار' }
+function orderExtras(o){
+ const x=[]
+ if(o.weight_kg) x.push('⚖️ '+o.weight_kg+' كغ')
+ if(o.need_workers) x.push('👷 '+o.workers_count+' عمال')
+ if(o.need_equipment) x.push('🔧 '+o.equipment_detail)
+ if(o.lift_up) x.push('⬆️ رفع للطابق '+o.floor_to+(o.elevator_to? ' • '+o.elevator_to:''))
+ if(o.lift_down) x.push('⬇️ تنزيل من الطابق '+o.floor_from+(o.elevator_from? ' • '+o.elevator_from:''))
+ if(o.floor_note) x.push('📝 '+o.floor_note)
+ return x
+}
+function beep(freq){ try{ const ctx=new (window.AudioContext||window.webkitAudioContext)(); const o=ctx.createOscillator(),g=ctx.createGain(); o.connect(g); g.connect(ctx.destination); o.frequency.value=freq||740; g.gain.value=0.2; o.start(); setTimeout(()=>{o.stop(); ctx.close()},350) }catch(e){} }
+function notify(freq){ beep(freq); if(navigator.vibrate) navigator.vibrate([200,100,200]) }
+
+// ===== مركبات المناسبات =====
+// الباصات والفانات: أي سائق باص/فان يرى أي طلب باص/فان (الأصغر والأكبر) ليختار الزبون من المتوفر
+// سيارة الزفاف: خدمة يفعّلها السائق في حسابه، وتصلح لها أي سيارة
+const EV_TYPES={
+ wedding_car:{name:'سيارة زفاف', icon:'💍', seats:4, wedding:true},
+ bus_large_50:{name:'باص كبير 50', icon:'🚌', seats:50},
+ bus_mid_27:{name:'باص متوسط 27', icon:'🚌', seats:27},
+ bus_mid_21:{name:'باص متوسط 21', icon:'🚌', seats:21},
+ bus_mid_18:{name:'باص متوسط 18', icon:'🚌', seats:18},
+ bus_small_14:{name:'باص صغير 14', icon:'🚐', seats:14},
+ van_11:{name:'فان 11', icon:'🚐', seats:11},
+ van_8:{name:'فان 8', icon:'🚐', seats:8},
+}
+const EVENT_KINDS={wedding:'💍 زفاف', family:'👨‍👩‍👧‍👦 رحلة عائلية', tourist:'🏖️ رحلة سياحية', other:'✨ مناسبة'}
+const evName=t=> EV_TYPES[t]? EV_TYPES[t].icon+' '+EV_TYPES[t].name : '—'
+const isBusVan=t=> !!EV_TYPES[t] && !EV_TYPES[t].wedding
+function eventKind(o){ return o.event_type==='other' && o.event_type_other? '✨ '+o.event_type_other : EVENT_KINDS[o.event_type]||'✨ مناسبة' }
+// مركبة السائق من حسابه: {type, seats, model, year, color, photo} + الخدمات {events, wedding}
+function driverVehicleLabel(v, noIcon){ if(!v) return '—'; const t=EV_TYPES[v.type]; return v.type==='car'? (noIcon?'':'🚘 ')+(v.model||'سيارة') : (noIcon? t.name : evName(v.type))+(v.model? ' • '+v.model:'') }
+// هل يستطيع السائق خدمة هذا البند من الطلب؟
+function canServe(itemType, p){
+ if(!p || !p.vehicle) return false
+ if(EV_TYPES[itemType] && EV_TYPES[itemType].wedding) return !!(p.services && p.services.wedding)
+ return !!(p.services && p.services.events) && isBusVan(p.vehicle.type)
+}
+
+// ===== التخزين (نسخة التجربة) =====
+const K_EV_ORDERS='naql_event_orders', K_EV_OFFERS='naql_event_offers', K_EV_MINE='naql_my_event_orders'
+const loadEvOrders=()=> lsGet(K_EV_ORDERS,[]), saveEvOrders=v=> lsSet(K_EV_ORDERS,v)
+const loadEvOffers=()=> lsGet(K_EV_OFFERS,[]), saveEvOffers=v=> lsSet(K_EV_OFFERS,v)
+// عدد المقبول والمتبقي لكل بند
+function acceptedFor(orderId, itemType, offers){ return (offers||loadEvOffers()).filter(x=> x.order_id===orderId && x.item_type===itemType && x.status==='accepted').length }
+function itemsLeft(o, offers){ offers=offers||loadEvOffers(); return o.vehicles.map(v=> ({...v, left: Math.max(0, v.count-acceptedFor(o.id, v.type, offers))})) }
+function orderFilled(o, offers){ return itemsLeft(o, offers).every(v=> v.left===0) }
+// قبول الزبون لعرض: خصم العمولة، وإغلاق البند إذا اكتمل، وإلغاء العروض المعلّقة عليه
+function acceptEventOffer(offerId){
+ const offers=loadEvOffers(), x=offers.find(f=>f.id===offerId); if(!x || x.status!=='pending') return {ok:false, msg:'العرض لم يعد متاحاً'}
+ const orders=loadEvOrders(), o=orders.find(q=>q.id===x.order_id); if(!o || o.status!=='open') return {ok:false, msg:'الطلب لم يعد متاحاً'}
+ const it=itemsLeft(o, offers).find(v=> v.type===x.item_type); if(!it || it.left<1) return {ok:false, msg:'اكتمل هذا النوع من المركبات'}
+ x.status='accepted'; x.accepted_at=Date.now()
+ const ch=chargeCommission(x.driver_id, o.id, x.price); x.commission=ch.commission
+ // العروض الأخرى لنفس السائق على هذا الطلب تُلغى (مركبة واحدة)
+ offers.forEach(f=>{ if(f.order_id===o.id && f.driver_id===x.driver_id && f.id!==x.id && f.status==='pending') f.status='cancelled' })
+ if(it.left-1===0) offers.forEach(f=>{ if(f.order_id===o.id && f.item_type===x.item_type && f.status==='pending'){ f.status='rejected'; f.reason='filled' } })
+ if(orderFilled(o, offers)){ o.status='filled'; offers.forEach(f=>{ if(f.order_id===o.id && f.status==='pending'){ f.status='rejected'; f.reason='filled' } }) }
+ saveEvOffers(offers); saveEvOrders(orders)
+ return {ok:true, offer:x, order:o, commission:ch.commission, free:ch.free}
+}
+function fmtDT(s){ if(!s) return ''; const d=new Date(s); if(isNaN(d)) return s; return d.toLocaleDateString('ar-SY',{weekday:'long', day:'numeric', month:'numeric'})+' • '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0') }
+
+const HAS_MAP=typeof L!=='undefined'
+const ME=DEMO_CUSTOMER
+const esc=s=> String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))
+let eventType=null, people=20, duration=4
+let vehicles={
+ wedding_car:{name:'💍 سيارة زفاف',seats:4,count:0},
+ bus_large_50:{name:'🚌 باص كبير 50',seats:50,count:0},
+ bus_mid_27:{name:'🚌 باص متوسط 27',seats:27,count:0},
+ bus_mid_21:{name:'🚌 باص متوسط 21',seats:21,count:0},
+ bus_mid_18:{name:'🚌 باص متوسط 18',seats:18,count:0},
+ bus_small_14:{name:'🚐 باص صغير 14',seats:14,count:0},
+ van_11:{name:'🚐 فان 11',seats:11,count:0},
+ van_8:{name:'🚐 فان 8',seats:8,count:0},
+}
+let weddingStyle='normal', weddingDeco=true
+let dests=[], gather=[{ll:null,label:''}], finalPt=[{ll:null,label:''}]
+let mapGather=null, mapRoute=null, markerGather=null, routeLine=null
+let gatherLatLng = [33.5138, 36.2765] // دمشق — مجرد مركز افتراضي، يُحدد دقيقاً بالسحب بدون ذكر دولة
+
+const DEFAULT_CENTER=[33.5138, 36.2765]
+const POINTS={
+ gather:{box:'gatherBox', get:()=>gather, title:'نقطة التجمع', letter:'📍', color:'#16a34a', single:true},
+ dests:{box:'destList', get:()=>dests, title:'الوجهة', letter:'', color:'#4F46E5', removable:true},
+ finalPt:{box:'finalBox', get:()=>finalPt, title:'نقطة الوصول الأخيرة', letter:'🏁', color:'#dc2626', single:true, optional:true},
+}
+function initMaps(){ renderPoints('gather'); renderPoints('dests'); renderPoints('finalPt'); drawTrip() }
+function updateRoute(){ drawTrip() }
+function onPointsChanged(){ updatePublish(); drawTrip() }
+function tripSegments(){
+ const G=gather[0].ll, D=dests.filter(d=>d.ll).map(d=>d.ll)
+ if(!G || !D.length) return []
+ const segs=[{key:'outbound', name:'الذهاب', icon:'🛣️', color:'#4F46E5', pts:[G,...D]}]
+ segs.push({key:'return', name:'العودة', icon:'↩️', color:'#16a34a', cls:'ret', pts:[D[D.length-1], finalPt[0].ll || G]})
+ return segs
+}
+function tripMarkers(){
+ const m=[]
+ if(gather[0].ll) m.push({ll:gather[0].ll, txt:'تجمع', color:'#16a34a'})
+ dests.forEach((d,i)=> d.ll && m.push({ll:d.ll, txt:String(i+1), color:'#4F46E5'}))
+ if(finalPt[0].ll) m.push({ll:finalPt[0].ll, txt:'🏁', color:'#dc2626'})
+ return m
+}
+function setType(t){
+ eventType=t
+ document.querySelectorAll('#typeChips .chip').forEach(c=>c.classList.toggle('active', c.dataset.t===t))
+ document.getElementById('otherBox').style.display = t==='other' ? 'block' : 'none'
+ document.getElementById('details').style.display='block'
+ document.getElementById('routeHint').textContent = t==='wedding' ? 'زفاف: حدد نقطة التجمع والوجهات والعودة' : 'حدد نقطة التجمع والمسار والعودة'
+ if(dests.length===0) addDest()
+ renderVehicles()
+ updatePublish()
+ setTimeout(initMaps, 100)
+ document.getElementById('details').scrollIntoView({behavior:'smooth'})
+}
+function addDest(){ addPoint('dests') }
+function renderDests(){ renderPoints('dests') }
+function setPeople(v, typing){
+ const n=parseInt(v)
+ if(typing && (isNaN(n) || n<1)) return   // أثناء الكتابة لا نعدّل الحقل
+ people=Math.max(1, Math.min(500, isNaN(n)? people : n))
+ const el=document.getElementById('peopleVal'); if(!typing || String(people)!==String(v)) el.value=people
+ document.querySelectorAll('#pplQuick .chip').forEach(c=> c.classList.toggle('active', Number(c.dataset.n)===people))
+ updateTotals(); updatePublish()
+}
+function stepPeople(d){ setPeople(people+d) }
+function stepDur(d){ duration=Math.max(1, Math.min(72, duration+d)); document.getElementById('durVal').textContent=duration; updatePublish()}
+function setWedding(s){ weddingStyle=s; document.getElementById('wcNormal').classList.toggle('active', s==='normal'); document.getElementById('wcLux').classList.toggle('active', s==='lux'); }
+function setDeco(v){ weddingDeco=v; document.getElementById('wcDecoYes').classList.toggle('active', v); document.getElementById('wcDecoNo').classList.toggle('active', !v); }
+function renderVehicles(){
+ const c=document.getElementById('vehicles'); c.innerHTML=''
+ Object.entries(vehicles).forEach(([k,v])=>{
+   const div=document.createElement('div'); div.className='vehicle'
+   div.innerHTML=`<div><div class="name">${v.name}</div><div class="sub">${v.seats} مقاعد • العدد: ${v.count}</div></div><div class="stepper"><button onclick="chgVeh('${k}',-1)">−</button><b>${v.count}</b><button onclick="chgVeh('${k}',1)">＋</button></div>`
+   c.appendChild(div)
+ })
+ document.getElementById('weddingCarBox').style.display = vehicles.wedding_car.count>0 ? 'block' : 'none'
+ updateTotals()
+}
+function chgVeh(k,d){ vehicles[k].count=Math.max(0, vehicles[k].count+d); renderVehicles(); updatePublish() }
+function totalSeats(){ return Object.values(vehicles).reduce((s,v)=> s+v.count*v.seats, 0) }
+function updateTotals(){
+ const t=totalSeats()
+ const box=document.getElementById('totalBox')
+ const ok = t>=people && t>0
+ box.textContent = t===0 ? `⚠️ اختر مركبات — المقاعد: 0 / ${people}` : (ok ? `✅ المقاعد: ${t} / ${people}` : `⚠️ المقاعد لا تكفي: ${t} / ${people}`)
+ box.className='total '+(ok?'ok':'warn')
+}
+function autoDuration(){
+ const dep=document.getElementById('departTime').value, ret=document.getElementById('returnTime').value
+ if(dep && ret){ const d=(new Date(ret)-new Date(dep))/36e5; if(d>0){ duration=Math.round(d); document.getElementById('durVal').textContent=duration }}
+}
+function updatePublish(){
+ const btn=document.getElementById('publishBtn')
+ if(!eventType){ btn.disabled=true; btn.textContent='اختر نوع المناسبة أولاً'; return }
+ if(eventType==='other' && !document.getElementById('otherType').value.trim()){ btn.disabled=true; btn.textContent='اكتب نوع المناسبة'; return }
+ const hasGather=!!gather[0].ll
+ const hasDest=dests.some(d=>d.ll)
+ if(!hasGather || !hasDest){ btn.disabled=true; btn.textContent='حدد نقطة التجمع والوجهة'; return }
+ if(totalSeats()===0){ btn.disabled=true; btn.textContent='اختر مركبة واحدة على الأقل'; return }
+ btn.disabled=false; btn.textContent='📢 نشر الطلب واستقبال العروض'
+}
+function publish(){
+ const o={
+   id:uid(), created_at:Date.now(), customer_id:ME.id, customer:ME, status:'open',
+   event_type:eventType,
+   event_type_other: eventType==='other'? document.getElementById('otherType').value.trim(): null,
+   gathering_point:{label:gather[0].label, lat:gather[0].ll[0], lng:gather[0].ll[1]},
+   gathering_time: document.getElementById('gatherTime').value || null,
+   departure_time: document.getElementById('departTime').value || null,
+   destinations: dests.filter(d=>d.ll).map(d=>({label:d.label, lat:d.ll[0], lng:d.ll[1]})),
+   duration_hours: duration,
+   wait: document.getElementById('waitCheck').checked,
+   return_time: document.getElementById('returnTime').value || null,
+   final_point: finalPt[0].ll? {label:finalPt[0].label, lat:finalPt[0].ll[0], lng:finalPt[0].ll[1]} : null,
+   route_info: window.lastTrip||null,
+   num_people: people,
+   vehicles: Object.entries(vehicles).filter(([k,v])=>v.count>0).map(([k,v])=>({type:k,seats:v.seats,count:v.count, ...(k==='wedding_car'?{style:weddingStyle,deco:weddingDeco}:{}) })),
+   total_seats: totalSeats(),
+   notes: document.getElementById('notes').value.trim()||null,
+ }
+ const all=loadEvOrders(); all.unshift(o); saveEvOrders(all)
+ const mine=lsGet(K_EV_MINE,[]); mine.unshift(o.id); lsSet(K_EV_MINE,mine)
+ showToast('تم نشر الطلب'); showMine()
+}
+// ===== طلباتي =====
+function myOrders(){ const ids=lsGet(K_EV_MINE,[]); return loadEvOrders().filter(o=> ids.includes(o.id)) }
+function showMine(){ document.getElementById('formView').style.display='none'; document.getElementById('mineView').style.display='block'; document.getElementById('myBtn').style.display='none'; window.scrollTo(0,0); renderMine() }
+function showForm(){ document.getElementById('mineView').style.display='none'; document.getElementById('formView').style.display='block'; document.getElementById('myBtn').style.display=''; window.scrollTo(0,0) }
+function vehDetails(v){ return [v.seats? v.seats+' مقعد':'', v.year, v.color].filter(Boolean).map(esc).join(' • ') }
+function photoHtml(v){ return v.photo? `<img class="oPhoto" src="${esc(v.photo)}" alt="">` : `<div class="oPhoto">${v.type==='car'? '🚘' : (EV_TYPES[v.type]||{}).icon||'🚐'}</div>` }
+let seenOffers=null
+function renderMine(){
+ const orders=myOrders(), offers=loadEvOffers()
+ document.getElementById('myCnt').textContent=orders.filter(o=>o.status==='open').length
+ // تنبيه بعرض جديد
+ const mineIds=orders.map(o=>o.id), incoming=offers.filter(x=> mineIds.includes(x.order_id))
+ if(seenOffers){ incoming.filter(x=> !seenOffers[x.id] && x.status==='pending').forEach(x=>{ notify(); showToast('وصلك عرض جديد: '+money(x.price)) }) }
+ seenOffers={}; incoming.forEach(x=> seenOffers[x.id]=1)
+ if(document.getElementById('mineView').style.display!=='block') return
+ document.getElementById('mineList').innerHTML= orders.length? orders.map(o=>{
+   const items=itemsLeft(o, offers)
+   return `<div class="section">
+    <div style="display:flex;justify-content:space-between;align-items:center"><h2 style="margin:0">${esc(eventKind(o))}</h2><span class="stBadge ${o.status==='open'?'st-open':'st-filled'}">${o.status==='open'? '⏳ بانتظار العروض' : '✅ اكتملت المركبات'}</span></div>
+    <div class="sumRow">📍 ${esc(o.gathering_point.label)}${o.gathering_time? ' • '+fmtDT(o.gathering_time):''}</div>
+    <div class="sumRow">🏁 ${o.destinations.map(d=>esc(d.label)).join(' ← ')}</div>
+    <div class="sumRow">👥 ${o.num_people} شخص • ⏱️ ${o.duration_hours} ساعة</div>
+    ${items.map(it=>{
+      const its=offers.filter(x=> x.order_id===o.id && x.item_type===it.type && x.status!=='withdrawn' && x.status!=='cancelled')
+      const acc=its.filter(x=>x.status==='accepted'), pend=its.filter(x=>x.status==='pending').sort((a,b)=>a.price-b.price)
+      return `<div class="item"><div class="itemHead"><span>${evName(it.type)}${it.type==='wedding_car'? ` <small style="color:#64748b;font-weight:700">(${it.style==='lux'?'فاخرة':'عادية'}${it.deco?' • مع زينة':''})</small>`:''}</span><span class="prog ${it.left===0?'done':''}">${it.count-it.left} / ${it.count}</span></div>
+       ${acc.map(x=> `<div class="drvCard"><div class="oTop">${photoHtml(x.vehicle)}<div class="oBody"><b>✅ ${esc(x.driver.name)}</b>${esc(driverVehicleLabel(x.vehicle,true))}<br>${vehDetails(x.vehicle)}</div><div class="oPrice">${money(x.price)}</div></div>
+         <a class="callBtn" href="tel:${x.driver.phone.replace(/\s/g,'')}">📞 اتصال ${esc(x.driver.phone)}</a></div>`).join('')}
+       ${it.left>0? (pend.length? pend.map(x=> `<div class="offer"><div class="oTop">${photoHtml(x.vehicle)}<div class="oBody"><b>${esc(driverVehicleLabel(x.vehicle,true))}${x.vehicle.type!==it.type && x.vehicle.type!=='car'? '<span class="subst">بديل</span>':''}</b>${vehDetails(x.vehicle)}<br>${timeAgo(x.created_at)}</div><div class="oPrice">${money(x.price)}</div></div>
+         ${x.message? `<div class="oMsg">💬 ${esc(x.message)}</div>`:''}
+         <div class="oBtns"><button class="rej" onclick="rejectOffer('${x.id}')">رفض</button><button class="acc" onclick="openAccept('${x.id}')">قبول</button></div></div>`).join('') : `<div class="empty">بانتظار عروض السائقين</div>`) : ''}
+      </div>`
+    }).join('')}
+   </div>`
+ }).join('') : `<div class="section"><div class="empty">لا توجد طلبات بعد</div></div>`
+}
+let acceptId=null
+function openAccept(id){
+ const x=loadEvOffers().find(f=>f.id===id); if(!x) return
+ acceptId=id; document.getElementById('amPrice').textContent=money(x.price)
+ document.getElementById('amInfo').innerHTML=`${esc(driverVehicleLabel(x.vehicle,true))}<br>${vehDetails(x.vehicle)}<br>بعد القبول تظهر لك بيانات السائق للتواصل`
+ document.getElementById('acceptModal').classList.add('open')
+}
+function closeAccept(){ document.getElementById('acceptModal').classList.remove('open') }
+function confirmAccept(){
+ const r=acceptEventOffer(acceptId); closeAccept()
+ if(!r.ok){ showToast(r.msg, true); renderMine(); return }
+ showToast(r.order.status==='filled'? 'تم قبول العرض • اكتملت كل المركبات' : 'تم قبول العرض'); renderMine()
+}
+function rejectOffer(id){ const offers=loadEvOffers(), x=offers.find(f=>f.id===id); if(x && x.status==='pending'){ x.status='rejected'; x.reason='customer'; saveEvOffers(offers) } showToast('تم رفض العرض'); renderMine() }
+setInterval(renderMine, 2000)
+
+// ===== توجيه حقيقي على الطرق (OSRM) =====
+const ROUTE_CACHE={}
+async function getRoute(points){
+ const key=points.map(p=>p[0].toFixed(5)+','+p[1].toFixed(5)).join(';')
+ if(ROUTE_CACHE[key]) return ROUTE_CACHE[key]
+ const coords=points.map(p=>p[1]+','+p[0]).join(';')
+ const ctrl=new AbortController(); const tm=setTimeout(()=>ctrl.abort(),12000)
+ try{
+   const r=await fetch('https://router.project-osrm.org/route/v1/driving/'+coords+'?overview=full&geometries=geojson',{signal:ctrl.signal})
+   const j=await r.json()
+   if(j.code!=='Ok'||!j.routes||!j.routes.length) throw new Error('no route')
+   const rt=j.routes[0]
+   const res={ok:true, km:rt.distance/1000, min:rt.duration/60, latlngs:rt.geometry.coordinates.map(c=>[c[1],c[0]])}
+   ROUTE_CACHE[key]=res; return res
+ }catch(e){ return {ok:false} } finally{ clearTimeout(tm) }
+}
+function fmtMin(m){ m=Math.round(m); return m<60? m+' د' : Math.floor(m/60)+' س '+(m%60)+' د' }
+
+// ===== اسم المكان من الخريطة (بدون كتابة) =====
+const GEO_CACHE={}
+async function placeName(ll){
+ const key=ll[0].toFixed(5)+','+ll[1].toFixed(5)
+ if(GEO_CACHE[key]) return GEO_CACHE[key]
+ try{
+   const r=await fetch('https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=17&accept-language=ar&lat='+ll[0]+'&lon='+ll[1])
+   const j=await r.json(); const a=j.address||{}
+   const parts=[a.road||a.pedestrian||a.amenity||a.building, a.neighbourhood||a.suburb||a.quarter||a.city_district, a.city||a.town||a.village||a.state]
+     .filter(Boolean).filter((v,i,arr)=> arr.indexOf(v)===i)
+   const name=parts.length? parts.join('، ') : 'موقع محدد على الخريطة'
+   GEO_CACHE[key]=name; return name
+ }catch(e){ return 'موقع محدد على الخريطة' }
+}
+
+// ===== نافذة اختيار نقطة =====
+const PK={map:null, marker:null, ll:null, label:'', cb:null, color:'#4F46E5', req:0}
+function pkIcon(c){ return L.divIcon({html:`<div style="background:${c};width:26px;height:26px;border-radius:999px 999px 999px 0;transform:rotate(-45deg);border:3px solid #fff;box-shadow:0 3px 10px rgba(0,0,0,.35)"></div>`, iconSize:[26,26], iconAnchor:[13,26]}) }
+function openPicker(title,color,current,cb){
+ if(!HAS_MAP) return showToast('الخريطة تحتاج اتصالاً بالإنترنت', true)
+ PK.cb=cb; PK.color=color; PK.ll=null; PK.label=''
+ document.getElementById('pkTitle').textContent=title
+ document.getElementById('pkOverlay').classList.add('open')
+ document.body.style.overflow='hidden'
+ setTimeout(()=>{
+   if(!PK.map){
+     PK.map=L.map('pkMap',{zoomControl:false}).setView(DEFAULT_CENTER,13)
+     L.tileLayer('https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png',{maxZoom:19}).addTo(PK.map)
+     PK.map.on('click', e=> pickerSet([e.latlng.lat,e.latlng.lng]))
+   }
+   PK.map.invalidateSize()
+   if(PK.marker){ PK.map.removeLayer(PK.marker); PK.marker=null }
+   if(current){ pickerSet(current); PK.map.setView(current,15) } else { setPkLabel(null) }
+ },60)
+}
+function setPkLabel(t, loading){
+ const el=document.getElementById('pkLabel'), btn=document.getElementById('pkConfirm')
+ if(!t){ el.textContent='لم يتم تحديد موقع بعد'; el.className='pkLabel empty'; btn.disabled=true; return }
+ el.textContent=(loading?'⏳ ':'📍 ')+t; el.className='pkLabel'; btn.disabled=!!loading
+}
+async function pickerSet(ll){
+ PK.ll=ll
+ if(PK.marker) PK.marker.setLatLng(ll); else PK.marker=L.marker(ll,{icon:pkIcon(PK.color)}).addTo(PK.map)
+ const my=++PK.req
+ setPkLabel('جاري تحديد اسم المكان...', true)
+ const name=await placeName(ll)
+ if(my!==PK.req) return
+ PK.label=name; setPkLabel(name)
+}
+function pickerMyLoc(){
+ if(!navigator.geolocation) return showToast('تعذر تحديد موقعك')
+ navigator.geolocation.getCurrentPosition(p=>{ const ll=[p.coords.latitude,p.coords.longitude]; PK.map.setView(ll,16); pickerSet(ll) }, ()=> showToast('لم يتم السماح بالوصول للموقع'))
+}
+function closePicker(){ document.getElementById('pkOverlay').classList.remove('open'); document.body.style.overflow='' }
+function pickerConfirm(){
+ if(!PK.ll) return
+ const ll=PK.ll, label=PK.label||'موقع محدد على الخريطة', cb=PK.cb
+ closePicker(); if(cb) cb(ll,label)
+}
+
+// ===== بطاقات النقاط =====
+function pointRowHtml(kind,i,item,cfg){
+ const n=cfg.single? '' : (i+1)
+ return `<div class="pt"><div class="ptBadge" style="background:${cfg.color}">${cfg.letter}${n}</div>
+  <div class="ptBody"><div class="ptTitle">${cfg.title}${cfg.single?'':' '+n}</div><div class="ptLabel ${item.ll?'':'empty'}">${item.ll? item.label : (cfg.optional? 'اختياري — لم تُحدد' : 'لم تُحدد بعد')}</div>${cfg.extra? cfg.extra(i,item):''}</div>
+  <button class="ptBtn ${item.ll?'has':''}" onclick="pickPoint('${kind}',${i})">${item.ll?'✏️ تغيير':'📍 حدد على الخريطة'}</button>
+  ${(cfg.removable && i>0) || (cfg.optional && item.ll)? `<button class="ptX" onclick="removePoint('${kind}',${i})">✕</button>`:''}</div>`
+}
+function renderPoints(kind){
+ const cfg=POINTS[kind], box=document.getElementById(cfg.box); if(!box) return
+ box.innerHTML=cfg.get().map((it,i)=> pointRowHtml(kind,i,it,cfg)).join('')
+}
+function pickPoint(kind,i){
+ const cfg=POINTS[kind], item=cfg.get()[i]
+ openPicker(cfg.title+(cfg.single?'':' '+(i+1)), cfg.color, item.ll, (ll,label)=>{ item.ll=ll; item.label=label; renderPoints(kind); onPointsChanged() })
+}
+function removePoint(kind,i){
+ const cfg=POINTS[kind], arr=cfg.get()
+ if(cfg.optional && arr.length===1){ arr[0].ll=null; arr[0].label='' } else arr.splice(i,1)
+ renderPoints(kind); onPointsChanged()
+}
+function addPoint(kind){ POINTS[kind].get().push({ll:null,label:''}); renderPoints(kind) }
+
+// ===== خريطة ملخص الرحلة: المسار الفعلي (معلومة فقط) =====
+let tripMap=null, tripLayer=null, tripReq=0
+function numIcon(txt,c){ return L.divIcon({html:`<div style="background:${c};color:#fff;min-width:24px;height:24px;padding:0 5px;border-radius:999px;display:grid;place-items:center;font-size:10px;font-weight:900;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.3)">${txt}</div>`, iconSize:[24,24], iconAnchor:[12,12]}) }
+async function drawTrip(){
+ const box=document.getElementById('tripBox'); if(!box || !HAS_MAP) return
+ const segs=tripSegments()
+ const info=document.getElementById('tripInfo')
+ const markers=tripMarkers()
+ if(!segs.length || segs[0].pts.length<2){ box.style.display='none'; return }
+ box.style.display='block'
+ if(!tripMap){
+   tripMap=L.map('tripMap',{zoomControl:false,attributionControl:false}).setView(DEFAULT_CENTER,12)
+   L.tileLayer('https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png',{maxZoom:19}).addTo(tripMap)
+   tripLayer=L.featureGroup().addTo(tripMap)
+ }
+ setTimeout(()=> tripMap.invalidateSize(),100)
+ tripLayer.clearLayers()
+ markers.forEach(m=> L.marker(m.ll,{icon:numIcon(m.txt,m.color)}).addTo(tripLayer))
+ info.innerHTML=segs.map(s=> `<div class="${s.cls||''}">⏳ ${s.name}: جاري حساب المسار...</div>`).join('')
+ tripMap.fitBounds(tripLayer.getBounds(),{padding:[24,24]})
+ const my=++tripReq
+ const res=await Promise.all(segs.map(s=> getRoute(s.pts)))
+ if(my!==tripReq) return
+ info.innerHTML=''
+ res.forEach((r,i)=>{
+   const s=segs[i]
+   if(r.ok){
+     L.polyline(r.latlngs,{color:s.color, weight:s.cls==='ret'?4:5, opacity:.9, dashArray:s.cls==='ret'?'8 6':null}).addTo(tripLayer)
+     info.innerHTML+=`<div class="${s.cls||''}">${s.icon} ${s.name}: ${r.km.toFixed(1)} كم على الطريق • ${fmtMin(r.min)}</div>`
+     s.result={km:Number(r.km.toFixed(2)), min:Math.round(r.min)}
+   } else info.innerHTML+=`<div class="err">⚠️ ${s.name}: تعذر حساب المسار</div>`
+ })
+ window.lastTrip=segs.map(s=>({name:s.key, ...(s.result||{})}))
+ tripMap.fitBounds(tripLayer.getBounds(),{padding:[24,24]})
+}
+
+renderVehicles()
+setPeople(people)
+renderMine()
+if(myOrders().some(o=>o.status==='open')) showMine()
+</script>
+
+<div class="pkOverlay" id="pkOverlay">
+ <div class="pkHead"><b id="pkTitle">حدد النقطة</b><button onclick="closePicker()">✕</button></div>
+ <div class="pkMapWrap"><div id="pkMap"></div><div class="pkHint">اضغط على الخريطة لتحديد الموقع</div><button class="pkMy" onclick="pickerMyLoc()">🎯 موقعي</button></div>
+ <div class="pkBar"><div class="pkLabel empty" id="pkLabel">لم يتم تحديد موقع بعد</div><button class="pkConfirm" id="pkConfirm" disabled onclick="pickerConfirm()">تأكيد الموقع</button></div>
+</div>
+<div id="toast" class="toast"></div>
+</body>
+</html>

@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>نقل - عقد جديد</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+function showToast(msg, isError=false){
+  const t=document.getElementById('toast');
+  if(!t) return;
+  t.textContent=msg;
+  t.className='toast'+(isError?' error':'');
+  t.style.display='block';
+  clearTimeout(window._toastTimer);
+  window._toastTimer=setTimeout(()=> t.style.display='none', 2500);
+}
+
+</script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,-apple-system,'Segoe UI',sans-serif;background:#f8fafc;color:#0f172a;max-width:560px;margin:0 auto}
+.header{position:sticky;top:0;z-index:10;background:#fff;border-bottom:1px solid #e2e8f0;padding:14px 16px;display:flex;align-items:center;gap:12px}
+.section{background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:14px;margin:12px}
+.section h2{font-size:14px;font-weight:900;margin-bottom:6px;display:flex;align-items:center;gap:6px}
+.badge{font-size:10px;padding:2px 8px;border-radius:999px;background:#f1f5f9;color:#475569;font-weight:800}
+.hint{font-size:12px;color:#64748b;margin-bottom:10px;line-height:1.5}
+.cards{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.card{border:1.5px solid #e2e8f0;border-radius:14px;padding:14px;text-align:center;cursor:pointer;background:#fff}
+.card.active{border-color:#4F46E5;background:#eef2ff}
+.card b{display:block;font-size:13px;margin-top:4px}
+.card span{font-size:11px;color:#64748b}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{padding:8px 14px;border-radius:999px;border:1.5px solid #e2e8f0;background:#fff;font-size:13px;font-weight:800;cursor:pointer}
+.chip.active{background:#4F46E5;color:#fff;border-color:#4F46E5}
+.chip.small{font-size:12px;padding:6px 10px}
+.input{width:100%;height:44px;border:1.5px solid #e2e8f0;border-radius:12px;padding:0 12px;font-size:14px;background:#fff;outline:none}
+.input:focus{border-color:#4F46E5}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.row{display:flex;gap:8px;align-items:center}
+.stepper{display:flex;align-items:center;gap:6px;background:#f1f5f9;border-radius:999px;padding:4px}
+.stepper button{width:32px;height:32px;border-radius:999px;border:1px solid #e2e8f0;background:#fff;font-weight:900;cursor:pointer}
+.stepper b{min-width:24px;text-align:center}
+.leaflet-map{height:180px;border-radius:12px;border:1.5px solid #e2e8f0;overflow:hidden}
+.vehicle{border:1px solid #e2e8f0;border-radius:12px;padding:10px;display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;background:#fff}
+.total{border-radius:12px;padding:10px;text-align:center;font-weight:900;margin-top:8px;border:1px solid #e2e8f0}
+.total.ok{background:#f0fdf4;border-color:#a7f3d0;color:#065f46}
+.total.warn{background:#fef2f2;border-color:#fecaca;color:#991b1b}
+.publish{position:sticky;bottom:0;background:#fff;border-top:1px solid #e2e8f0;padding:12px}
+.publish button{width:100%;height:48px;border-radius:14px;border:none;font-weight:900;font-size:15px;cursor:pointer;background:#4F46E5;color:#fff}
+.publish button:disabled{background:#cbd5e1;color:#64748b}
+.days{display:flex;flex-wrap:wrap;gap:6px}
+.day{width:44px;height:36px;border-radius:999px;border:1.5px solid #e2e8f0;display:grid;place-items:center;font-size:12px;font-weight:800;cursor:pointer;background:#fff}
+.day.active{background:#4F46E5;color:#fff;border-color:#4F46E5}
+
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#065f46;color:#fff;padding:12px 20px;border-radius:999px;font-weight:800;font-size:13px;box-shadow:0 8px 24px rgba(0,0,0,.2);z-index:9999;display:none;max-width:90%;text-align:center}
+.toast.error{background:#991b1b}
+
+
+/* ===== اختيار النقاط من الخريطة ===== */
+.pt{display:flex;align-items:center;gap:10px;border:1.5px solid #e2e8f0;border-radius:14px;padding:10px;background:#fff;margin-top:8px}
+.ptBadge{min-width:30px;height:30px;border-radius:999px;color:#fff;font-weight:900;font-size:12px;display:grid;place-items:center;flex-shrink:0}
+.ptBody{flex:1;min-width:0}
+.ptTitle{font-size:12px;font-weight:900}
+.ptLabel{font-size:11px;color:#334155;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ptLabel.empty{color:#94a3b8}
+.ptBtn{height:36px;padding:0 12px;border-radius:10px;border:1.5px dashed #cbd5e1;background:#fff;font-weight:800;font-size:11px;cursor:pointer;white-space:nowrap;color:#0f172a}
+.ptBtn.has{border-style:solid;border-color:#c7d2fe;background:#eef2ff;color:#4F46E5}
+.ptX{width:30px;height:30px;border-radius:999px;border:1px solid #fecaca;background:#fff;color:#991b1b;cursor:pointer;flex-shrink:0}
+.addPt{margin-top:8px;height:38px;width:100%;border-radius:12px;border:1.5px dashed #c7d2fe;background:#f8faff;color:#4F46E5;font-weight:900;font-size:12px;cursor:pointer}
+.pkOverlay{position:fixed;inset:0;z-index:2000;background:#fff;display:none;flex-direction:column;max-width:560px;margin:0 auto}
+.pkOverlay.open{display:flex}
+.pkHead{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid #e2e8f0}
+.pkHead b{font-size:15px}
+.pkHead button{width:34px;height:34px;border-radius:10px;border:1px solid #e2e8f0;background:#fff;cursor:pointer;font-size:14px}
+.pkMapWrap{flex:1;position:relative}
+#pkMap{position:absolute;inset:0}
+.pkHint{position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:500;background:rgba(15,23,42,.85);color:#fff;font-size:11px;font-weight:800;padding:6px 12px;border-radius:999px;white-space:nowrap;pointer-events:none}
+.pkMy{position:absolute;bottom:12px;left:12px;z-index:500;height:40px;padding:0 12px;border-radius:12px;border:1px solid #e2e8f0;background:#fff;font-weight:800;font-size:12px;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,.12)}
+.pkBar{padding:12px 14px;border-top:1px solid #e2e8f0;background:#fff}
+.pkLabel{font-size:13px;font-weight:800;min-height:20px;color:#0f172a}
+.pkLabel.empty{color:#94a3b8;font-weight:700}
+.pkConfirm{width:100%;height:46px;border-radius:12px;border:none;background:#4F46E5;color:#fff;font-weight:900;font-size:14px;cursor:pointer;margin-top:10px}
+.pkConfirm:disabled{background:#cbd5e1;color:#64748b}
+.tripMap{height:220px;border-radius:12px;border:1.5px solid #e2e8f0;overflow:hidden;margin-top:10px}
+.tripInfo{margin-top:8px;display:grid;gap:6px}
+.tripInfo div{background:#eef2ff;border:1px solid #c7d2fe;color:#3730a3;border-radius:10px;padding:8px 10px;font-size:12px;font-weight:900;text-align:center}
+.tripInfo div.ret{background:#f0fdf4;border-color:#a7f3d0;color:#065f46}
+.tripInfo div.err{background:#fef2f2;border-color:#fecaca;color:#991b1b}
+</style>
+</head>
+<body>
+<div class="header">
+<div style="width:40px;height:40px;border-radius:12px;border:1px solid #e2e8f0;display:grid;place-items:center;background:#fff;cursor:pointer" onclick="history.back()">→</div>
+<div><h1>📄 عقد نقل جديد</h1><p>اختر الفئة ثم حدد التفاصيل</p></div>
+</div>
+
+<div class="section">
+<h2>📚 فئة العقد <span class="badge">اختر واحدة</span></h2>
+<div class="cards" id="catCards">
+<div class="card" data-c="school" onclick="setCat('school')"><div>🏫</div><b>عقود مدارس</b><span>طلاب ومدرسون</span></div>
+<div class="card" data-c="kindergarten" onclick="setCat('kindergarten')"><div>🧸</div><b>عقود روضة</b><span>أطفال</span></div>
+<div class="card" data-c="university" onclick="setCat('university')"><div>🎓</div><b>عقود جامعات</b><span>طلاب جامعيين</span></div>
+<div class="card" data-c="factory" onclick="setCat('factory')"><div>🏭</div><b>عقود مصانع</b><span>ورديات عمال</span></div>
+<div class="card" data-c="company" onclick="setCat('company')"><div>🏢</div><b>عقود شركة</b><span>موظفون</span></div>
+<div class="card" data-c="workers" onclick="setCat('workers')"><div>👷</div><b>عقود عمال</b><span>فرق عمل</span></div>
+</div>
+</div>
+
+<!-- للتعليمية فقط: ولي أمر / موظف / مؤسسة -->
+<div id="eduRoleBox" class="section" style="display:none">
+<h2>👤 صفة المتعاقد</h2>
+<div class="chips">
+<span class="chip active" id="roleParent" onclick="setEduRole('parent')">👨‍👩‍👧 ولي أمر</span>
+<span class="chip" id="roleEmployee" onclick="setEduRole('employee')">👨‍🏫 موظف / مدرس</span>
+<span class="chip" id="roleInstitution" onclick="setEduRole('institution')">🏫 مؤسسة تعليمية</span>
+</div>
+<p class="hint" id="eduHint">ولي أمر: توصيل أطفالك — مركبات صغيرة. مؤسسة: توصيل جميع الطلاب — باصات + مشرف</p>
+</div>
+
+<div id="details" style="display:none">
+
+<!-- عدد الأشخاص -->
+<div class="section">
+<h2>👥 <span id="peopleLabel">عدد الأطفال</span></h2>
+<div class="row" style="justify-content:space-between">
+<span style="font-size:13px;font-weight:800" id="peopleDesc">كم طفل؟</span>
+<div class="stepper"><button onclick="stepPeople(-1)">−</button><b id="peopleVal">3</b><button onclick="stepPeople(1)">＋</button></div>
+</div>
+</div>
+
+<!-- أماكن الانطلاق -->
+<div class="section">
+<h2>📍 <span id="pickupTitle">منازل الأطفال</span> <span class="badge">أكثر من مكان</span></h2>
+<p class="hint" id="pickupHint">حدد كل منزل/نقطة تجمع بدقة على الخريطة</p>
+<div id="pickupList"></div>
+<button class="addPt" onclick="addPoint('pickups')">＋ إضافة مكان انطلاق</button>
+<div style="margin-top:8px" id="departBox">
+<label style="font-size:12px;font-weight:800">ساعة الانطلاق</label>
+<input id="departTime" type="time" class="input" style="margin-top:4px" onchange="updatePublish()">
+</div>
+</div>
+
+<!-- الوجهات -->
+<div class="section">
+<h2>🏫 <span id="destTitle">المدارس</span> <span class="badge">أكثر من واحدة</span></h2>
+<div id="destList"></div>
+<button class="addPt" onclick="addPoint('dests')">＋ إضافة وجهة</button>
+</div>
+
+<!-- للعمل: نظام الورديات — يظهر فقط لمصنع/شركة/عمال -->
+<div id="shiftBox" class="section" style="display:none">
+<h2>⏰ نظام الورديات</h2>
+<div class="chips" id="shiftChips">
+<span class="chip active" data-s="morning" onclick="setShift('morning')">☀️ صباحية 7-15</span>
+<span class="chip" data-s="evening" onclick="setShift('evening')">🌇 مسائية 15-23</span>
+<span class="chip" data-s="night" onclick="setShift('night')">🌙 ليلية 23-7</span>
+<span class="chip" data-s="two_shifts" onclick="setShift('two_shifts')">ورديتين</span>
+<span class="chip" data-s="three_shifts" onclick="setShift('three_shifts')">3 ورديات</span>
+<span class="chip" data-s="custom" onclick="setShift('custom')">مخصص</span>
+</div>
+<div id="shiftTimes" style="margin-top:8px"></div>
+</div>
+
+<!-- للتعليمية: ساعة العودة -->
+<div id="returnBox" class="section">
+<h2>🔁 العودة</h2>
+<div class="grid2">
+<div><label style="font-size:12px;font-weight:800">ساعة العودة</label><input id="returnTime" type="time" class="input" style="margin-top:4px" onchange="updatePublish()"></div>
+<div><label style="font-size:12px;font-weight:800">أماكن التنزيل</label>
+<select id="dropSame" class="input" style="margin-top:4px" onchange="toggleDrop()">
+<option value="same">نفس أماكن الانطلاق</option>
+<option value="different">أماكن مختلفة</option>
+</select>
+</div>
+</div>
+<div id="dropBox" style="display:none;margin-top:8px">
+<div id="dropList"></div>
+<button class="addPt" onclick="addPoint('drops')">＋ إضافة مكان تنزيل</button>
+</div>
+</div>
+
+<!-- مسار الرحلة الفعلي -->
+<div class="section" id="tripBox" style="display:none">
+<h2>🛣️ مسار الرحلة</h2>
+<div id="tripMap" class="tripMap"></div>
+<div class="tripInfo" id="tripInfo"></div>
+</div>
+
+<!-- الأيام -->
+<div class="section">
+<h2>📅 أيام الدوام <span class="badge">الأحد - الخميس</span></h2>
+<div class="days" id="daysBox">
+<span class="day" data-d="6" onclick="toggleDay(6)">سبت</span>
+<span class="day active" data-d="0" onclick="toggleDay(0)">أحد</span>
+<span class="day active" data-d="1" onclick="toggleDay(1)">إثن</span>
+<span class="day active" data-d="2" onclick="toggleDay(2)">ثلا</span>
+<span class="day active" data-d="3" onclick="toggleDay(3)">أرب</span>
+<span class="day active" data-d="4" onclick="toggleDay(4)">خميس</span>
+<span class="day" data-d="5" onclick="toggleDay(5)">جمعة</span>
+</div>
+<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">
+<span class="chip small" onclick="setDays([0,1,2,3,4])">كل أيام العمل</span>
+<span class="chip small" onclick="setDays([6,0,1,2,3,4])">مع السبت</span>
+<span class="chip small" onclick="setDays([])">مسح</span>
+<label style="font-size:11px;display:flex;align-items:center;gap:6px"><input type="checkbox" id="excludeHolidays" checked> استثناء العطل</label>
+</div>
+</div>
+
+<!-- مدة التعاقد -->
+<div class="section">
+<h2>⏳ مدة التعاقد</h2>
+<div class="chips" id="durChips">
+<span class="chip" data-d="month" onclick="setDuration('month')">شهر</span>
+<span class="chip active" data-d="semester" onclick="setDuration('semester')">فصل دراسي</span>
+<span class="chip" data-d="year" onclick="setDuration('year')">عام دراسي</span>
+<span class="chip" data-d="custom" onclick="setDuration('custom')">مخصص</span>
+</div>
+<div id="customDates" style="display:none;margin-top:8px" class="grid2">
+<div><label style="font-size:12px;font-weight:800">من</label><input id="startDate" type="date" class="input" style="margin-top:4px" onchange="updatePublish()"></div>
+<div><label style="font-size:12px;font-weight:800">إلى</label><input id="endDate" type="date" class="input" style="margin-top:4px" onchange="updatePublish()"></div>
+</div>
+<div id="durInfo" style="margin-top:8px;font-size:12px;color:#065f46;background:#f0fdf4;border:1px solid #a7f3d0;border-radius:10px;padding:8px;text-align:center"></div>
+</div>
+
+<!-- المركبات -->
+<div class="section">
+<h2>🚌 المركبات</h2>
+<p class="hint" id="vehHint"></p>
+<div id="vehicles"></div>
+<div id="totalBox" class="total ok">✅ المقاعد: 0</div>
+<label id="supervisorBox" style="display:none;font-size:12px;margin-top:8px;gap:6px;align-items:center"><input type="checkbox" id="needSupervisor"> أحتاج مشرف/ة مرافقة</label>
+</div>
+
+<div class="section">
+<h2>📝 ملاحظات</h2>
+<textarea id="notes" rows="3" style="width:100%;border:1.5px solid #e2e8f0;border-radius:12px;padding:10px;font-size:13px;outline:none" placeholder="توقف إضافي، كراسي أطفال، متابعة حية..."></textarea>
+</div>
+
+<div class="section" style="border:2px solid #4F46E5">
+<h2>💰 الميزانية <span class="badge" style="background:#4F46E5;color:#fff">مهم</span></h2>
+<div class="chips">
+<span class="chip active" id="budgetFixed" onclick="setBudget('fixed')">💰 تحديد ميزانية</span>
+<span class="chip" id="budgetQuote" onclick="setBudget('quote')">📩 طلب عروض أسعار</span>
+</div>
+<div style="margin-top:8px;display:flex;gap:8px;align-items:center">
+<span style="font-size:12px;font-weight:800">التسعير:</span>
+<span class="chip small active" id="periodMonthly" onclick="setPeriod('monthly')">شهري</span>
+<span class="chip small" id="periodTotal" onclick="setPeriod('total')">إجمالي</span>
+</div>
+<div id="budgetFixedBox" style="margin-top:8px">
+<div class="row">
+<input id="budgetFrom" class="input" type="number" placeholder="من" oninput="updatePublish()">
+<span>—</span>
+<input id="budgetTo" class="input" type="number" placeholder="إلى" oninput="updatePublish()">
+<select id="currency" class="input" style="max-width:90px"><option value="USD">$ USD</option><option value="SYP">ل.س SYP</option></select>
+</div>
+</div>
+<div id="budgetQuoteBox" style="display:none;margin-top:8px;background:#f0fdf4;border:1px solid #a7f3d0;border-radius:12px;padding:10px;text-align:center">
+<b>📩 طلب عروض أسعار مفعّل</b><div style="font-size:12px;color:#065f46;margin-top:4px">سيقدّم السائقون سعرهم وتختار الأنسب</div>
+</div>
+</div>
+
+</div>
+
+<div class="publish">
+<button id="publishBtn" onclick="publish()" disabled>اختر فئة العقد أولاً</button>
+</div>
+
+<script>
+let cat=null, eduRole='parent', people=3, days=new Set([0,1,2,3,4]), duration='semester', shiftType='morning', budgetType='fixed', budgetPeriod='monthly'
+let pickups=[{ll:null,label:''}], dests=[{ll:null,label:'',rt:''}], drops=[{ll:null,label:''}]
+let vehSmall={
+ car:{name:'🚗 سيارة 4',seats:4,count:0},
+ van_8:{name:'🚐 فان 8',seats:8,count:0},
+ van_11:{name:'🚐 فان 11',seats:11,count:0},
+ bus_small_14:{name:'🚐 باص صغير 14',seats:14,count:0},
+}
+let vehLarge={
+ bus_large_50:{name:'🚌 باص كبير 50',seats:50,count:0},
+ bus_mid_27:{name:'🚌 باص متوسط 27',seats:27,count:0},
+ bus_mid_21:{name:'🚌 باص متوسط 21',seats:21,count:0},
+ bus_mid_18:{name:'🚌 باص متوسط 18',seats:18,count:0},
+ bus_small_14:{name:'🚐 باص صغير 14',seats:14,count:0},
+ van_11:{name:'🚐 فان 11',seats:11,count:0},
+}
+let mapPickup=null, mapDest=null
+let defaultCenter=[33.5138,36.2765]
+
+function isEdu(){ return ['school','kindergarten','university'].includes(cat) }
+function isWork(){ return ['factory','company','workers'].includes(cat) }
+
+function setCat(c){
+ cat=c
+ document.querySelectorAll('#catCards .card').forEach(x=>x.classList.toggle('active', x.dataset.c===c))
+ document.getElementById('eduRoleBox').style.display = isEdu()? 'block':'none'
+ document.getElementById('shiftBox').style.display = isWork()? 'block':'none'
+ document.getElementById('returnBox').style.display = isWork()? 'none':'block'
+ document.getElementById('departBox').style.display = isWork()? 'none':'block'
+ if(isEdu() && !eduRole) eduRole='parent'
+ updateLabels(); renderPickups(); renderDests(); renderVehicles(); updateDurationInfo(); updatePublish()
+ document.getElementById('details').style.display='block'
+ setTimeout(initMaps, 120)
+ document.getElementById('details').scrollIntoView({behavior:'smooth'})
+}
+function setEduRole(r){
+ eduRole=r
+ document.getElementById('roleParent').classList.toggle('active', r==='parent')
+ document.getElementById('roleEmployee').classList.toggle('active', r==='employee')
+ document.getElementById('roleInstitution').classList.toggle('active', r==='institution')
+ const hints={parent:'ولي أمر: توصيل أطفالك — سيارة/فان', employee:'موظف: ذهابك أنت — سيارة/فان', institution:'مؤسسة: توصيل الجميع — باصات كبيرة + مشرف'}
+ document.getElementById('eduHint').textContent=hints[r]
+ updateLabels(); renderVehicles(); updatePublish()
+}
+function updateLabels(){
+ if(!cat) return
+ const titles={school:'المدارس', kindergarten:'الروضة', university:'الجامعات', factory:'المصانع', company:'الشركة', workers:'مواقع العمل'}
+ document.getElementById('destTitle').textContent=titles[cat]
+ if(isEdu()){
+   if(eduRole==='parent'){
+     document.getElementById('peopleLabel').textContent = cat==='kindergarten'? 'عدد الأطفال' : 'عدد الأبناء'
+     document.getElementById('peopleDesc').textContent='كم طفل تريد توصيله؟'
+     document.getElementById('pickupTitle').textContent='منازل الأطفال'
+     document.getElementById('pickupHint').textContent='أضف كل منزل'
+     document.getElementById('vehHint').textContent='ولي أمر — سيارة وفان فقط'
+     document.getElementById('supervisorBox').style.display='none'
+     people=3; document.getElementById('peopleVal').textContent=people
+   } else if(eduRole==='employee'){
+     document.getElementById('peopleLabel').textContent='عدد الموظفين'
+     document.getElementById('peopleDesc').textContent='كم موظف/مدرس؟'
+     document.getElementById('pickupTitle').textContent='مكان سكن الموظف'
+     document.getElementById('pickupHint').textContent='عنوان سكنك'
+     document.getElementById('vehHint').textContent='موظف — سيارة/فان'
+     document.getElementById('supervisorBox').style.display='none'
+     people=1; document.getElementById('peopleVal').textContent=people
+   } else { // institution
+     document.getElementById('peopleLabel').textContent = cat==='university'? 'عدد الطلاب' : 'عدد الطلاب / المدرسين'
+     document.getElementById('peopleDesc').textContent='العدد الإجمالي'
+     document.getElementById('pickupTitle').textContent='أحياء / نقاط التجمع'
+     document.getElementById('pickupHint').textContent='أضف كل حي أو نقطة تجمع'
+     document.getElementById('vehHint').textContent='مؤسسة — باصات كبيرة ومتوسطة'
+     document.getElementById('supervisorBox').style.display='flex'
+     people=40; document.getElementById('peopleVal').textContent=people
+   }
+ } else {
+   document.getElementById('peopleLabel').textContent = cat==='factory'? 'عدد العمال' : 'عدد الموظفين'
+   document.getElementById('peopleDesc').textContent='العدد الإجمالي للوردية'
+   document.getElementById('pickupTitle').textContent='نقطة تجمع العمال'
+   document.getElementById('pickupHint').textContent='نقطة التجمع الرئيسية'
+   document.getElementById('vehHint').textContent='ورديات — باصات كبيرة ومتوسطة'
+   document.getElementById('supervisorBox').style.display='none'
+   people=20; document.getElementById('peopleVal').textContent=people
+ }
+ updateTotals()
+}
+function initMaps(){ renderPoints('pickups'); renderPoints('dests'); renderPoints('drops'); drawTrip() }
+const DEFAULT_CENTER=defaultCenter
+const POINTS={
+ pickups:{box:'pickupList', get:()=>pickups, title:'مكان الانطلاق', letter:'A', color:'#16a34a', removable:true},
+ dests:{box:'destList', get:()=>dests, title:'الوجهة', letter:'B', color:'#4F46E5', removable:true,
+   extra:(i,it)=> isWork()? '' : `<div style="display:flex;align-items:center;gap:6px;margin-top:6px"><span style="font-size:10px;color:#64748b">ساعة العودة</span><input type="time" class="input" style="height:32px;max-width:110px;font-size:12px" value="${it.rt||''}" onchange="dests[${i}].rt=this.value"></div>`},
+ drops:{box:'dropList', get:()=>drops, title:'مكان التنزيل', letter:'C', color:'#dc2626', removable:true},
+}
+function renderPickups(){ renderPoints('pickups') }
+function renderDests(){ renderPoints('dests') }
+function renderDrops(){ renderPoints('drops') }
+function addDrop(){ addPoint('drops') }
+function onPointsChanged(){ updatePublish(); drawTrip() }
+function dropDifferent(){ return document.getElementById('dropSame').value==='different' }
+function tripSegments(){
+ const P=pickups.filter(p=>p.ll).map(p=>p.ll), D=dests.filter(d=>d.ll).map(d=>d.ll)
+ if(!P.length || !D.length) return []
+ const segs=[{key:'outbound', name:'الذهاب', icon:'🛣️', color:'#4F46E5', pts:[...P,...D]}]
+ const R= dropDifferent()? drops.filter(d=>d.ll).map(d=>d.ll) : P.slice().reverse()
+ if(R.length) segs.push({key:'return', name:'العودة', icon:'↩️', color:'#16a34a', cls:'ret', pts:[...D.slice().reverse(),...R]})
+ return segs
+}
+function tripMarkers(){
+ const m=[]
+ pickups.forEach((p,i)=> p.ll && m.push({ll:p.ll, txt:'A'+(i+1), color:'#16a34a'}))
+ dests.forEach((d,i)=> d.ll && m.push({ll:d.ll, txt:'B'+(i+1), color:'#4F46E5'}))
+ if(dropDifferent()) drops.forEach((d,i)=> d.ll && m.push({ll:d.ll, txt:'C'+(i+1), color:'#dc2626'}))
+ return m
+}
+function toggleDrop(){
+ const v=document.getElementById('dropSame').value
+ document.getElementById('dropBox').style.display = v==='different' ? 'block':'none'
+ if(v==='different' && drops.length===0) addDrop()
+ renderPoints('drops'); onPointsChanged()
+}
+function setShift(s){
+ shiftType=s
+ document.querySelectorAll('#shiftChips .chip').forEach(x=> x.classList.toggle('active', x.dataset.s===s))
+ const box=document.getElementById('shiftTimes'); box.innerHTML=''
+ const presets={morning:[['07:00','15:00']], evening:[['15:00','23:00']], night:[['23:00','07:00']], two_shifts:[['07:00','15:00'],['15:00','23:00']], three_shifts:[['07:00','15:00'],['15:00','23:00'],['23:00','07:00']]}
+ if(s==='custom'){
+   box.innerHTML='<p style="font-size:12px;color:#64748b">أضف كل وردية مع وقتها</p><div id="customShifts"></div><button class="chip small" style="margin-top:6px" onclick="addCustomShift()">＋ وردية</button>'
+ } else {
+   const arr=presets[s]||[]
+   arr.forEach((p,i)=> {
+     const div=document.createElement('div'); div.style.cssText='display:flex;gap:6px;align-items:center;margin-top:6px'
+     div.innerHTML=`<span style="font-size:12px;font-weight:800">وردية ${i+1}</span><input type="time" class="input" value="${p[0]}" style="max-width:110px"><span>—</span><input type="time" class="input" value="${p[1]}" style="max-width:110px">`
+     box.appendChild(div)
+   })
+ }
+}
+function addCustomShift(){
+ const box=document.getElementById('customShifts')
+ const div=document.createElement('div'); div.style.cssText='display:flex;gap:6px;margin-top:6px'
+ div.innerHTML='<input type="time" class="input" style="max-width:110px"><span>—</span><input type="time" class="input" style="max-width:110px"><button class="chip small" onclick="this.parentElement.remove()">✕</button>'
+ box.appendChild(div)
+}
+function toggleDay(d){
+ if(days.has(d)) days.delete(d); else days.add(d)
+ document.querySelector(`.day[data-d="${d}"]`).classList.toggle('active', days.has(d))
+ updatePublish()
+}
+function setDays(arr){ days=new Set(arr); document.querySelectorAll('.day').forEach(x=> x.classList.toggle('active', days.has(parseInt(x.dataset.d)))) ; updatePublish()}
+function setDuration(d){
+ duration=d
+ document.querySelectorAll('#durChips .chip').forEach(x=> x.classList.toggle('active', x.dataset.d===d))
+ document.getElementById('customDates').style.display = d==='custom' ? 'grid':'none'
+ updateDurationInfo(); updatePublish()
+}
+function updateDurationInfo(){
+ const info=document.getElementById('durInfo')
+ const m={month:'شهر — ~22 يوم عمل', semester:'فصل دراسي — ~5 أشهر', year:'عام دراسي — ~10 أشهر', custom:'مخصص — حدد من وإلى'}
+ info.textContent=m[duration]
+}
+function currentVeh(){ if(isWork()) return vehLarge; return (eduRole==='institution'? vehLarge : vehSmall) }
+function renderVehicles(){
+ const c=document.getElementById('vehicles'); c.innerHTML=''
+ const obj=currentVeh()
+ Object.entries(obj).forEach(([k,v])=>{
+   const div=document.createElement('div'); div.className='vehicle'
+   div.innerHTML=`<div><div style="font-weight:800;font-size:13px">${v.name}</div><div style="font-size:11px;color:#64748b">${v.seats} مقاعد • العدد: ${v.count}</div></div><div class="stepper"><button onclick="chgVeh('${k}',-1)">−</button><b>${v.count}</b><button onclick="chgVeh('${k}',1)">＋</button></div>`
+   c.appendChild(div)
+ })
+ updateTotals()
+}
+function chgVeh(k,d){ const obj=currentVeh(); obj[k].count=Math.max(0,obj[k].count+d); renderVehicles(); updatePublish()}
+function totalSeats(){ return Object.values(currentVeh()).reduce((s,v)=> s+v.count*v.seats,0) }
+function updateTotals(){
+ const t=totalSeats()
+ const box=document.getElementById('totalBox')
+ box.textContent = t===0? `⚠️ اختر مركبة — 0` : (t>=people? `✅ المقاعد: ${t} / ${people}` : `⚠️ لا تكفي: ${t} / ${people}`)
+ box.className='total '+(t>=people && t>0?'ok':'warn')
+}
+function stepPeople(d){ people=Math.max(1, Math.min(500, people+d)); document.getElementById('peopleVal').textContent=people; updateTotals(); updatePublish()}
+function setBudget(t){
+ budgetType=t
+ document.getElementById('budgetFixed').classList.toggle('active', t==='fixed')
+ document.getElementById('budgetQuote').classList.toggle('active', t==='quote')
+ document.getElementById('budgetFixedBox').style.display = t==='fixed' ? 'block':'none'
+ document.getElementById('budgetQuoteBox').style.display = t==='quote' ? 'block':'none'
+ updatePublish()
+}
+function setPeriod(p){
+ budgetPeriod=p
+ document.getElementById('periodMonthly').classList.toggle('active', p==='monthly')
+ document.getElementById('periodTotal').classList.toggle('active', p==='total')
+}
+function updatePublish(){
+ const btn=document.getElementById('publishBtn')
+ if(!cat){ btn.disabled=true; btn.textContent='اختر فئة العقد أولاً'; return }
+ if(isEdu() && !eduRole){ btn.disabled=true; btn.textContent='اختر صفة المتعاقد'; return }
+ const hasPick=pickups.some(p=>p.ll)
+ const hasDest=dests.some(d=>d.ll)
+ if(!hasPick || !hasDest){ btn.disabled=true; btn.textContent='حدد أماكن الانطلاق والوجهات على الخريطة'; return }
+ if(dropDifferent() && !drops.some(d=>d.ll)){ btn.disabled=true; btn.textContent='حدد أماكن التنزيل على الخريطة'; return }
+ if(days.size===0){ btn.disabled=true; btn.textContent='اختر يوماً واحداً'; return }
+ if(duration==='custom'){
+   const s=document.getElementById('startDate').value, e=document.getElementById('endDate').value
+   if(!s || !e || s>=e){ btn.disabled=true; btn.textContent='حدد فترة صحيحة'; return }
+ }
+ if(totalSeats()===0){ btn.disabled=true; btn.textContent='اختر مركبة'; return }
+ if(budgetType==='fixed'){
+   const a=document.getElementById('budgetFrom').value, b=document.getElementById('budgetTo').value
+   if(!a || !b || Number(a)>Number(b)){ btn.disabled=true; btn.textContent='حدد ميزانية صحيحة'; return }
+   btn.disabled=false; btn.textContent='📢 نشر العقد'
+ } else { btn.disabled=false; btn.textContent='📩 طلب عروض أسعار' }
+}
+function publish(){
+ const roleForDB = isEdu()? eduRole : 'business'
+ const payload={
+   contract_category:cat,
+   contract_role:roleForDB,
+   num_people:people,
+   pickup_points: pickups.filter(p=>p.ll).map(p=>({label:p.label, lat:p.ll[0], lng:p.ll[1]})),
+   departure_time: document.getElementById('departTime')?.value||null,
+   destinations: dests.filter(d=>d.ll).map(d=>({label:d.label, lat:d.ll[0], lng:d.ll[1], rt:d.rt||null})),
+   return_time: document.getElementById('returnTime')?.value||null,
+   drop_points: dropDifferent()? drops.filter(d=>d.ll).map(d=>({label:d.label, lat:d.ll[0], lng:d.ll[1]})) : null,
+   route_info: window.lastTrip||null, // مسافة ومدة الطريق الفعلي — معلومة فقط، لا تدخل في السعر
+   days: Array.from(days),
+   duration_type:duration,
+   start_date: document.getElementById('startDate').value||null,
+   end_date: document.getElementById('endDate').value||null,
+   shift_type: isWork()? shiftType : null,
+   need_supervisor: document.getElementById('needSupervisor')?.checked||false,
+   vehicles: Object.entries(currentVeh()).filter(([k,v])=>v.count>0).map(([k,v])=>({type:k,seats:v.seats,count:v.count})),
+   total_seats: totalSeats(),
+   notes: document.getElementById('notes').value.trim()||null,
+   budget_type:budgetType,
+   budget_from: budgetType==='fixed'? Number(document.getElementById('budgetFrom').value):null,
+   budget_to: budgetType==='fixed'? Number(document.getElementById('budgetTo').value):null,
+   budget_period:budgetPeriod,
+   currency: document.getElementById('currency').value,
+ }
+ console.log(payload)
+ showToast(budgetType==='quote'? 'تم إرسال طلب عروض الأسعار' : 'تم نشر العقد')
+}
+
+// ===== توجيه حقيقي على الطرق (OSRM) =====
+const ROUTE_CACHE={}
+async function getRoute(points){
+ const key=points.map(p=>p[0].toFixed(5)+','+p[1].toFixed(5)).join(';')
+ if(ROUTE_CACHE[key]) return ROUTE_CACHE[key]
+ const coords=points.map(p=>p[1]+','+p[0]).join(';')
+ const ctrl=new AbortController(); const tm=setTimeout(()=>ctrl.abort(),12000)
+ try{
+   const r=await fetch('https://router.project-osrm.org/route/v1/driving/'+coords+'?overview=full&geometries=geojson',{signal:ctrl.signal})
+   const j=await r.json()
+   if(j.code!=='Ok'||!j.routes||!j.routes.length) throw new Error('no route')
+   const rt=j.routes[0]
+   const res={ok:true, km:rt.distance/1000, min:rt.duration/60, latlngs:rt.geometry.coordinates.map(c=>[c[1],c[0]])}
+   ROUTE_CACHE[key]=res; return res
+ }catch(e){ return {ok:false} } finally{ clearTimeout(tm) }
+}
+function fmtMin(m){ m=Math.round(m); return m<60? m+' د' : Math.floor(m/60)+' س '+(m%60)+' د' }
+
+// ===== اسم المكان من الخريطة (بدون كتابة) =====
+const GEO_CACHE={}
+async function placeName(ll){
+ const key=ll[0].toFixed(5)+','+ll[1].toFixed(5)
+ if(GEO_CACHE[key]) return GEO_CACHE[key]
+ try{
+   const r=await fetch('https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=17&accept-language=ar&lat='+ll[0]+'&lon='+ll[1])
+   const j=await r.json(); const a=j.address||{}
+   const parts=[a.road||a.pedestrian||a.amenity||a.building, a.neighbourhood||a.suburb||a.quarter||a.city_district, a.city||a.town||a.village||a.state]
+     .filter(Boolean).filter((v,i,arr)=> arr.indexOf(v)===i)
+   const name=parts.length? parts.join('، ') : 'موقع محدد على الخريطة'
+   GEO_CACHE[key]=name; return name
+ }catch(e){ return 'موقع محدد على الخريطة' }
+}
+
+// ===== نافذة اختيار نقطة =====
+const PK={map:null, marker:null, ll:null, label:'', cb:null, color:'#4F46E5', req:0}
+function pkIcon(c){ return L.divIcon({html:`<div style="background:${c};width:26px;height:26px;border-radius:999px 999px 999px 0;transform:rotate(-45deg);border:3px solid #fff;box-shadow:0 3px 10px rgba(0,0,0,.35)"></div>`, iconSize:[26,26], iconAnchor:[13,26]}) }
+function openPicker(title,color,current,cb){
+ PK.cb=cb; PK.color=color; PK.ll=null; PK.label=''
+ document.getElementById('pkTitle').textContent=title
+ document.getElementById('pkOverlay').classList.add('open')
+ document.body.style.overflow='hidden'
+ setTimeout(()=>{
+   if(!PK.map){
+     PK.map=L.map('pkMap',{zoomControl:false}).setView(DEFAULT_CENTER,13)
+     L.tileLayer('https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png',{maxZoom:19}).addTo(PK.map)
+     PK.map.on('click', e=> pickerSet([e.latlng.lat,e.latlng.lng]))
+   }
+   PK.map.invalidateSize()
+   if(PK.marker){ PK.map.removeLayer(PK.marker); PK.marker=null }
+   if(current){ pickerSet(current); PK.map.setView(current,15) } else { setPkLabel(null) }
+ },60)
+}
+function setPkLabel(t, loading){
+ const el=document.getElementById('pkLabel'), btn=document.getElementById('pkConfirm')
+ if(!t){ el.textContent='لم يتم تحديد موقع بعد'; el.className='pkLabel empty'; btn.disabled=true; return }
+ el.textContent=(loading?'⏳ ':'📍 ')+t; el.className='pkLabel'; btn.disabled=!!loading
+}
+async function pickerSet(ll){
+ PK.ll=ll
+ if(PK.marker) PK.marker.setLatLng(ll); else PK.marker=L.marker(ll,{icon:pkIcon(PK.color)}).addTo(PK.map)
+ const my=++PK.req
+ setPkLabel('جاري تحديد اسم المكان...', true)
+ const name=await placeName(ll)
+ if(my!==PK.req) return
+ PK.label=name; setPkLabel(name)
+}
+function pickerMyLoc(){
+ if(!navigator.geolocation) return showToast('تعذر تحديد موقعك')
+ navigator.geolocation.getCurrentPosition(p=>{ const ll=[p.coords.latitude,p.coords.longitude]; PK.map.setView(ll,16); pickerSet(ll) }, ()=> showToast('لم يتم السماح بالوصول للموقع'))
+}
+function closePicker(){ document.getElementById('pkOverlay').classList.remove('open'); document.body.style.overflow='' }
+function pickerConfirm(){
+ if(!PK.ll) return
+ const ll=PK.ll, label=PK.label||'موقع محدد على الخريطة', cb=PK.cb
+ closePicker(); if(cb) cb(ll,label)
+}
+
+// ===== بطاقات النقاط =====
+function pointRowHtml(kind,i,item,cfg){
+ const n=cfg.single? '' : (i+1)
+ return `<div class="pt"><div class="ptBadge" style="background:${cfg.color}">${cfg.letter}${n}</div>
+  <div class="ptBody"><div class="ptTitle">${cfg.title}${cfg.single?'':' '+n}</div><div class="ptLabel ${item.ll?'':'empty'}">${item.ll? item.label : (cfg.optional? 'اختياري — لم تُحدد' : 'لم تُحدد بعد')}</div>${cfg.extra? cfg.extra(i,item):''}</div>
+  <button class="ptBtn ${item.ll?'has':''}" onclick="pickPoint('${kind}',${i})">${item.ll?'✏️ تغيير':'📍 حدد على الخريطة'}</button>
+  ${(cfg.removable && i>0) || (cfg.optional && item.ll)? `<button class="ptX" onclick="removePoint('${kind}',${i})">✕</button>`:''}</div>`
+}
+function renderPoints(kind){
+ const cfg=POINTS[kind], box=document.getElementById(cfg.box); if(!box) return
+ box.innerHTML=cfg.get().map((it,i)=> pointRowHtml(kind,i,it,cfg)).join('')
+}
+function pickPoint(kind,i){
+ const cfg=POINTS[kind], item=cfg.get()[i]
+ openPicker(cfg.title+(cfg.single?'':' '+(i+1)), cfg.color, item.ll, (ll,label)=>{ item.ll=ll; item.label=label; renderPoints(kind); onPointsChanged() })
+}
+function removePoint(kind,i){
+ const cfg=POINTS[kind], arr=cfg.get()
+ if(cfg.optional && arr.length===1){ arr[0].ll=null; arr[0].label='' } else arr.splice(i,1)
+ renderPoints(kind); onPointsChanged()
+}
+function addPoint(kind){ POINTS[kind].get().push({ll:null,label:''}); renderPoints(kind) }
+
+// ===== خريطة ملخص الرحلة: المسار الفعلي (معلومة فقط) =====
+let tripMap=null, tripLayer=null, tripReq=0
+function numIcon(txt,c){ return L.divIcon({html:`<div style="background:${c};color:#fff;min-width:24px;height:24px;padding:0 5px;border-radius:999px;display:grid;place-items:center;font-size:10px;font-weight:900;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.3)">${txt}</div>`, iconSize:[24,24], iconAnchor:[12,12]}) }
+async function drawTrip(){
+ const box=document.getElementById('tripBox'); if(!box) return
+ const segs=tripSegments()
+ const info=document.getElementById('tripInfo')
+ const markers=tripMarkers()
+ if(!segs.length || segs[0].pts.length<2){ box.style.display='none'; return }
+ box.style.display='block'
+ if(!tripMap){
+   tripMap=L.map('tripMap',{zoomControl:false,attributionControl:false}).setView(DEFAULT_CENTER,12)
+   L.tileLayer('https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png',{maxZoom:19}).addTo(tripMap)
+   tripLayer=L.featureGroup().addTo(tripMap)
+ }
+ setTimeout(()=> tripMap.invalidateSize(),100)
+ tripLayer.clearLayers()
+ markers.forEach(m=> L.marker(m.ll,{icon:numIcon(m.txt,m.color)}).addTo(tripLayer))
+ info.innerHTML=segs.map(s=> `<div class="${s.cls||''}">⏳ ${s.name}: جاري حساب المسار...</div>`).join('')
+ tripMap.fitBounds(tripLayer.getBounds(),{padding:[24,24]})
+ const my=++tripReq
+ const res=await Promise.all(segs.map(s=> getRoute(s.pts)))
+ if(my!==tripReq) return
+ info.innerHTML=''
+ res.forEach((r,i)=>{
+   const s=segs[i]
+   if(r.ok){
+     L.polyline(r.latlngs,{color:s.color, weight:s.cls==='ret'?4:5, opacity:.9, dashArray:s.cls==='ret'?'8 6':null}).addTo(tripLayer)
+     info.innerHTML+=`<div class="${s.cls||''}">${s.icon} ${s.name}: ${r.km.toFixed(1)} كم على الطريق • ${fmtMin(r.min)}</div>`
+     s.result={km:Number(r.km.toFixed(2)), min:Math.round(r.min)}
+   } else info.innerHTML+=`<div class="err">⚠️ ${s.name}: تعذر حساب المسار</div>`
+ })
+ window.lastTrip=segs.map(s=>({name:s.key, ...(s.result||{})}))
+ tripMap.fitBounds(tripLayer.getBounds(),{padding:[24,24]})
+}
+
+renderVehicles(); updateDurationInfo(); setShift('morning')
+</script>
+
+<div class="pkOverlay" id="pkOverlay">
+ <div class="pkHead"><b id="pkTitle">حدد النقطة</b><button onclick="closePicker()">✕</button></div>
+ <div class="pkMapWrap"><div id="pkMap"></div><div class="pkHint">اضغط على الخريطة لتحديد الموقع</div><button class="pkMy" onclick="pickerMyLoc()">🎯 موقعي</button></div>
+ <div class="pkBar"><div class="pkLabel empty" id="pkLabel">لم يتم تحديد موقع بعد</div><button class="pkConfirm" id="pkConfirm" disabled onclick="pickerConfirm()">تأكيد الموقع</button></div>
+</div>
+<div id="toast" class="toast"></div>
+</body>
+</html>

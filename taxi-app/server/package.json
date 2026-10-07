@@ -1,0 +1,19 @@
+{
+  "name": "taxi-server",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "سيرفر تطبيق التكسي (MVP) - حسابات، رحلات، تسعير، مطابقة، تتبع حي",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js",
+    "test:flow": "node src/test-flow.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.5.0",
+    "cors": "^2.8.5",
+    "express": "^4.21.1",
+    "jsonwebtoken": "^9.0.2",
+    "socket.io": "^4.8.1"
+  }
+}

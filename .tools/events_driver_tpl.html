@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>سائق المناسبات — نَقْل</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+function showToast(msg, isError=false){
+  const t=document.getElementById('toast'); if(!t) return;
+  t.textContent=msg; t.className='toast'+(isError?' error':''); t.style.display='block';
+  clearTimeout(window._toastTimer); window._toastTimer=setTimeout(()=>{ t.style.display='none' },2800);
+}
+</script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:#F1F5F9;direction:rtl;color:#0f172a}
+.phone{max-width:560px;margin:0 auto;min-height:100vh;background:#F1F5F9;padding-bottom:20px}
+.topbar{background:#fff;display:flex;align-items:center;gap:8px;padding:10px 12px;box-shadow:0 1px 10px rgba(0,0,0,.06);position:sticky;top:0;z-index:600}
+.topbar h1{font-size:15px;font-weight:900;flex:1}
+.pill{height:34px;padding:0 12px;border-radius:999px;border:1px solid #e2e8f0;background:#fff;font-weight:900;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:4px;white-space:nowrap}
+.pill.wallet{background:#ecfdf5;border-color:#a7f3d0;color:#065f46}
+.pill.wallet.neg{background:#fef2f2;border-color:#fecaca;color:#991b1b}
+.vehBar{margin:10px 12px 0;background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:8px 10px;display:flex;align-items:center;gap:8px;font-size:12px}
+.vehBar b{font-size:13px}
+.vehBar small{color:#64748b;display:block}
+.svc{font-size:10px;font-weight:900;padding:2px 8px;border-radius:999px;background:#f0fdfa;color:#115e59;white-space:nowrap}
+.svc.w{background:#fdf2f8;color:#9d174d}
+.tabs{display:flex;gap:6px;padding:10px 12px 0}
+.tab{flex:1;height:38px;border-radius:12px;border:1px solid #e2e8f0;background:#fff;font-weight:900;font-size:12px;cursor:pointer}
+.tab.active{background:#0f172a;color:#fff;border-color:#0f172a}
+.tab i{font-style:normal;background:#e2e8f0;color:#0f172a;border-radius:999px;padding:1px 7px;margin-right:4px;font-size:10px}
+.tab.active i{background:#fff}
+#feedMap{height:230px;margin:10px 12px 0;border-radius:16px;border:1px solid #e2e8f0;overflow:hidden}
+.radius{margin:6px 12px 0;font-size:11px;color:#64748b;font-weight:700;display:flex;justify-content:space-between}
+.card{margin:10px 12px 0;background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:12px;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.04)}
+.cHead{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.cHead b{font-size:14px;flex:1}
+.tag{font-size:10px;font-weight:900;padding:3px 8px;border-radius:999px;background:#f1f5f9;color:#334155;white-space:nowrap}
+.tag.mine{background:#eef2ff;color:#3730a3} .tag.ok{background:#dcfce7;color:#166534} .tag.bad{background:#fef2f2;color:#991b1b}
+.route{margin-top:8px;font-size:12px;line-height:1.7}
+.route div{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.metrics{display:flex;gap:6px;margin-top:8px}
+.metric{flex:1;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:6px;text-align:center}
+.metric b{display:block;font-size:13px} .metric span{font-size:10px;color:#64748b}
+.needs{display:flex;flex-wrap:wrap;gap:4px;margin-top:8px}
+.need{font-size:11px;font-weight:800;border-radius:999px;padding:3px 9px;background:#f8fafc;border:1px solid #e2e8f0;color:#475569}
+.need.fit{background:#eef2ff;border-color:#c7d2fe;color:#3730a3}
+.need.full{text-decoration:line-through;opacity:.5}
+.banner{margin:10px 12px 0;border-radius:14px;padding:14px;text-align:center;font-size:12px;font-weight:800;line-height:1.7}
+.banner.neg{background:#fef2f2;border:1.5px solid #fecaca;color:#991b1b}
+.banner.info{background:#fff;border:1px solid #e2e8f0;color:#64748b}
+.banner button{margin-top:8px;height:40px;padding:0 18px;border-radius:12px;border:none;background:#16a34a;color:#fff;font-weight:900;cursor:pointer}
+.sim{margin:12px auto 0;display:block;height:34px;padding:0 14px;border-radius:999px;border:1px dashed #cbd5e1;background:#fff;color:#475569;font-weight:800;font-size:11px;cursor:pointer}
+.sheetBg{position:fixed;inset:0;background:rgba(15,23,42,.5);display:none;z-index:1500;align-items:flex-end;justify-content:center}
+.sheetBg.open{display:flex}
+.sheet{background:#fff;width:100%;max-width:560px;max-height:92vh;border-radius:20px 20px 0 0;overflow:auto;padding:14px 14px 18px}
+.sHead{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.sHead b{flex:1;font-size:15px}
+.sHead button{width:34px;height:34px;border-radius:10px;border:1px solid #e2e8f0;background:#fff;cursor:pointer}
+#dMap{height:220px;border-radius:14px;border:1px solid #e2e8f0;overflow:hidden}
+.legend{display:flex;gap:10px;justify-content:center;font-size:10px;color:#64748b;margin-top:4px}
+.dl{margin-top:10px;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden}
+.dl div{display:flex;gap:8px;padding:8px 10px;font-size:12px;border-bottom:1px solid #f1f5f9}
+.dl div:last-child{border-bottom:none}
+.dl span{color:#64748b;min-width:84px;font-weight:700}
+.dl b{flex:1;font-weight:800}
+.hidden{margin-top:10px;background:#f8fafc;border:1px dashed #cbd5e1;border-radius:12px;padding:10px;font-size:11px;color:#64748b;text-align:center;font-weight:700}
+.secT{margin-top:12px;font-size:12px;font-weight:900}
+.itemRow{display:flex;justify-content:space-between;align-items:center;border:1.5px solid #e2e8f0;border-radius:12px;padding:9px 10px;margin-top:6px;font-size:12px;font-weight:800;background:#fff}
+.itemRow.sel{border-color:#4F46E5;background:#eef2ff}
+.itemRow.can{cursor:pointer}
+.itemRow.no{opacity:.45}
+.itemRow small{color:#64748b;font-weight:700}
+.offerBox{margin-top:10px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;padding:12px}
+.offerBox input,.offerBox textarea{width:100%;border:1.5px solid #e2e8f0;border-radius:12px;padding:10px;font-size:14px;font-family:inherit;outline:none;background:#fff}
+.offerBox input{font-size:20px;font-weight:900;text-align:center;height:52px}
+.offerBox textarea{margin-top:8px;font-size:12px;min-height:54px;resize:vertical}
+.ofHint{font-size:11px;color:#64748b;text-align:center;margin-top:6px;font-weight:700}
+.btn{width:100%;height:48px;border-radius:14px;border:none;font-weight:900;font-size:14px;cursor:pointer;margin-top:10px}
+.btn.pri{background:#4F46E5;color:#fff} .btn.danger{background:#fff;color:#991b1b;border:1.5px solid #fecaca}
+.btn:disabled{background:#cbd5e1;color:#64748b;border:none}
+.myOffer{margin-top:10px;background:#eef2ff;border:1.5px solid #c7d2fe;border-radius:14px;padding:12px;text-align:center;font-weight:900;color:#3730a3}
+.overlay{position:fixed;inset:0;background:rgba(15,23,42,.55);display:none;align-items:center;justify-content:center;z-index:2500;padding:16px}
+.overlay.open{display:flex}
+.modal{background:#fff;border-radius:18px;padding:18px;width:100%;max-width:380px;text-align:center}
+.modal h3{font-size:15px;font-weight:900}
+.modal .big{font-size:30px;font-weight:900;color:#4F46E5;margin:8px 0}
+.cm{margin-top:10px;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;text-align:right}
+.cm div{display:flex;justify-content:space-between;padding:8px 12px;font-size:13px;border-bottom:1px solid #f1f5f9}
+.cm div:last-child{border-bottom:none}
+.cm .neg{color:#b91c1c;font-weight:900}
+.warn{margin-top:10px;background:#fef2f2;border:1px solid #fecaca;color:#991b1b;border-radius:10px;padding:8px;font-size:11px;font-weight:800;line-height:1.6}
+.mBtns{display:flex;gap:8px;margin-top:14px} .mBtns button{flex:1;height:46px;border-radius:12px;font-weight:900;cursor:pointer;border:1px solid #e2e8f0;background:#fff}
+.mBtns .yes{background:#4F46E5;color:#fff;border:none;flex:2}
+.bal{font-size:32px;font-weight:900;margin:6px 0}
+.bal.neg{color:#b91c1c} .bal.pos{color:#065f46}
+.tx{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #f1f5f9;font-size:12px;text-align:right}
+.tx b.m{color:#b91c1c} .tx b.p{color:#16a34a}
+.tx small{display:block;color:#94a3b8;font-size:10px}
+.topRow{display:flex;gap:6px;margin-top:10px}
+.topRow button{flex:1;height:40px;border-radius:12px;border:1.5px solid #a7f3d0;background:#ecfdf5;color:#065f46;font-weight:900;cursor:pointer}
+.job{margin:10px 12px 0;background:#fff;border:1.5px solid #a7f3d0;border-radius:16px;padding:12px}
+.job .cust{margin-top:8px;background:#f0fdf4;border-radius:12px;padding:10px;font-size:12px}
+.job .cust b{font-size:14px}
+.jobBtns{display:flex;gap:6px;margin-top:10px}
+.jobBtns a,.jobBtns button{flex:1;height:42px;border-radius:12px;display:flex;align-items:center;justify-content:center;gap:4px;font-weight:900;font-size:12px;text-decoration:none;cursor:pointer;border:none}
+.call{background:#16a34a;color:#fff} .nav{background:#eef2ff;color:#3730a3} .done{background:#0f172a;color:#fff}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#065f46;color:#fff;padding:12px 20px;border-radius:999px;font-weight:800;font-size:13px;box-shadow:0 8px 24px rgba(0,0,0,.2);z-index:9999;display:none;max-width:90%;text-align:center}
+.toast.error{background:#991b1b}
+</style>
+</head>
+<body>
+<div class="phone">
+ <div class="topbar">
+  <h1>✨ سائق المناسبات</h1>
+  <button class="pill wallet" id="walletPill" onclick="openWallet()">$0.00</button>
+ </div>
+ <div class="vehBar" id="vehBar"></div>
+ <div class="tabs">
+  <button class="tab active" id="tab-feed" onclick="setTab('feed')">الطلبات<i id="cntFeed">0</i></button>
+  <button class="tab" id="tab-offers" onclick="setTab('offers')">عروضي<i id="cntOffers">0</i></button>
+  <button class="tab" id="tab-jobs" onclick="setTab('jobs')">أعمالي<i id="cntJobs">0</i></button>
+ </div>
+
+ <div id="view-feed">
+  <div id="feedMap"></div>
+  <div class="radius"><span>📍 المناسبات ضمن 10 كم من موقعك</span><span id="feedCount"></span></div>
+  <div id="feedList"></div>
+  <button class="sim" onclick="simulateOrder()">✨ محاكاة طلب جديد</button>
+ </div>
+ <div id="view-offers" style="display:none"><div id="offersList"></div></div>
+ <div id="view-jobs" style="display:none"><div id="jobsList"></div></div>
+</div>
+
+<!-- التفاصيل -->
+<div class="sheetBg" id="detail" onclick="if(event.target===this) closeDetail()"><div class="sheet">
+ <div class="sHead"><b id="dTitle">—</b><button onclick="closeDetail()">✕</button></div>
+ <div id="dMap"></div>
+ <div class="legend"><span>🔵 موقعك</span><span>🟢 التجمع</span><span>🟣 الوجهات</span><span>🔴 الوصول الأخير</span></div>
+ <div class="metrics" id="dMetrics"></div>
+ <div class="dl" id="dList"></div>
+ <div class="hidden">🔒 بيانات الزبون تظهر بعد قبوله لعرضك</div>
+ <div class="secT">🚌 المركبات المطلوبة</div>
+ <div id="dItems"></div>
+ <div id="dActions"></div>
+</div></div>
+
+<!-- تأكيد العرض -->
+<div class="overlay" id="confirmModal"><div class="modal">
+ <h3>إرسال عرض السعر</h3>
+ <div class="big" id="cmPrice">$0</div>
+ <div class="ofHint" id="cmItem"></div>
+ <div class="cm" id="cmRows"></div>
+ <div id="cmWarn"></div>
+ <div class="mBtns"><button onclick="closeModal('confirmModal')">رجوع</button><button class="yes" onclick="confirmOffer()">إرسال العرض</button></div>
+</div></div>
+
+<!-- طلب جديد -->
+<div class="overlay" id="newModal"><div class="modal">
+ <h3>✨ مناسبة جديدة بالقرب منك</h3>
+ <div id="nmBody" style="margin-top:8px;text-align:right"></div>
+ <div class="mBtns"><button onclick="dismissNew()">لاحقاً</button><button class="yes" onclick="viewNew()">عرض التفاصيل</button></div>
+</div></div>
+
+<!-- المحفظة -->
+<div class="overlay" id="walletModal"><div class="modal">
+ <h3>💳 رصيدك</h3>
+ <div class="bal" id="wBal">$0</div>
+ <div id="wNote" class="ofHint"></div>
+ <div class="topRow"><button onclick="doTopUp(5)">＋$5</button><button onclick="doTopUp(10)">＋$10</button><button onclick="doTopUp(25)">＋$25</button></div>
+ <div id="wTx" style="margin-top:10px;max-height:240px;overflow:auto"></div>
+ <div class="mBtns"><button onclick="closeModal('walletModal')">إغلاق</button></div>
+</div></div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+/*@@CARGO_JS@@*/
+/*@@EVENTS_JS@@*/
+/*@@ROUTE_JS@@*/
+const HAS_MAP=typeof L!=='undefined'
+const MY_LOC=[33.5138,36.2765]  // موقع السائق (في التطبيق من GPS)
+const RADIUS_KM=10
+// بيانات السائق ومركبته وخدماته من حسابه المسجَّل (في التطبيق من جدول profiles)
+const DEMO_DRIVERS={
+ bus:{id:'driver-ev-1', name:'أبو سامر', phone:'0955 111 222', services:{events:true, wedding:false}, vehicle:{type:'bus_mid_27', seats:27, model:'هيونداي كاونتي', year:2018, color:'أبيض', photo:null}},
+ wedding:{id:'driver-ev-2', name:'مازن', phone:'0966 333 444', services:{events:false, wedding:true}, vehicle:{type:'car', seats:4, model:'مرسيدس E200', year:2021, color:'أسود', photo:null}},
+}
+const ME=lsGet('naql_event_driver_profile',null) || DEMO_DRIVERS[new URLSearchParams(location.search).get('as')==='wedding'? 'wedding':'bus']
+let tab='feed', feedMap=null, feedLayer=null, dMap=null, dLayer=null, current=null, selItem=null
+const esc=s=> String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))
+function geoKm(a,b){ const R=6371,t=Math.PI/180,dLa=(b[0]-a[0])*t,dLo=(b[1]-a[1])*t; const h=Math.sin(dLa/2)**2+Math.cos(a[0]*t)*Math.cos(b[0]*t)*Math.sin(dLo/2)**2; return 2*R*Math.asin(Math.sqrt(h)) }
+const gp=o=>[o.gathering_point.lat,o.gathering_point.lng]
+const tripPts=o=>[gp(o), ...o.destinations.map(d=>[d.lat,d.lng]), o.final_point? [o.final_point.lat,o.final_point.lng] : gp(o)]
+const ROAD={}, ROAD_TRIED={}, TRIP={}, TRIP_TRIED={}
+async function roadToGather(o){ if(ROAD[o.id]) return ROAD[o.id]; const r=await getRoute([MY_LOC, gp(o)]); if(r.ok) ROAD[o.id]=r; return r }
+async function tripRoute(o){ if(TRIP[o.id]) return TRIP[o.id]; const r=await getRoute(tripPts(o)); if(r.ok) TRIP[o.id]=r; return r }
+function wallet(){ return loadWallet(ME.id) }
+function blocked(){ return wallet().balance<0 }
+function myOffers(){ return loadEvOffers().filter(x=> x.driver_id===ME.id) }
+function myOfferFor(oid){ return myOffers().find(x=> x.order_id===oid && (x.status==='pending'||x.status==='accepted')) }
+function fitItems(o, offers){ return itemsLeft(o, offers).filter(it=> it.left>0 && canServe(it.type, ME)) }
+function feed(){
+ if(!ME.vehicle || blocked()) return []
+ const offers=loadEvOffers()
+ return loadEvOrders().filter(o=> o.status==='open' && geoKm(MY_LOC,gp(o))<=RADIUS_KM && fitItems(o,offers).length && !offers.some(x=> x.order_id===o.id && x.driver_id===ME.id && x.status==='accepted'))
+   .sort((a,b)=> geoKm(MY_LOC,gp(a))-geoKm(MY_LOC,gp(b)))
+}
+// البند الأنسب لمركبتي: النوع نفسه، وإلا الأقرب بعدد المقاعد
+function bestItem(items){
+ const my=ME.vehicle
+ return items.find(it=> it.type===my.type) || items.slice().sort((a,b)=> Math.abs(a.seats-my.seats)-Math.abs(b.seats-my.seats))[0]
+}
+// ===== الشريط العلوي =====
+function renderTop(){
+ const w=wallet(), p=document.getElementById('walletPill')
+ p.textContent='💳 '+money(w.balance)+(inFreePeriod(ME.id)?' • 🎁 '+daysAr(freeDaysLeft(ME.id)):''); p.className='pill wallet'+(w.balance<0?' neg':'')
+ const v=ME.vehicle
+ document.getElementById('vehBar').innerHTML= v? `<div style="font-size:24px">${v.type==='car'?'🚘':(EV_TYPES[v.type]||{}).icon||'🚐'}</div><div style="flex:1;min-width:0"><b>${esc(driverVehicleLabel(v,true))}</b><small>${[v.seats+' مقعد', v.year, v.color].filter(Boolean).map(esc).join(' • ')}</small></div>${ME.services.events?'<span class="svc">🚌 رحلات ومناسبات</span>':''}${ME.services.wedding?'<span class="svc w">💍 زفاف</span>':''}`
+  : '<b>بيانات المركبة غير مكتملة في حسابك</b>'
+}
+function setTab(t){ tab=t; ['feed','offers','jobs'].forEach(x=>{ document.getElementById('view-'+x).style.display=x===t?'block':'none'; document.getElementById('tab-'+x).classList.toggle('active',x===t) }); render(); if(t==='feed' && feedMap) setTimeout(()=>feedMap.invalidateSize(),60) }
+// ===== الخريطة =====
+const dot=(c,s=14)=> L.divIcon({html:`<div style="background:${c};width:${s}px;height:${s}px;border-radius:999px;border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.35)"></div>`,iconSize:[s,s],iconAnchor:[s/2,s/2]})
+const pinTxt=(t,c)=> L.divIcon({html:`<div style="background:${c};color:#fff;min-width:26px;height:26px;padding:0 6px;border-radius:999px;display:grid;place-items:center;font-size:11px;font-weight:900;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.35)">${t}</div>`,iconSize:[26,26],iconAnchor:[13,13]})
+function initFeedMap(){
+ if(!HAS_MAP){ document.getElementById('feedMap').style.display='none'; return }
+ feedMap=L.map('feedMap',{zoomControl:false,attributionControl:false}).setView(MY_LOC,12)
+ L.tileLayer('https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png',{maxZoom:19}).addTo(feedMap)
+ L.circle(MY_LOC,{radius:RADIUS_KM*1000,color:'#4F46E5',weight:1.5,fillOpacity:.05}).addTo(feedMap)
+ L.marker(MY_LOC,{icon:dot('#0ea5e9',18)}).addTo(feedMap)
+ feedLayer=L.layerGroup().addTo(feedMap)
+}
+// ===== قائمة الطلبات =====
+function needsHtml(o, offers){
+ return `<div class="needs">${itemsLeft(o,offers).map(it=> `<span class="need ${it.left===0?'full':canServe(it.type,ME)?'fit':''}">${evName(it.type)} × ${it.left===0? it.count : it.left}</span>`).join('')}</div>`
+}
+function cardHtml(o, i, offers){
+ const mine=myOfferFor(o.id), road=ROAD[o.id], trip=TRIP[o.id]
+ return `<div class="card" onclick="openDetail('${o.id}')">
+  <div class="cHead"><b>${i+1}. ${esc(eventKind(o))}</b>${o.gathering_time? `<span class="tag">📅 ${fmtDT(o.gathering_time)}</span>`:''}</div>
+  <div class="route"><div>🟢 ${esc(o.gathering_point.label)}</div><div>🏁 ${o.destinations.map(d=>esc(d.label)).join(' ← ')}</div></div>
+  <div class="metrics">
+   <div class="metric"><b id="rd-${o.id}">${road? road.km.toFixed(1)+' كم' : '…'}</b><span>يبعد عنك</span></div>
+   <div class="metric"><b id="tr-${o.id}">${trip? trip.km.toFixed(1)+' كم' : '…'}</b><span>مسافة الرحلة</span></div>
+   <div class="metric"><b>${o.duration_hours} س</b><span>المدة</span></div>
+   <div class="metric"><b>${o.num_people}</b><span>شخص</span></div>
+  </div>
+  ${needsHtml(o, offers)}
+  ${mine? `<div style="margin-top:8px"><span class="tag mine">عرضك ${money(mine.price)} • ${evName(mine.item_type)}</span></div>`:''}
+ </div>`
+}
+function renderFeed(){
+ const list=document.getElementById('feedList')
+ if(!ME.vehicle){ list.innerHTML=`<div class="banner info">بيانات مركبتك غير مكتملة في حسابك<br>تظهر الطلبات بعد اعتماد بيانات المركبة</div>`; return }
+ const w=wallet()
+ if(w.balance<0){
+   list.innerHTML=`<div class="banner neg">رصيدك ${money(w.balance)}<br>توقف ظهور الطلبات حتى شحن الرصيد<br>يُسدَّد المبلغ المستحق تلقائياً من الشحن القادم<br><button onclick="openWallet()">شحن الرصيد</button></div>`
+   feedLayer&&feedLayer.clearLayers(); document.getElementById('feedCount').textContent=''; return
+ }
+ const F=feed(), offers=loadEvOffers()
+ document.getElementById('feedCount').textContent=F.length+' طلب'
+ list.innerHTML= F.length? F.map((o,i)=> cardHtml(o,i,offers)).join('') : `<div class="banner info">لا توجد مناسبات تناسب مركبتك حالياً<br>سيصلك تنبيه عند نشر طلب جديد بالقرب منك</div>`
+ if(feedLayer){ feedLayer.clearLayers(); F.forEach((o,i)=> L.marker(gp(o),{icon:pinTxt(i+1,'#4F46E5')}).on('click',()=>openDetail(o.id)).addTo(feedLayer)) }
+ F.forEach(async o=>{
+   if(!ROAD[o.id] && !ROAD_TRIED[o.id]){ ROAD_TRIED[o.id]=1; const r=await roadToGather(o); const el=document.getElementById('rd-'+o.id); if(el) el.textContent= r.ok? r.km.toFixed(1)+' كم' : '—' }
+   if(!TRIP[o.id] && !TRIP_TRIED[o.id]){ TRIP_TRIED[o.id]=1; const r=await tripRoute(o); const el=document.getElementById('tr-'+o.id); if(el) el.textContent= r.ok? r.km.toFixed(1)+' كم' : '—' }
+ })
+}
+// ===== عروضي =====
+function renderOffers(){
+ const orders=loadEvOrders()
+ const mine=myOffers().filter(x=> x.status==='pending'||x.status==='rejected').sort((a,b)=>b.created_at-a.created_at)
+ document.getElementById('offersList').innerHTML= mine.length? mine.map(x=>{
+   const o=orders.find(q=>q.id===x.order_id); if(!o) return ''
+   const st= x.status==='pending'? (o.status==='open'? '<span class="tag mine">⏳ بانتظار الزبون</span>' : '<span class="tag">أُغلق الطلب</span>')
+     : x.reason==='filled'? '<span class="tag bad">اكتمل هذا النوع</span>' : '<span class="tag bad">لم يُقبل العرض</span>'
+   return `<div class="card" ${x.status==='pending'&&o.status==='open'? `onclick="openDetail('${o.id}')"`:''} style="${x.status!=='pending'?'opacity:.6':''}">
+    <div class="cHead"><b>${esc(eventKind(o))}</b>${st}</div>
+    <div class="route"><div>🟢 ${esc(o.gathering_point.label)}${o.gathering_time? ' • '+fmtDT(o.gathering_time):''}</div></div>
+    <div style="margin-top:6px;font-size:13px;font-weight:900;color:#4F46E5">عرضك: ${money(x.price)} <span style="color:#64748b;font-size:11px;font-weight:700">• ${evName(x.item_type)} • ${timeAgo(x.created_at)}</span></div></div>`
+ }).join('') : `<div class="banner info">لا توجد عروض معلّقة</div>`
+}
+// ===== أعمالي =====
+function navUrl(o){ const g=o.gathering_point; return `https://www.google.com/maps/dir/?api=1&destination=${g.lat},${g.lng}&travelmode=driving` }
+function renderJobs(){
+ const orders=loadEvOrders()
+ const jobs=myOffers().filter(x=> x.status==='accepted').sort((a,b)=>(b.accepted_at||0)-(a.accepted_at||0))
+ document.getElementById('jobsList').innerHTML= jobs.length? jobs.map(x=>{
+   const o=orders.find(q=>q.id===x.order_id); if(!o) return ''
+   const done=!!x.completed_at, c=o.customer
+   return `<div class="job" style="${done?'opacity:.6;border-color:#e2e8f0':''}">
+    <div class="cHead"><b>${esc(eventKind(o))}</b><span class="tag ${done?'':'ok'}">${done?'✔️ مكتملة':'✅ تم الاتفاق'}</span></div>
+    <div class="route"><div>🟢 التجمع: ${esc(o.gathering_point.label)}${o.gathering_time? ' • '+fmtDT(o.gathering_time):''}</div>
+     ${o.departure_time? `<div>🚀 الانطلاق: ${fmtDT(o.departure_time)}</div>`:''}
+     <div>🏁 ${o.destinations.map(d=>esc(d.label)).join(' ← ')}</div>
+     <div>↩️ العودة: ${o.final_point? esc(o.final_point.label) : 'إلى نقطة التجمع'}${o.return_time? ' • '+fmtDT(o.return_time):''}</div>
+     <div>⏱️ ${o.duration_hours} ساعة${o.wait?' • مع الانتظار':''} • 👥 ${o.num_people} شخص</div></div>
+    <div style="margin-top:6px;font-size:13px;font-weight:900;color:#4F46E5">💵 ${money(x.price)} <span style="color:#64748b;font-size:11px;font-weight:700">• ${evName(x.item_type)} • ${x.commission===0? 'ضمن الفترة المجانية' : 'العمولة '+money(x.commission)}</span></div>
+    ${o.notes? `<div class="ofHint" style="text-align:right">📝 ${esc(o.notes)}</div>`:''}
+    <div class="cust">👤 <b>${esc(c.name)}</b><br>📞 ${esc(c.phone)}</div>
+    ${done? '' : `<div class="jobBtns"><a class="call" href="tel:${c.phone.replace(/\s/g,'')}">📞 اتصال</a><a class="nav" href="${navUrl(o)}" target="_blank">🧭 نقطة التجمع</a><button class="done" onclick="completeJob('${x.id}')">تمت المناسبة</button></div>`}
+   </div>`
+ }).join('') : `<div class="banner info">لا توجد أعمال بعد</div>`
+}
+function completeJob(id){ const offers=loadEvOffers(), x=offers.find(f=>f.id===id); if(!x) return; x.completed_at=Date.now(); saveEvOffers(offers); showToast('تم تسجيل إتمام المناسبة'); render() }
+function render(){
+ renderTop()
+ document.getElementById('cntFeed').textContent=feed().length
+ document.getElementById('cntOffers').textContent=myOffers().filter(x=>x.status==='pending').length
+ document.getElementById('cntJobs').textContent=myOffers().filter(x=>x.status==='accepted' && !x.completed_at).length
+ if(tab==='feed') renderFeed(); else if(tab==='offers') renderOffers(); else renderJobs()
+}
+// ===== التفاصيل =====
+function openDetail(id){
+ const o=loadEvOrders().find(q=>q.id===id); if(!o) return
+ if(o.status!=='open'){ showToast('الطلب لم يعد متاحاً', true); render(); return }
+ current=o; closeModal('newModal')
+ const offers=loadEvOffers(), fits=fitItems(o, offers)
+ selItem= fits.length? bestItem(fits).type : null
+ document.getElementById('dTitle').textContent=eventKind(o)
+ const row=(k,v)=> v? `<div><span>${k}</span><b>${v}</b></div>`:''
+ document.getElementById('dList').innerHTML=
+   row('التجمع', esc(o.gathering_point.label)+(o.gathering_time? `<br><small style="color:#64748b">${fmtDT(o.gathering_time)}</small>`:''))+
+   row('الانطلاق', o.departure_time? fmtDT(o.departure_time):'')+
+   o.destinations.map((d,i)=> row('الوجهة '+(o.destinations.length>1?i+1:''), esc(d.label))).join('')+
+   row('المدة', o.duration_hours+' ساعة'+(o.wait?' • السائق ينتظر طوال المدة':''))+
+   row('العودة', (o.final_point? esc(o.final_point.label) : 'إلى نقطة التجمع')+(o.return_time? `<br><small style="color:#64748b">${fmtDT(o.return_time)}</small>`:''))+
+   row('الأشخاص', o.num_people+' شخص')+
+   row('ملاحظات', esc(o.notes))
+ renderMetrics(o); renderItems(); renderActions()
+ document.getElementById('detail').classList.add('open')
+ setTimeout(async ()=>{
+   if(!HAS_MAP){ document.getElementById('dMap').style.display='none'; await Promise.all([roadToGather(o), tripRoute(o)]); if(current===o) renderMetrics(o); return }
+   if(!dMap){ dMap=L.map('dMap',{zoomControl:false,attributionControl:false}).setView(MY_LOC,12); L.tileLayer('https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png',{maxZoom:19}).addTo(dMap); dLayer=L.featureGroup().addTo(dMap) }
+   dMap.invalidateSize(); dLayer.clearLayers()
+   L.marker(MY_LOC,{icon:dot('#0ea5e9',16)}).addTo(dLayer)
+   L.marker(gp(o),{icon:pinTxt('تجمع','#059669')}).addTo(dLayer)
+   o.destinations.forEach((d,i)=> L.marker([d.lat,d.lng],{icon:pinTxt(i+1,'#7c3aed')}).addTo(dLayer))
+   if(o.final_point) L.marker([o.final_point.lat,o.final_point.lng],{icon:pinTxt('🏁','#DC2626')}).addTo(dLayer)
+   dMap.fitBounds(dLayer.getBounds(),{padding:[26,26]})
+   const [a,b]=await Promise.all([roadToGather(o), tripRoute(o)])
+   if(current!==o) return
+   if(a.ok) L.polyline(a.latlngs,{color:'#0ea5e9',weight:4,dashArray:'6 6'}).addTo(dLayer)
+   if(b.ok) L.polyline(b.latlngs,{color:'#7c3aed',weight:5}).addTo(dLayer)
+   dMap.fitBounds(dLayer.getBounds(),{padding:[26,26]}); renderMetrics(o)
+ },80)
+}
+function renderMetrics(o){
+ const a=ROAD[o.id], b=TRIP[o.id]
+ document.getElementById('dMetrics').innerHTML=`<div class="metric"><b>${a? a.km.toFixed(1)+' كم':'—'}</b><span>إلى نقطة التجمع</span></div><div class="metric"><b>${b? b.km.toFixed(1)+' كم':'—'}</b><span>مسافة الرحلة كاملة</span></div><div class="metric"><b>${b? fmtMin(b.min):'—'}</b><span>مدة القيادة</span></div>`
+}
+function renderItems(){
+ const o=current, offers=loadEvOffers(), mine=myOfferFor(o.id)
+ document.getElementById('dItems').innerHTML=itemsLeft(o,offers).map(it=>{
+   const can=it.left>0 && canServe(it.type,ME) && !mine
+   return `<div class="itemRow ${it.left===0||!canServe(it.type,ME)?'no':''} ${can?'can':''} ${(mine? mine.item_type===it.type : selItem===it.type)?'sel':''}" ${can? `onclick="pickItem('${it.type}')"`:''}>
+    <span>${evName(it.type)}${it.type==='wedding_car'? ` <small>(${it.style==='lux'?'فاخرة':'عادية'}${it.deco?' • مع زينة':''})</small>`:''}</span>
+    <small>${it.left===0? 'اكتمل' : 'متبقٍ '+it.left+' من '+it.count}</small></div>`
+ }).join('')
+}
+function pickItem(t){ selItem=t; renderItems(); renderActions() }
+function renderActions(){
+ const o=current, mine=myOfferFor(o.id), box=document.getElementById('dActions')
+ if(mine){ box.innerHTML=`<div class="myOffer">عرضك ${money(mine.price)} على ${evName(mine.item_type)}<br><small style="font-weight:700">بانتظار رد الزبون</small></div><button class="btn danger" onclick="withdrawOffer('${mine.id}')">سحب العرض</button>`; return }
+ if(!selItem){ box.innerHTML=`<div class="ofHint">لا يوجد بند متاح لمركبتك</div>`; return }
+ const it=EV_TYPES[selItem], subst= ME.vehicle.type!=='car' && ME.vehicle.type!==selItem
+ box.innerHTML=`<div class="offerBox">
+  <div class="ofHint" style="margin:0 0 8px">عرضك على: <b style="color:#0f172a">${evName(selItem)}</b>${subst? ` • بمركبتك ${evName(ME.vehicle.type)}`:''}</div>
+  <input id="ofPrice" type="number" inputmode="decimal" min="1" placeholder="السعر $" oninput="document.getElementById('ofSend').disabled=!(parseFloat(this.value)>0)">
+  <textarea id="ofMsg" placeholder="رسالة للزبون (اختياري)"></textarea>
+  <div class="ofHint">يصل عرضك للزبون مع بيانات مركبتك، وتبقى هويتك مخفية حتى قبوله</div>
+  <button class="btn pri" id="ofSend" disabled onclick="askOffer()">إرسال العرض</button></div>`
+}
+function closeDetail(){ document.getElementById('detail').classList.remove('open'); current=null }
+// ===== التأكيد مع العمولة =====
+let pending=null
+function askOffer(){
+ const price=parseFloat(document.getElementById('ofPrice').value); if(!(price>0)) return
+ const w=wallet(), trial=inFreePeriod(ME.id), c=nextCommission(ME.id, price), after=Math.round((w.balance-c)*100)/100
+ pending={price, item:selItem, msg:(document.getElementById('ofMsg').value||'').trim()||null}
+ document.getElementById('cmPrice').textContent=money(price)
+ document.getElementById('cmItem').textContent=evName(selItem)
+ document.getElementById('cmRows').innerHTML=(trial? `<div style="background:#ecfdf5;color:#065f46;font-weight:900;justify-content:center">🎁 ضمن فترتك المجانية — متبقٍ ${daysAr(freeDaysLeft(ME.id))}</div>` : '')+`<div><span>عمولة التطبيق ${COMMISSION_PCT}</span><b>${trial? '<s style="color:#94a3b8">'+money(commissionOf(price))+'</s> $0.00' : money(c)}</b></div><div><span>رصيدك الحالي</span><b>${money(w.balance)}</b></div><div><span>رصيدك بعد قبول الزبون لعرضك</span><b class="${after<0?'neg':''}">${money(after)}</b></div>`
+ document.getElementById('cmWarn').innerHTML= after<0? `<div class="warn">رصيدك لا يكفي للعمولة: سيُسجَّل ${money(-after)} مستحقاً ويُسدَّد من الشحن القادم، وتتوقف الطلبات عن الظهور حتى الشحن</div>` : ''
+ document.getElementById('confirmModal').classList.add('open')
+}
+function confirmOffer(){
+ closeModal('confirmModal'); const o=current; if(!o||!pending) return
+ const fresh=loadEvOrders().find(q=>q.id===o.id), offers=loadEvOffers()
+ if(!fresh || fresh.status!=='open'){ closeDetail(); showToast('الطلب لم يعد متاحاً', true); render(); return }
+ if(blocked()){ closeDetail(); showToast('اشحن رصيدك أولاً', true); render(); return }
+ const it=itemsLeft(fresh,offers).find(v=>v.type===pending.item)
+ if(!it || it.left<1){ showToast('اكتمل هذا النوع من المركبات', true); renderItems(); return }
+ offers.push({id:uid(), order_id:fresh.id, item_type:pending.item, driver_id:ME.id, driver:{name:ME.name, phone:ME.phone}, vehicle:ME.vehicle, price:pending.price, message:pending.msg, status:'pending', created_at:Date.now()})
+ saveEvOffers(offers); pending=null; closeDetail(); showToast('تم إرسال عرضك للزبون'); render()
+}
+function withdrawOffer(id){ const offers=loadEvOffers(), x=offers.find(f=>f.id===id); if(x&&x.status==='pending'){ x.status='withdrawn'; saveEvOffers(offers) } closeDetail(); showToast('تم سحب العرض'); render() }
+function closeModal(id){ document.getElementById(id).classList.remove('open') }
+// ===== المحفظة =====
+function openWallet(){ renderWallet(); document.getElementById('walletModal').classList.add('open') }
+function renderWallet(){
+ const w=wallet(), b=document.getElementById('wBal')
+ b.textContent=money(w.balance); b.className='bal '+(w.balance<0?'neg':'pos')
+ document.getElementById('wNote').textContent= w.balance<0? 'مبلغ مستحق — يُسدَّد تلقائياً من الشحن القادم' : inFreePeriod(ME.id)? '🎁 فترتك المجانية: متبقٍ '+daysAr(freeDaysLeft(ME.id))+' — لا عمولة على أي اتفاق' : 'تُخصم عمولة '+COMMISSION_PCT+' عند قبول الزبون لعرضك'
+ document.getElementById('wTx').innerHTML= w.tx.length? w.tx.map(t=> `<div class="tx"><div>${t.kind==='topup'? '💳 شحن رصيد'+(t.debt_paid? ` <small>سُدّد منه ${money(t.debt_paid)} مستحق</small>`:'') : ((t.free||t.trial)? `🎁 اتفاق ${money(t.price)} ضمن الفترة المجانية` : `🧾 عمولة اتفاق ${money(t.price)}`)}<small>${new Date(t.at).toLocaleString('ar-SY',{dateStyle:'short',timeStyle:'short'})} • الرصيد ${money(t.balance_after)}</small></div><b class="${t.amount<0?'m':'p'}">${t.amount<0?'−':t.amount>0?'+':''}${money(Math.abs(t.amount))}</b></div>`).join('') : '<div class="ofHint">لا توجد حركات بعد</div>'
+}
+function doTopUp(v){ const wasNeg=blocked(); topUp(ME.id,v); renderWallet(); render(); showToast(wasNeg && !blocked()? 'تم الشحن • عادت الطلبات للظهور' : 'تم شحن '+money(v)) }
+// ===== تنبيهات =====
+let shown={}, newQueue=[], newCur=null, newBeep=null, offerSt={}
+function poll(){
+ myOffers().forEach(x=>{
+   const prev=offerSt[x.id]; offerSt[x.id]=x.status
+   if(prev==='pending' && x.status==='accepted'){ notify(880); showToast(x.commission===0? `✅ قبل الزبون عرضك ${money(x.price)} • ضمن الفترة المجانية بدون عمولة` : `✅ قبل الزبون عرضك ${money(x.price)} • خُصمت العمولة ${money(x.commission)}`); setTab('jobs') }
+   else if(prev==='pending' && x.status==='rejected'){ notify(440); showToast(x.reason==='filled'? 'اكتمل هذا النوع من المركبات عند الزبون' : 'لم يقبل الزبون عرضك') }
+ })
+ // طلب أُغلق أو اكتمل بندي أثناء فتح التفاصيل
+ if(current){ const o=loadEvOrders().find(q=>q.id===current.id); if(!o || o.status!=='open' || (!myOfferFor(o.id) && !fitItems(o).length)){ closeDetail(); showToast('اكتملت المركبات المطلوبة لهذا الطلب', true) } else if(document.getElementById('detail').classList.contains('open')) renderItems() }
+ const F=feed()
+ newQueue=newQueue.filter(q=> F.some(o=>o.id===q.id)); if(newCur && !F.some(o=>o.id===newCur.id)) dismissNew()
+ F.forEach(o=>{ if(!shown[o.id]){ shown[o.id]=1; newQueue.push(o) } })
+ if(!newCur && newQueue.length) showNew(newQueue.shift())
+ render()
+}
+function showNew(o){
+ newCur=o
+ document.getElementById('nmBody').innerHTML=`<div class="cHead"><b>${esc(eventKind(o))}</b></div>
+  <div class="route"><div>🟢 ${esc(o.gathering_point.label)}</div><div>🏁 ${esc(o.destinations[o.destinations.length-1].label)}</div></div>
+  ${needsHtml(o)}<div class="ofHint" style="text-align:right">${o.gathering_time? '📅 '+fmtDT(o.gathering_time)+' • ':''}👥 ${o.num_people} • يبعد نحو ${geoKm(MY_LOC,gp(o)).toFixed(1)} كم</div>`
+ document.getElementById('newModal').classList.add('open')
+ notify(); clearInterval(newBeep); newBeep=setInterval(()=>notify(),3000)
+}
+function dismissNew(){ clearInterval(newBeep); closeModal('newModal'); newCur=null; if(newQueue.length) setTimeout(()=>showNew(newQueue.shift()),400) }
+function viewNew(){ const o=newCur; clearInterval(newBeep); closeModal('newModal'); newCur=null; setTab('feed'); openDetail(o.id) }
+// ===== بيانات تجريبية =====
+function inDays(d,h){ const t=new Date(); t.setDate(t.getDate()+d); t.setHours(h,0,0,0); const p=n=>String(n).padStart(2,'0'); return `${t.getFullYear()}-${p(t.getMonth()+1)}-${p(t.getDate())}T${p(t.getHours())}:00` }
+function demoEvent(i, over){
+ return Object.assign({id:uid(), created_at:Date.now()-i*600000, customer_id:DEMO_CUSTOMER.id, customer:DEMO_CUSTOMER, status:'open',
+  event_type:'family', event_type_other:null, gathering_point:{label:'ساحة الأمويين، دمشق', lat:33.5130, lng:36.2760},
+  gathering_time:inDays(2,9), departure_time:inDays(2,10), destinations:[{label:'بلودان، ريف دمشق', lat:33.7280, lng:36.1310}],
+  duration_hours:8, wait:true, return_time:inDays(2,18), final_point:null, route_info:null, num_people:20, vehicles:[{type:'bus_mid_21', seats:21, count:1}], total_seats:21, notes:null}, over)
+}
+function seed(){
+ if(loadEvOrders().length) return
+ saveEvOrders([
+  demoEvent(0,{event_type:'wedding', gathering_point:{label:'المزرعة، دمشق', lat:33.5230, lng:36.2890}, destinations:[{label:'صالة الشام للأفراح، المزة', lat:33.5000, lng:36.2400}], duration_hours:5, num_people:54,
+    vehicles:[{type:'wedding_car', seats:4, count:1, style:'lux', deco:true},{type:'bus_large_50', seats:50, count:1}], total_seats:54, gathering_time:inDays(3,17), departure_time:inDays(3,18), return_time:inDays(3,23), notes:'الزينة بالورد الأبيض'}),
+  demoEvent(1,{event_type:'tourist', num_people:50, vehicles:[{type:'bus_mid_21', seats:21, count:2},{type:'van_8', seats:8, count:1}], total_seats:50,
+    destinations:[{label:'معلولا، ريف دمشق', lat:33.8440, lng:36.5460},{label:'صيدنايا، ريف دمشق', lat:33.6950, lng:36.3760}], gathering_point:{label:'باب توما، دمشق', lat:33.5160, lng:36.3150}}),
+  demoEvent(2,{event_type:'family', num_people:10, vehicles:[{type:'van_11', seats:11, count:1}], total_seats:11, gathering_point:{label:'كفرسوسة، دمشق', lat:33.4990, lng:36.2600}}),
+  demoEvent(3,{event_type:'wedding', num_people:4, vehicles:[{type:'wedding_car', seats:4, count:1, style:'normal', deco:true}], total_seats:4, gathering_point:{label:'ركن الدين، دمشق', lat:33.5400, lng:36.2950}, destinations:[{label:'فندق الشام، دمشق', lat:33.5140, lng:36.2930}], duration_hours:3}),
+  demoEvent(4,{event_type:'tourist', gathering_point:{label:'قدسيا، ريف دمشق', lat:33.6200, lng:36.1300}, vehicles:[{type:'bus_mid_27', seats:27, count:1}], num_people:25}),
+ ])
+}
+let simI=0
+function simulateOrder(){
+ const kinds=[{event_type:'family', vehicles:[{type:'bus_small_14', seats:14, count:1}], num_people:12},{event_type:'wedding', vehicles:[{type:'wedding_car', seats:4, count:1, style:'lux', deco:false},{type:'bus_mid_27', seats:27, count:1}], num_people:30},{event_type:'tourist', vehicles:[{type:'bus_large_50', seats:50, count:1}], num_people:45}]
+ const k=kinds[simI++%kinds.length]
+ const all=loadEvOrders(); all.unshift(demoEvent(simI,{...k, created_at:Date.now(), gathering_point:{label:'العباسيين، دمشق', lat:33.5300+simI*0.002, lng:36.3100}, total_seats:k.vehicles.reduce((s,v)=>s+v.seats*v.count,0)}))
+ saveEvOrders(all); poll()
+}
+// ===== بداية =====
+seed()
+initFeedMap()
+myOffers().forEach(x=> offerSt[x.id]=x.status)
+feed().forEach(o=> shown[o.id]=1)
+render()
+setInterval(poll,2000)
+</script>
+</body>
+</html>

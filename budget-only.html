@@ -1,0 +1,10 @@
+<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ميزانية - اختبار</title><style>body{font-family:system-ui;padding:12px;background:#f8f9fa} .section{background:#fff;border-radius:16px;padding:14px;border:1px solid #e5e7eb;margin:12px} .chip{padding:8px 14px;border-radius:999px;border:1.5px solid #e5e7eb;background:#fff;font-weight:800;cursor:pointer;display:inline-block;margin:4px} .chip.active{background:#4F46E5;color:#fff} .budget{display:flex;gap:8px;align-items:center} .budget input{flex:1;height:44px;border:1.5px solid #e5e7eb;border-radius:12px;text-align:center}</style></head><body>
+<div class="section" style="border:2px solid #4F46E5">
+<h2>💰 الميزانية <span style="background:#fef9c3;padding:2px 8px;border-radius:999px;font-size:10px">اختبار</span></h2>
+<p>هل تريد تحديد ميزانية أم طلب عروض؟</p>
+<div><span class="chip active" id="f" onclick="document.getElementById('f').className='chip active';document.getElementById('q').className='chip';document.getElementById('fb').style.display='block';document.getElementById('qb').style.display='none'">💰 تحديد ميزانية</span><span class="chip" id="q" onclick="document.getElementById('q').className='chip active';document.getElementById('f').className='chip';document.getElementById('fb').style.display='none';document.getElementById('qb').style.display='block'">📩 طلب عروض أسعار</span></div>
+<div id="fb" style="margin-top:12px"><div class="budget"><input placeholder="من" value="10"><span>—</span><input placeholder="إلى" value="50"></div></div>
+<div id="qb" style="display:none;margin-top:12px;background:#f0fdf4;border:1px solid #a7f3d0;padding:12px;border-radius:12px;text-align:center"><b>📩 طلب عروض أسعار مفعّل</b><div>يجب أن ترى هذه الرسالة عند الضغط على الزر الثاني</div></div>
+</div>
+<p style="text-align:center;color:#6b7280">إذا رأيت الزرين هنا، فالملف الكامل يحتويهما أيضاً</p>
+</body></html>

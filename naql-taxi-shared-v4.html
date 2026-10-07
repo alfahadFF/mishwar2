@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>تكسي راكب — رحلات مشتركة</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+function showToast(msg, isError=false){
+  const t=document.getElementById('toast');
+  if(!t) return;
+  t.textContent=msg;
+  t.className='toast'+(isError?' error':'');
+  t.style.display='block';
+  clearTimeout(window._toastTimer);
+  window._toastTimer=setTimeout(()=> t.style.display='none', 2800);
+}
+</script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,-apple-system,'Segoe UI',sans-serif;background:#f8fafc;color:#0f172a;max-width:560px;margin:0 auto}
+.header{position:sticky;top:0;z-index:500;background:#fff;border-bottom:1px solid #e2e8f0;padding:12px 14px;display:flex;align-items:center;gap:10px}
+.header h1{font-size:16px;font-weight:900}
+.header p{font-size:11px;color:#64748b}
+.back{width:36px;height:36px;border-radius:10px;border:1px solid #e2e8f0;background:#fff;display:grid;place-items:center;cursor:pointer}
+.modeBar{display:flex;gap:8px;margin:10px 10px 8px}
+.modeBtn{flex:1;height:40px;border-radius:12px;border:1.5px solid #e2e8f0;background:#fff;font-weight:800;font-size:12px;cursor:pointer;color:#0f172a}
+.modeBtn.active{background:#4F46E5;border-color:#4F46E5;color:#fff}
+.modeBtn.done:not(.active){border-color:#22c55e;color:#065f46;background:#f0fdf4}
+.mapWrap{position:relative;margin:0 10px}
+#map{height:260px;border-radius:14px;border:1px solid #e2e8f0;overflow:hidden}
+.mapHint{position:absolute;top:8px;left:50%;transform:translateX(-50%);z-index:400;background:rgba(15,23,42,.85);color:#fff;font-size:11px;font-weight:800;padding:6px 12px;border-radius:999px;white-space:nowrap;pointer-events:none}
+.legend{display:flex;gap:12px;justify-content:center;font-size:10px;color:#64748b;margin:6px 10px 0}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:999px;margin-left:4px;vertical-align:middle}
+.list{padding:10px;display:grid;gap:10px;padding-bottom:40px}
+.trip{border:1.5px solid #e2e8f0;border-radius:16px;background:#fff;padding:12px;transition:.15s}
+.trip.sel{border-color:#4F46E5;box-shadow:0 0 0 3px #e0e7ff}
+.route{font-size:13px;font-weight:900;display:flex;align-items:center;gap:6px}
+.route span{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.meta{font-size:11px;color:#64748b;margin-top:4px}
+.time{font-size:11px;color:#4F46E5;font-weight:800;margin-top:4px}
+.row{display:flex;justify-content:space-between;align-items:center;margin-top:8px}
+.seats{font-size:11px;color:#065f46;background:#f0fdf4;border:1px solid #a7f3d0;padding:4px 8px;border-radius:999px}
+.price{font-size:14px;font-weight:900;color:#4F46E5}
+.fit{margin-top:8px;border-radius:10px;padding:8px 10px;font-size:11px;font-weight:800;line-height:1.6}
+.fit.near{background:#f0fdf4;border:1px solid #a7f3d0;color:#065f46}
+.fit.far{background:#fffbeb;border:1px solid #fde68a;color:#92400e}
+.fit.bad{background:#fef2f2;border:1px solid #fecaca;color:#991b1b}
+.fit.wait{background:#f1f5f9;border:1px solid #e2e8f0;color:#475569}
+.join{width:100%;height:42px;border-radius:12px;border:none;background:#4F46E5;color:#fff;font-weight:900;cursor:pointer;margin-top:8px;font-size:13px}
+.join.req{background:#f59e0b}
+.join:disabled{background:#cbd5e1;color:#64748b;cursor:not-allowed}
+.pending{margin-top:8px;border-radius:12px;background:#eef2ff;border:1px solid #c7d2fe;color:#3730a3;padding:10px;text-align:center;font-size:12px;font-weight:900}
+.empty{text-align:center;padding:24px;color:#64748b;font-size:13px}
+/* نافذة */
+.overlay{position:fixed;inset:0;background:rgba(15,23,42,.55);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);display:none;align-items:center;justify-content:center;z-index:1000;padding:16px}
+.overlay.open{display:flex}
+.modal{background:#fff;border-radius:24px;padding:18px;width:100%;max-width:420px;box-shadow:0 24px 48px rgba(0,0,0,.25)}
+.modal h2{font-size:16px;font-weight:900;text-align:center}
+.modal .sub{font-size:12px;color:#64748b;text-align:center;margin-top:4px}
+.stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:12px}
+.stat{background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:8px;text-align:center}
+.stat b{display:block;font-size:14px}
+.stat span{font-size:10px;color:#64748b}
+.mBtns{display:flex;gap:8px;margin-top:14px}
+.mBtns button{flex:1;height:44px;border-radius:12px;font-weight:900;cursor:pointer;font-size:13px}
+.btnNo{background:#fff;border:1.5px solid #fecaca;color:#991b1b}
+.btnYes{background:#22c55e;border:none;color:#fff}
+.btnMain{background:#4F46E5;border:none;color:#fff}
+.bigPrice{font-size:28px;font-weight:900;color:#4F46E5;text-align:center;margin-top:10px}
+.cMap{height:170px;border-radius:12px;border:1px solid #e2e8f0;overflow:hidden;margin-top:10px}
+.cLegend{display:flex;gap:10px;justify-content:center;font-size:10px;color:#64748b;margin-top:4px}
+.cancelLink{display:block;margin:6px auto 0;background:none;border:none;color:#991b1b;font-size:11px;font-weight:800;text-decoration:underline;cursor:pointer}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#065f46;color:#fff;padding:12px 20px;border-radius:999px;font-weight:800;font-size:13px;box-shadow:0 8px 24px rgba(0,0,0,.2);z-index:9999;display:none;max-width:90%;text-align:center}
+.toast.error{background:#991b1b}
+</style>
+</head>
+<body>
+<div class="header">
+  <div class="back" onclick="history.back()">→</div>
+  <div><h1>👥 تكسي راكب — رحلات مشتركة</h1><p>حدد موقع ركوبك ونزولك واختر رحلة مناسبة</p></div>
+</div>
+
+<div class="modeBar">
+  <button class="modeBtn active" id="btnPick" onclick="setMode('pick')">📍 موقع ركوبي</button>
+  <button class="modeBtn" id="btnDrop" onclick="setMode('drop')">🏁 موقع نزولي</button>
+  <button class="modeBtn" style="flex:.6;background:#f1f5f9" onclick="useMyLocation()">🎯 موقعي</button>
+</div>
+<div class="mapWrap">
+  <div id="map"></div>
+  <div class="mapHint" id="mapHint">اضغط على الخريطة لتحديد موقع ركوبك</div>
+</div>
+<div class="legend"><span><i style="background:#22c55e"></i>ركوبي</span><span><i style="background:#ef4444"></i>نزولي</span><span><i style="background:#4F46E5;border-radius:2px;height:4px"></i>مسارات الرحلات</span></div>
+
+<div class="list" id="list"></div>
+
+<!-- نافذة تأكيد إرسال طلب (بعيد عن المسار) -->
+<div class="overlay" id="reqModal"><div class="modal">
+  <h2>📨 موقعك بعيد عن مسار الرحلة</h2>
+  <div class="sub" id="reqSub"></div>
+  <div class="stats">
+    <div class="stat"><b id="rOff">—</b><span>البعد عن المسار</span></div>
+    <div class="stat"><b id="rKm">—</b><span>التفاف إضافي</span></div>
+    <div class="stat"><b id="rMin">—</b><span>وقت إضافي</span></div>
+  </div>
+  <div class="sub" style="margin-top:10px">سيصل طلبك للسائق ليقرر القبول، وقد يطلب مبلغاً إضافياً مقابل الالتفاف — لن تُضاف إلا بموافقتك</div>
+  <div class="mBtns"><button class="btnNo" onclick="closeModal('reqModal')">إلغاء</button><button class="btnMain" onclick="sendRequest()">إرسال الطلب للسائق</button></div>
+</div></div>
+
+<!-- نافذة مبلغ إضافي من السائق -->
+<div class="overlay" id="counterModal"><div class="modal">
+  <h2>💬 السائق وافق بمبلغ إضافي</h2>
+  <div class="sub" id="cSub"></div>
+  <div class="bigPrice" id="cExtra">+$0.00</div>
+  <div class="sub">مقابل الالتفاف إلى موقع ركوبك ونزولك</div>
+  <div id="cMap" class="cMap"></div>
+  <div class="cLegend"><span><i style="display:inline-block;width:14px;height:3px;background:#94a3b8;vertical-align:middle"></i> مسار الرحلة</span><span><i style="display:inline-block;width:14px;height:3px;background:#f59e0b;vertical-align:middle"></i> مع الالتفاف إليك</span><span>🟢 ركوبك</span><span>🔴 نزولك</span></div>
+  <div class="stats">
+    <div class="stat"><b id="cKm">—</b><span>التفاف إضافي</span></div>
+    <div class="stat"><b id="cMin">—</b><span>وقت إضافي</span></div>
+    <div class="stat"><b id="cSeat">—</b><span>سعر المقعد</span></div>
+  </div>
+  <div class="stat" style="margin-top:8px;background:#eef2ff;border-color:#c7d2fe"><b id="cTotal" style="color:#4F46E5;font-size:18px">—</b><span>الإجمالي عليك للمقعد</span></div>
+  <div class="mBtns"><button class="btnNo" onclick="answerCounter(false)">رفض</button><button class="btnYes" onclick="answerCounter(true)">موافق</button></div>
+</div></div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+// ===== توجيه حقيقي على الطرق (OSRM) =====
+const ROUTE_CACHE={}
+async function getRoute(points){
+ const key=points.map(p=>p[0].toFixed(5)+','+p[1].toFixed(5)).join(';')
+ if(ROUTE_CACHE[key]) return ROUTE_CACHE[key]
+ const coords=points.map(p=>p[1]+','+p[0]).join(';')
+ const ctrl=new AbortController(); const tm=setTimeout(()=>ctrl.abort(),10000)
+ try{
+   const r=await fetch('https://router.project-osrm.org/route/v1/driving/'+coords+'?overview=full&geometries=geojson',{signal:ctrl.signal})
+   const j=await r.json()
+   if(j.code!=='Ok'||!j.routes||!j.routes.length) throw new Error('no route')
+   const rt=j.routes[0]
+   const res={ok:true, km:rt.distance/1000, min:rt.duration/60, latlngs:rt.geometry.coordinates.map(c=>[c[1],c[0]])}
+   ROUTE_CACHE[key]=res; return res
+ }catch(e){ return {ok:false} } finally{ clearTimeout(tm) }
+}
+function fmtMin(m){ m=Math.round(m); return m<60? m+' د' : Math.floor(m/60)+' س '+(m%60)+' د' }
+// أقرب نقطة على المسار: المسافة (كم) + الموقع على طول المسار (لمعرفة الاتجاه)
+function nearestOnPath(p, path){
+ const k=Math.cos(p[0]*Math.PI/180)
+ const X=q=>[q[1]*111.32*k, q[0]*110.574]
+ const P=X(p); let best={km:Infinity, along:0}; let acc=0
+ for(let i=0;i<path.length-1;i++){
+   const A=X(path[i]), B=X(path[i+1]); const dx=B[0]-A[0], dy=B[1]-A[1]; const L2=dx*dx+dy*dy; const segLen=Math.sqrt(L2)
+   let t= L2? ((P[0]-A[0])*dx+(P[1]-A[1])*dy)/L2 : 0; t=Math.max(0,Math.min(1,t))
+   const cx=A[0]+t*dx, cy=A[1]+t*dy; const d=Math.hypot(P[0]-cx,P[1]-cy)
+   if(d<best.km) best={km:d, along:acc+t*segLen}
+   acc+=segLen
+ }
+ return best
+}
+const NEAR_KM=1.0   // ضمن هذا البعد عن المسار → إضافة فورية
+
+// ===== جسر المعاينة بين شاشة الراكب وشاشة السائق (في التطبيق: جدول taxi_shared_requests + Realtime) =====
+const BRIDGE='naql_join_requests'
+function loadReqs(){ try{ return JSON.parse(localStorage.getItem(BRIDGE)||'[]') }catch(e){ return [] } }
+function saveReqs(a){ try{ localStorage.setItem(BRIDGE, JSON.stringify(a)) }catch(e){} }
+
+const trips=[
+ {id:1, from:'الحي الشمالي', to:'الجامعة الرئيسية', fromLL:[33.52,36.27], toLL:[33.55,36.30], time:'اليوم 07:30', total:4, left:3, price:2.0, driver:'سائق ★4.8', status:'pending'},
+ {id:2, from:'المدينة القديمة', to:'المطار', fromLL:[33.51,36.28], toLL:[33.58,36.35], time:'اليوم 14:00', total:4, left:1, price:3.5, driver:'سائق ★4.9', status:'pending'},
+ {id:3, from:'حي المزة', to:'الجامعة', fromLL:[33.50,36.26], toLL:[33.54,36.31], time:'غداً 08:00', total:4, left:0, price:2.0, driver:'سائق ★4.7', status:'full'},
+ {id:4, from:'جرمانا', to:'المدينة الصناعية', fromLL:[33.49,36.34], toLL:[33.45,36.40], time:'اليوم 06:45', total:8, left:5, price:1.5, driver:'فان ★4.8', status:'pending'},
+]
+let map, routeLayer, mode='pick', pickup=null, dropoff=null, mPick=null, mDrop=null, selectedId=null, reqTrip=null
+const myReqs={} // tripId -> request id
+
+function dot(color){ return L.divIcon({html:`<div style="background:${color};width:22px;height:22px;border-radius:999px;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.3)"></div>`, iconSize:[22,22], iconAnchor:[11,11]}) }
+function setMode(m){
+ mode=m
+ document.getElementById('btnPick').classList.toggle('active', m==='pick')
+ document.getElementById('btnDrop').classList.toggle('active', m==='drop')
+ document.getElementById('mapHint').textContent = m==='pick'? 'اضغط على الخريطة لتحديد موقع ركوبك' : 'اضغط على الخريطة لتحديد موقع نزولك'
+}
+function setPoint(kind, ll){
+ if(kind==='pick'){ pickup=ll; if(mPick) map.removeLayer(mPick); mPick=L.marker(ll,{icon:dot('#22c55e')}).addTo(map); document.getElementById('btnPick').classList.add('done') }
+ else { dropoff=ll; if(mDrop) map.removeLayer(mDrop); mDrop=L.marker(ll,{icon:dot('#ef4444')}).addTo(map); document.getElementById('btnDrop').classList.add('done') }
+ if(pickup && !dropoff) setMode('drop')
+ evaluateAll()
+}
+function useMyLocation(){
+ if(!navigator.geolocation) return showToast('تعذر تحديد موقعك', true)
+ navigator.geolocation.getCurrentPosition(pos=>{ setPoint('pick',[pos.coords.latitude,pos.coords.longitude]); map.setView(pickup,14) }, ()=> showToast('لم يتم السماح بالوصول للموقع', true))
+}
+function initMap(){
+ map=L.map('map',{zoomControl:false}).setView([33.52,36.30],11)
+ L.tileLayer('https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map)
+ routeLayer=L.featureGroup().addTo(map)
+ map.on('click', e=> setPoint(mode,[e.latlng.lat,e.latlng.lng]))
+ setTimeout(()=> map.invalidateSize(),300)
+ if(navigator.geolocation){ navigator.geolocation.getCurrentPosition(pos=> setPoint('pick',[pos.coords.latitude,pos.coords.longitude]), ()=>{}) }
+ drawRoutes()
+}
+function activeTrips(){ return trips.filter(t=> t.status==='pending' && t.left>0) }
+async function drawRoutes(){
+ routeLayer.clearLayers()
+ const act=activeTrips()
+ const res=await Promise.all(act.map(t=> t.path? {ok:true, km:t.km, min:t.min, latlngs:t.path} : getRoute([t.fromLL,t.toLL])))
+ res.forEach((r,i)=>{
+   const t=act[i]
+   if(r.ok){ t.km=r.km; t.min=r.min; t.path=r.latlngs
+     const sel=t.id===selectedId
+     L.polyline(r.latlngs,{color:sel?'#4F46E5':'#818cf8', weight:sel?6:4, opacity:sel?1:.7}).addTo(routeLayer).on('click',()=> selectTrip(t.id))
+   } else t.km=null
+ })
+ if(routeLayer.getLayers().length && !pickup) map.fitBounds(routeLayer.getBounds(),{padding:[20,20]})
+ evaluateAll()
+}
+// تقييم ملاءمة كل رحلة لموقع الراكب
+function evaluateAll(){
+ activeTrips().forEach(t=>{
+   t.fit=null
+   if(!t.path || !pickup || !dropoff) return
+   const a=nearestOnPath(pickup,t.path), b=nearestOnPath(dropoff,t.path)
+   t.fit={offPick:a.km, offDrop:b.km, off:Math.max(a.km,b.km), wrongDir: b.along<=a.along, near: a.km<=NEAR_KM && b.km<=NEAR_KM && b.along>a.along}
+ })
+ // ترتيب: الأقرب لمسار الراكب أولاً
+ render()
+}
+function selectTrip(id){
+ selectedId=id; drawRoutes()
+ const t=trips.find(x=>x.id===id); if(t && t.path) map.fitBounds(L.polyline(t.path).getBounds().extend(pickup||t.fromLL).extend(dropoff||t.toLL),{padding:[20,20]})
+ document.getElementById('map').scrollIntoView({behavior:'smooth',block:'center'})
+}
+function fitHtml(t){
+ if(t.km===null) return `<div class="fit bad">⚠️ تعذر حساب مسار الرحلة</div>`
+ if(!t.path) return `<div class="fit wait">⏳ جاري حساب المسار...</div>`
+ if(!pickup || !dropoff) return `<div class="fit wait">📍 حدد موقع ركوبك ونزولك على الخريطة لمعرفة ملاءمة الرحلة</div>`
+ const f=t.fit
+ if(f.wrongDir) return `<div class="fit bad">↩️ موقع نزولك قبل موقع ركوبك على اتجاه هذه الرحلة — يحتاج موافقة السائق</div>`
+ if(f.near) return `<div class="fit near">✅ على مسار الرحلة — ركوب ${(f.offPick*1000).toFixed(0)} م • نزول ${(f.offDrop*1000).toFixed(0)} م عن المسار</div>`
+ return `<div class="fit far">📍 بعيد عن المسار — ركوب ${f.offPick.toFixed(1)} كم • نزول ${f.offDrop.toFixed(1)} كم عن المسار<br>يتطلب موافقة السائق وقد يطلب مبلغاً إضافياً</div>`
+}
+function actionHtml(t){
+ const rid=myReqs[t.id]
+ if(rid){
+   const r=loadReqs().find(x=>x.id===rid)
+   if(r && (r.status==='pending')) return `<div class="pending">⏳ بانتظار موافقة السائق<button class="cancelLink" onclick="cancelRequest(${t.id})">إلغاء الطلب</button></div>`
+   if(r && r.status==='counter') return `<div class="pending" style="background:#fffbeb;border-color:#fde68a;color:#92400e">💬 السائق طلب مبلغاً إضافياً — <u style="cursor:pointer" onclick="openCounter(${t.id})">عرض</u></div>`
+ }
+ if(!t.path || !pickup || !dropoff) return `<button class="join" disabled>👥 انضم للرحلة</button>`
+ if(t.fit && t.fit.near) return `<button class="join" onclick="joinNear(${t.id})">👥 انضم للرحلة</button>`
+ return `<button class="join req" onclick="prepareRequest(${t.id})">📨 إرسال طلب انضمام للسائق</button>`
+}
+function render(){
+ const c=document.getElementById('list'); c.innerHTML=''
+ const act=activeTrips().slice().sort((a,b)=> (a.fit?a.fit.off+(a.fit.wrongDir?100:0):999)-(b.fit?b.fit.off+(b.fit.wrongDir?100:0):999))
+ act.forEach(t=>{
+   const d=document.createElement('div'); d.className='trip'+(t.id===selectedId?' sel':'')
+   d.innerHTML=`
+     <div class="route" onclick="selectTrip(${t.id})" style="cursor:pointer"><span>📍 ${t.from}</span><span style="flex:0;color:#4F46E5">←</span><span>🏁 ${t.to}</span></div>
+     <div class="time">🕖 ${t.time} • ${t.driver}</div>
+     <div class="meta">${t.path? `🛣️ ${t.km.toFixed(1)} كم على الطريق • ${fmtMin(t.min)}` : ''} <u style="cursor:pointer;color:#4F46E5" onclick="selectTrip(${t.id})">عرض المسار</u></div>
+     <div class="row"><span class="seats">✅ ${t.left} مقاعد متبقية من ${t.total}</span><span class="price">$${t.price.toFixed(2)} / مقعد</span></div>
+     ${fitHtml(t)}
+     ${actionHtml(t)}`
+   c.appendChild(d)
+ })
+ if(!act.length) c.innerHTML='<div class="empty">لا توجد رحلات متاحة حالياً</div>'
+}
+function closeModal(id){ document.getElementById(id).classList.remove('open') }
+function addSeat(t){
+ t.left--; if(t.left<=0) t.status='full'
+ delete myReqs[t.id]
+ showToast('تمت إضافتك للرحلة')
+ drawRoutes()
+}
+function joinNear(id){ const t=trips.find(x=>x.id===id); if(!t || t.left<=0) return showToast('الرحلة مكتملة', true); addSeat(t) }
+async function prepareRequest(id){
+ const t=trips.find(x=>x.id===id); if(!t) return
+ reqTrip=t
+ showToast('جاري حساب الالتفاف على الطريق...')
+ const r=await getRoute([t.fromLL, pickup, dropoff, t.toLL])
+ if(!r.ok) return showToast('تعذر حساب الالتفاف، حاول مرة أخرى', true)
+ t.detour={km:Math.max(0,r.km-t.km), min:Math.max(0,r.min-t.min), path:r.latlngs}
+ document.getElementById('reqSub').textContent=`${t.from} ← ${t.to} • ${t.time}`
+ document.getElementById('rOff').textContent=t.fit.off.toFixed(1)+' كم'
+ document.getElementById('rKm').textContent='+'+t.detour.km.toFixed(1)+' كم'
+ document.getElementById('rMin').textContent='+'+fmtMin(t.detour.min)
+ document.getElementById('toast').style.display='none'
+ document.getElementById('reqModal').classList.add('open')
+}
+function sendRequest(){
+ const t=reqTrip; if(!t) return
+ const req={
+   id:'r'+Date.now(), trip_id:t.id, trip_from:t.from, trip_to:t.to, trip_time:t.time,
+   trip_from_ll:t.fromLL, trip_to_ll:t.toLL, base_path:t.path, base_km:t.km,
+   pickup, dropoff, off_pick_km:t.fit.offPick, off_drop_km:t.fit.offDrop, wrong_dir:t.fit.wrongDir,
+   detour_km:t.detour.km, detour_min:t.detour.min, detour_path:t.detour.path,
+   seat_price:t.price, status:'pending', extra:0, created_at:Date.now()
+ }
+ const all=loadReqs(); all.push(req); saveReqs(all)
+ myReqs[t.id]=req.id
+ closeModal('reqModal')
+ showToast('تم إرسال طلبك للسائق')
+ render()
+}
+let counterTrip=null, cMap=null, alertTimer=null
+// تنبيه صوتي + اهتزاز
+function beep(freq){ try{ const ctx=new (window.AudioContext||window.webkitAudioContext)(); const o=ctx.createOscillator(),g=ctx.createGain(); o.connect(g); g.connect(ctx.destination); o.frequency.value=freq||740; g.gain.value=0.2; o.start(); setTimeout(()=>{o.stop(); ctx.close()},350) }catch(e){} }
+function notify(freq){ beep(freq); if(navigator.vibrate) navigator.vibrate([200,100,200]) }
+function stopAlert(){ clearInterval(alertTimer); alertTimer=null }
+function openCounter(tripId){
+ const r=loadReqs().find(x=>x.id===myReqs[tripId]); if(!r) return
+ counterTrip=tripId
+ document.getElementById('cSub').textContent=`${r.trip_from} ← ${r.trip_to} • ${r.trip_time}`
+ document.getElementById('cExtra').textContent='+$'+Number(r.extra).toFixed(2)
+ document.getElementById('cKm').textContent='+'+Number(r.detour_km).toFixed(1)+' كم'
+ document.getElementById('cMin').textContent='+'+fmtMin(r.detour_min)
+ document.getElementById('cSeat').textContent='$'+Number(r.seat_price).toFixed(2)
+ document.getElementById('cTotal').textContent='$'+(Number(r.seat_price)+Number(r.extra)).toFixed(2)
+ document.getElementById('counterModal').classList.add('open')
+ // تنبيه متكرر حتى يرد الراكب
+ notify(); stopAlert(); alertTimer=setInterval(()=> notify(),2500)
+ setTimeout(()=>{
+   try{
+     if(cMap) cMap.remove()
+     cMap=L.map('cMap',{zoomControl:false,attributionControl:false,dragging:false,scrollWheelZoom:false})
+     L.tileLayer('https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png',{maxZoom:19}).addTo(cMap)
+     const base=L.polyline(r.base_path,{color:'#94a3b8',weight:5,dashArray:'8 6'}).addTo(cMap)
+     const det=L.polyline(r.detour_path,{color:'#f59e0b',weight:4}).addTo(cMap)
+     const ic=c=>L.divIcon({html:`<div style="background:${c};width:14px;height:14px;border-radius:999px;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.3)"></div>`,iconSize:[14,14],iconAnchor:[7,7]})
+     L.marker(r.pickup,{icon:ic('#22c55e')}).addTo(cMap); L.marker(r.dropoff,{icon:ic('#ef4444')}).addTo(cMap)
+     cMap.fitBounds(base.getBounds().extend(det.getBounds()),{padding:[12,12]})
+     setTimeout(()=> cMap.invalidateSize(),150)
+   }catch(e){}
+ },120)
+}
+function answerCounter(ok){
+ stopAlert()
+ const all=loadReqs(); const r=all.find(x=>x.id===myReqs[counterTrip]); if(!r) return
+ r.status= ok? 'confirmed' : 'declined_by_passenger'; saveReqs(all)
+ seen[r.id+r.status]=1
+ closeModal('counterModal')
+ const t=trips.find(x=>x.id===counterTrip)
+ if(ok){ if(t.left<=0){ showToast('الرحلة اكتملت', true); delete myReqs[counterTrip]; render(); return } addSeat(t) }
+ else { delete myReqs[counterTrip]; showToast('تم رفض المبلغ الإضافي'); render() }
+}
+function cancelRequest(tripId){
+ const all=loadReqs(); const r=all.find(x=>x.id===myReqs[tripId]); if(!r) return
+ if(r.status!=='pending'){ render(); return }
+ r.status='cancelled'; saveReqs(all); seen[r.id+'cancelled']=1
+ delete myReqs[tripId]
+ showToast('تم إلغاء طلب الانضمام'); render()
+}
+// متابعة رد السائق
+const seen={}
+setInterval(()=>{
+ const all=loadReqs()
+ Object.entries(myReqs).forEach(([tripId,rid])=>{
+   const r=all.find(x=>x.id===rid); if(!r || seen[rid+r.status]) return
+   seen[rid+r.status]=1
+   const t=trips.find(x=>x.id==tripId)
+   if(r.status==='accepted'){ r.status='confirmed'; saveReqs(all); seen[rid+'confirmed']=1; notify(880); addSeat(t) }
+   else if(r.status==='rejected'){ delete myReqs[tripId]; notify(440); showToast('اعتذر السائق عن هذا الطلب', true); render() }
+   else if(r.status==='counter'){ render(); openCounter(Number(tripId)) }
+ })
+},1500)
+setTimeout(()=>{ try{ initMap() }catch(e){ console.log(e) } render() },100)
+</script>
+</body>
+</html>

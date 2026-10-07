@@ -1,0 +1,11 @@
+grant execute on function public.driver_events_feed(double precision, double precision, double precision) to authenticated;
+grant execute on function public.driver_send_event_offer(uuid, text, numeric, text) to authenticated;
+grant execute on function public.driver_withdraw_event_offer(uuid) to authenticated;
+grant execute on function public.my_event_orders() to authenticated;
+grant execute on function public.customer_event_offers(uuid) to authenticated;
+grant execute on function public.accept_event_offer(uuid) to authenticated;
+grant execute on function public.reject_event_offer(uuid) to authenticated;
+grant execute on function public.cancel_event_order(uuid) to authenticated;
+grant execute on function public.driver_my_event_offers() to authenticated;
+grant execute on function public.driver_event_jobs() to authenticated;
+grant execute on function public.driver_complete_event(uuid) to authenticated;

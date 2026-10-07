@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>مشوار — تتبّع مباشر</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+  *{box-sizing:border-box} body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Tahoma,sans-serif;background:#f8fafc;color:#0f172a}
+  #bar{padding:12px 14px;background:#4F46E5;color:#fff;font-weight:900;font-size:16px;text-align:center}
+  #bar.sos{background:#dc2626;animation:pulse 1.6s infinite} @keyframes pulse{50%{background:#991b1b}}
+  #sub{font-size:12px;font-weight:600;opacity:.9;margin-top:3px}
+  #map{height:52vh;width:100%}
+  .wrap{padding:10px;display:grid;gap:10px;max-width:640px;margin:0 auto}
+  .card{background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:12px}
+  .h{font-weight:900;font-size:14px;margin-bottom:6px}
+  .row{display:flex;justify-content:space-between;gap:8px;font-size:13px;padding:3px 0}
+  .row b{font-weight:900}
+  .btn{display:block;text-align:center;text-decoration:none;font-weight:900;border-radius:12px;padding:12px;font-size:14px}
+  .call{background:#16a34a;color:#fff} .gmap{background:#eef2ff;color:#4F46E5;border:1.5px solid #4F46E5}
+  .eta{font-size:15px;font-weight:900;color:#047857;text-align:center}
+  .muted{color:#64748b;font-size:12px;text-align:center}
+  .end{padding:40px 16px;text-align:center;font-size:18px;font-weight:900}
+  .pin{font-size:26px;line-height:26px;text-align:center}
+</style>
+</head>
+<body>
+<div id="bar">📍 تتبّع مباشر<div id="sub">جاري التحميل...</div></div>
+<div id="map"></div>
+<div class="wrap" id="info"></div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const SB_URL='https://vainkbvlruoebfgnuzea.supabase.co';
+const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZhaW5rYnZscnVvZWJmZ251emVhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAxMjUxMTcsImV4cCI6MjEwNTcwMTExN30.8x6U8XCcjQcrO1Ld9devWFQFPgCpxStmLgL11DB0Tv0';
+const OSRM='https://router.project-osrm.org';
+const token=new URLSearchParams(location.search).get('t')||'';
+const $=id=>document.getElementById(id);
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const SVC={taxi:'تكسي',taxi_shared:'رحلة مشتركة',taxi_shared_trip:'رحلة مشتركة',cargo:'نقل بضائع',events:'مناسبات',contracts:'عقد نقل',airport:'تكسي المطار'};
+const map=L.map('map',{zoomControl:true}).setView([33.5138,36.2765],12);
+L.tileLayer('https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(map);
+const icon=e=>L.divIcon({html:'<div class="pin">'+e+'</div>',className:'',iconSize:[28,28],iconAnchor:[14,14]});
+const layers={}; let fitted=false, lastRoute={at:0,key:''}, routeLine=null, eta=null;
+function place(key,ll,emoji){
+  if(!ll||ll[0]==null||ll[1]==null){ if(layers[key]){map.removeLayer(layers[key]);delete layers[key];} return; }
+  if(layers[key]) layers[key].setLatLng(ll); else layers[key]=L.marker(ll,{icon:icon(emoji)}).addTo(map);
+}
+const ago=t=>{ if(!t) return ''; const m=Math.round((Date.now()-new Date(t).getTime())/60000); return m<1?'الآن':m<60?('قبل '+m+' د'):('قبل '+Math.floor(m/60)+' س'); };
+const fmtMin=m=>{ m=Math.max(1,Math.round(m)); return m<60?(m+' د'):(Math.floor(m/60)+' س '+(m%60)+' د'); };
+async function route(from,to){
+  const key=from.join(',')+'>'+to.join(',');
+  if(key===lastRoute.key||Date.now()-lastRoute.at<60000&&lastRoute.key) return;
+  lastRoute={at:Date.now(),key};
+  try{
+    const r=await fetch(OSRM+'/route/v1/driving/'+from[1]+','+from[0]+';'+to[1]+','+to[0]+'?overview=full&geometries=geojson');
+    const j=await r.json(); if(j.code!=='Ok') return;
+    const rt=j.routes[0]; eta=rt.duration/60;
+    if(routeLine) map.removeLayer(routeLine);
+    routeLine=L.polyline(rt.geometry.coordinates.map(c=>[c[1],c[0]]),{color:'#4F46E5',weight:5,opacity:.8}).addTo(map);
+  }catch(e){}
+}
+function person(p,title){
+  if(!p) return '';
+  const car=[p.model,p.color].filter(Boolean).join(' • ');
+  return '<div class="card"><div class="h">'+title+'</div>'+
+    '<div class="row"><span>الاسم</span><b>'+esc(p.name||'—')+'</b></div>'+
+    (p.phone?'<div class="row"><span>الهاتف</span><b dir="ltr">'+esc(p.phone)+'</b></div>':'')+
+    (car?'<div class="row"><span>السيارة</span><b>'+esc(car)+'</b></div>':'')+
+    (p.plate?'<div class="row"><span>رقم اللوحة</span><b>'+esc(p.plate)+'</b></div>':'')+
+    (p.phone?'<a class="btn call" href="tel:'+esc(p.phone)+'" style="margin-top:8px">📞 اتصال '+esc(p.phone)+'</a>':'')+'</div>';
+}
+const gmap=(ll,label)=> ll&&ll[0]!=null?'<a class="btn gmap" target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&query='+ll[0]+','+ll[1]+'">🗺️ افتح '+label+' بخرائط غوغل</a>':'';
+function tripPlaces(d){
+  return (d.from_text||d.to_text)?'<div class="card"><div class="h">📍 الرحلة'+(d.service?' — '+(SVC[d.service]||''):'')+'</div>'+
+    (d.from_text?'<div class="row"><span>من</span><b>'+esc(d.from_text)+'</b></div>':'')+
+    (d.to_text?'<div class="row"><span>إلى</span><b>'+esc(d.to_text)+'</b></div>':'')+'</div>':'';
+}
+function ended(text){
+  $('bar').className=''; $('sub').textContent='';
+  $('map').style.display='none';
+  $('info').innerHTML='<div class="end">'+text+'</div><div class="muted">لم يعد هذا الرابط يعرض أي موقع</div>';
+}
+function render(d){
+  if(!d){ ended('⚠️ الرابط غير صالح'); return true; }
+  if(!d.active){ ended(d.kind==='sos'?'✅ انتهت حالة الطوارئ':'✅ انتهت الرحلة'); return true; }
+  const car=d.car?[d.car.lat,d.car.lng]:null;
+  let html='', main=null;
+  if(d.kind==='trip'){
+    $('bar').className=''; $('bar').firstChild.textContent='📍 تتبّع رحلة مباشر';
+    $('sub').textContent=(SVC[d.service]||'')+(d.car?' • آخر تحديث '+ago(d.car.at):' • بانتظار موقع السيارة');
+    place('car',car,'🚕'); place('from',d.from,'🟢'); place('to',d.to,'🏁'); main=car;
+    if(car&&d.to&&d.to[0]!=null) route(car,d.to);
+    if(eta!=null) html+='<div class="card eta">🕒 الوصول المتوقع للوجهة خلال '+fmtMin(eta)+'</div>';
+    html+=person(d.driver,'👤 السائق والسيارة')+tripPlaces(d)+gmap(car,'موقع السيارة الحالي');
+  } else {
+    const me=d.pos?[d.pos.lat,d.pos.lng]:null; main=me||car;
+    $('bar').className='sos'; $('bar').firstChild.textContent='🆘 حالة طارئة — '+((d.person&&d.person.name)||'')+' يحتاج مساعدة';
+    $('sub').textContent='بدأت '+ago(d.started_at)+(d.pos?' • آخر موقع '+ago(d.pos.at):' • لا يوجد موقع بعد');
+    place('me',me,'🆘'); place('car',d.role==='customer'?car:null,'🚕'); place('from',d.from,'🟢'); place('to',d.to,'🏁');
+    html+=person(d.person,d.role==='driver'?'🆘 السائق (صاحب الحالة)':'🆘 صاحب الحالة');
+    if(d.role==='driver'){
+      if(d.customer&&d.customer.phone) html+='<div class="card"><div class="h">🧍 الراكب / الزبون</div><div class="row"><span>الهاتف</span><b dir="ltr">'+esc(d.customer.phone)+'</b></div><a class="btn call" href="tel:'+esc(d.customer.phone)+'" style="margin-top:8px">📞 اتصال بالراكب</a></div>';
+      if(d.passengers&&d.passengers.length) html+='<div class="card"><div class="h">🧍 الركاب ('+d.passengers.length+')</div>'+d.passengers.map((p,i)=>'<div class="row"><span>راكب '+(i+1)+'</span><b dir="ltr">'+esc(p.phone||'—')+'</b></div>').join('')+'</div>';
+    } else if(d.driver){
+      html+=person(d.driver,'🚕 السائق والسيارة');
+      if(d.car) html+='<div class="muted">موقع السيارة: آخر تحديث '+ago(d.car.at)+'</div>';
+    }
+    html+=tripPlaces(d)+gmap(me,'آخر موقع');
+  }
+  $('info').innerHTML=html+'<div class="muted">يتحدّث تلقائياً كل 10 ثوانٍ</div>';
+  if(!fitted){
+    const pts=Object.values(layers).map(m=>m.getLatLng());
+    if(pts.length>1){ map.fitBounds(L.latLngBounds(pts).pad(0.25)); fitted=true; }
+    else if(main){ map.setView(main,15); fitted=true; }
+  }
+  return false;
+}
+async function load(){
+  if(!token){ render(null); return; }
+  try{
+    const r=await fetch(SB_URL+'/rest/v1/rpc/get_live_share',{method:'POST',headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'},body:JSON.stringify({p_token:token})});
+    if(!r.ok) throw new Error('http');
+    const d=await r.json();
+    if(render(d)) return;
+  }catch(e){ $('sub').textContent='تعذر الاتصال — إعادة المحاولة...'; }
+  setTimeout(load,10000);
+}
+load();
+</script>
+</body>
+</html>

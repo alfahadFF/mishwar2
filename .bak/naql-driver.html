@@ -1,0 +1,76 @@
+<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>سائق - لوحة</title><link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/><script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script><style>body{font-family:system-ui;max-width:520px;margin:0 auto;background:#f8fafc} .header{position:sticky;top:0;z-index:10;background:#fff;border-bottom:1px solid #e2e8f0;padding:10px 14px;display:flex;justify-content:space-between;align-items:center} #map{height:280px;border-radius:14px;border:1px solid #e2e8f0;margin:10px;overflow:hidden} .list{padding:0 10px;display:grid;gap:8px} .card{border:1px solid #e2e8f0;border-radius:14px;padding:12px;background:#fff;display:flex;justify-content:space-between;align-items:center} .btn{padding:8px 14px;border-radius:999px;border:none;font-weight:900;cursor:pointer} .accept{background:#22c55e;color:#fff} .call{width:100%;height:44px;border-radius:12px;background:#4F46E5;color:#fff;font-weight:900;display:none;margin:10px} .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#065f46;color:#fff;padding:12px 20px;border-radius:999px;display:none;z-index:999} .modalOverlay{position:fixed;inset:0;background:rgba(15,23,42,.6);backdrop-filter:blur(4px);display:none;align-items:center;justify-content:center;z-index:100;padding:16px} .modalOverlay.open{display:flex} .modal{background:#fff;border-radius:20px;padding:16px;width:100%;max-width:400px;box-shadow:0 20px 40px rgba(0,0,0,.2)} .miniMap{height:120px;border-radius:12px;border:1px solid #e2e8f0;overflow:hidden;margin:10px 0}</style></head><body>
+<div class="header"><div><h1>🚕 لوحة السائق</h1><p style="font-size:11px;color:#64748b">الطلبات ضمن نطاقك</p></div><span style="font-size:11px;background:#f0fdf4;color:#065f46;padding:4px 8px;border-radius:999px">● متاح</span></div>
+<div id="map"></div>
+<div style="padding:10px;display:flex;gap:8px"><button class="btn" style="flex:1;background:#fff;border:1px solid #e2e8f0" onclick="simulateNewRequest()">🔔 محاكاة طلب جديد</button><button class="btn" style="flex:1;background:#4F46E5;color:#fff" onclick="location.href='naql-driver-shared-publish.html'">👥 نشر رحلة راكب</button></div>
+<div class="list" id="list"></div>
+<button id="callBtn" class="call" onclick="location.href='tel:+963900000000'">📞 اتصال بالعميل</button>
+<div id="toast" class="toast"></div>
+<div class="modalOverlay" id="modal"><div class="modal"><h2 style="text-align:center;font-weight:900">🔔 طلب جديد ضمن نطاقك</h2><div id="mRoute" style="text-align:center;font-weight:900;margin:8px 0"></div><div id="miniMap" class="miniMap"></div><div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;text-align:center"><div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:8px"><b id="mDist">—</b><div style="font-size:10px;color:#64748b">المسافة</div></div><div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:8px"><b id="mCat">—</b><div style="font-size:10px;color:#64748b">الفئة</div></div><div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:8px"><b id="mPrice">—</b><div style="font-size:10px;color:#64748b">الأجرة</div></div></div><div style="display:flex;gap:8px;margin-top:12px"><button class="btn" style="flex:1;background:#fff;border:1px solid #fecaca;color:#991b1b" onclick="closeModal()">رفض</button><button class="btn accept" style="flex:1" onclick="acceptModal()">قبول</button></div></div></div>
+<script>
+const reqs=[
+ {id:1, from:'الحي الشمالي', to:'المركز', fromLL:[33.52,36.27], toLL:[33.54,36.29], dist:'2.4 كم', cat:'عادية', price:'$2.44'},
+ {id:2, from:'المزة', to:'الجامعة', fromLL:[33.50,36.26], toLL:[33.55,36.30], dist:'4.1 كم', cat:'اقتصادية', price:'$2.85'},
+]
+let map, miniMap, current=null
+function showToast(m){ const t=document.getElementById('toast'); t.textContent=m; t.style.display='block'; setTimeout(()=> t.style.display='none',2500); }
+function initMap(){
+ try{
+   map=L.map('map',{zoomControl:false}).setView([33.5138,36.2765],12)
+   L.tileLayer('https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map)
+   reqs.forEach(r=>{
+     L.marker(r.fromLL,{icon:L.divIcon({html:'<div style="background:#4F46E5;width:14px;height:14px;border-radius:999px;border:2px solid #fff"></div>',iconSize:[14,14]})}).addTo(map)
+   })
+   setTimeout(()=> map.invalidateSize(),200)
+ }catch(e){ console.log('map error',e); }
+}
+function render(){
+ const c=document.getElementById('list'); c.innerHTML=''
+ reqs.forEach(r=>{
+   const d=document.createElement('div'); d.className='card'
+   d.innerHTML=`<div><b>${r.from} → ${r.to}</b><div style="font-size:11px;color:#64748b">${r.dist} • ${r.cat} • ${r.price}</div></div><div style="display:flex;gap:6px"><button class="btn" style="background:#fff;border:1px solid #e2e8f0" onclick="openModal(${r.id})">عرض</button><button class="btn accept" onclick="quickAccept(${r.id})">قبول</button></div>`
+   c.appendChild(d)
+ })
+}
+function openModal(id){
+ const r=reqs.find(x=> x.id===id); if(!r) return; current=r
+ document.getElementById('mRoute').textContent=r.from+' → '+r.to
+ document.getElementById('mDist').textContent=r.dist
+ document.getElementById('mCat').textContent=r.cat
+ document.getElementById('mPrice').textContent=r.price
+ document.getElementById('modal').classList.add('open')
+ setTimeout(()=>{
+   try{
+     if(miniMap) miniMap.remove()
+     miniMap=L.map('miniMap',{zoomControl:false, dragging:false}).setView(r.fromLL,12)
+     L.tileLayer('https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png',{maxZoom:19}).addTo(miniMap)
+     const line=L.polyline([r.fromLL,r.toLL],{color:'#4F46E5',weight:4}).addTo(miniMap)
+     L.marker(r.fromLL,{icon:L.divIcon({html:'<div style="background:#22c55e;width:10px;height:10px;border-radius:999px;border:2px solid #fff"></div>',iconSize:[10,10]})}).addTo(miniMap)
+     L.marker(r.toLL,{icon:L.divIcon({html:'<div style="background:#ef4444;width:10px;height:10px;border-radius:999px;border:2px solid #fff"></div>',iconSize:[10,10]})}).addTo(miniMap)
+     miniMap.fitBounds(line.getBounds(),{padding:[10,10]})
+     setTimeout(()=> miniMap.invalidateSize(),150)
+   }catch(e){}
+ },100)
+ // تنبيه صوتي بسيط
+ try{ const ctx=new (window.AudioContext||window.webkitAudioContext)(); const o=ctx.createOscillator(),g=ctx.createGain(); o.connect(g); g.connect(ctx.destination); o.frequency.value=880; g.gain.value=0.2; o.start(); setTimeout(()=>{o.stop(); ctx.close()},500);}catch(e){}
+}
+function closeModal(){ document.getElementById('modal').classList.remove('open'); }
+function quickAccept(id){
+ const r=reqs.find(x=> x.id===id); if(!r) return; current=r; acceptModal();
+}
+function acceptModal(){
+ if(!current) return;
+ showToast('تم قبول الطلب');
+ document.getElementById('callBtn').style.display='block'
+ document.getElementById('callBtn').onclick=()=> location.href='tel:+9639'+Math.floor(10000000+Math.random()*89999999)
+ // إزالة الطلب
+ const idx=reqs.findIndex(x=> x.id===current.id); if(idx>-1) reqs.splice(idx,1)
+ closeModal(); render();
+}
+function simulateNewRequest(){
+ const r={id:Date.now(), from:'طلب جديد', to:'وجهة جديدة', fromLL:[33.51+Math.random()*0.04,36.27+Math.random()*0.04], toLL:[33.54+Math.random()*0.04,36.30+Math.random()*0.04], dist:(1+Math.random()*5).toFixed(1)+' كم', cat:'عادية', price:'$'+(2+Math.random()*5).toFixed(2)}
+ reqs.push(r); render(); openModal(r.id);
+}
+setTimeout(()=>{ initMap(); render(); },100)
+setTimeout(simulateNewRequest,3000)
+</script>
+</body></html>

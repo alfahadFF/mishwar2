@@ -1,0 +1,12 @@
+grant execute on function public.contract_settle_my_dues() to authenticated;
+grant execute on function public.driver_contracts_feed(double precision, double precision, double precision) to authenticated;
+grant execute on function public.driver_send_contract_offer(uuid, text, numeric, text) to authenticated;
+grant execute on function public.driver_withdraw_contract_offer(uuid) to authenticated;
+grant execute on function public.my_contract_orders() to authenticated;
+grant execute on function public.customer_contract_offers(uuid) to authenticated;
+grant execute on function public.accept_contract_offer(uuid) to authenticated;
+grant execute on function public.reject_contract_offer(uuid) to authenticated;
+grant execute on function public.cancel_contract_order(uuid) to authenticated;
+grant execute on function public.end_contract_offer(uuid) to authenticated;
+grant execute on function public.driver_my_contract_offers() to authenticated;
+grant execute on function public.driver_contract_jobs() to authenticated;

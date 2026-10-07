@@ -1,0 +1,145 @@
+<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>نشر رحلة راكب</title><link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/><script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script><style>body{font-family:system-ui;max-width:520px;margin:0 auto;background:#f8fafc} .header{position:sticky;top:0;z-index:10;background:#fff;border-bottom:1px solid #e2e8f0;padding:10px 14px;display:flex;align-items:center;gap:10px} #map{height:260px;border-radius:14px;border:1px solid #e2e8f0;margin:10px;overflow:hidden} .section{background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:12px;margin:10px} .section h2{font-size:13px;font-weight:900;margin-bottom:8px} .input{width:100%;height:44px;border:1.5px solid #e2e8f0;border-radius:12px;padding:0 12px;font-size:13px;background:#fff;outline:none} .grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px} .stepper{display:flex;align-items:center;gap:6px;background:#f1f5f9;border-radius:999px;padding:4px;width:fit-content} .stepper button{width:32px;height:32px;border-radius:999px;border:1px solid #e2e8f0;background:#fff;font-weight:900;cursor:pointer} .toggle{width:44px;height:26px;border-radius:999px;background:#e2e8f0;position:relative;cursor:pointer;transition:.2s} .toggle.active{background:#22c55e} .toggle span{position:absolute;top:2px;right:2px;width:22px;height:22px;border-radius:999px;background:#fff;transition:.2s;box-shadow:0 1px 4px rgba(0,0,0,.2)} .toggle.active span{transform:translateX(-18px)} .publish{padding:10px} .publish button{width:100%;height:48px;border-radius:14px;border:none;background:#4F46E5;color:#fff;font-weight:900;font-size:15px;cursor:pointer} .publish button:disabled{background:#cbd5e1;color:#64748b} .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#065f46;color:#fff;padding:12px 20px;border-radius:999px;display:none;z-index:99}</style></head><body>
+<div class="header"><div style="width:36px;height:36px;border-radius:10px;border:1px solid #e2e8f0;display:grid;place-items:center;background:#fff;cursor:pointer" onclick="history.back()">→</div><div><h1>👥 نشر رحلة راكب</h1><p style="font-size:11px;color:#64748b">حدد المسار والوقت والمقاعد — مع خيار شاغر منتصف الطريق</p></div></div>
+<div style="margin:10px;background:#fffbeb;border:1px solid #fde68a;border-radius:12px;padding:10px;text-align:center;font-size:11px;color:#92400e">اضغط على الخريطة لتحديد الانطلاق ثم الوصول</div>
+<div id="map"></div>
+<div id="routeInfo" style="display:none;margin:0 10px 10px;background:#eef2ff;border:1px solid #c7d2fe;border-radius:12px;padding:10px;text-align:center;font-size:13px;font-weight:900;color:#3730a3"></div>
+<div style="margin:0 10px;display:flex;gap:8px"><button id="modePick" class="btn" style="flex:1;height:40px;border-radius:12px;border:1.5px solid #4F46E5;background:#4F46E5;color:#fff;font-weight:800" onclick="setMode('pick')">📍 الانطلاق</button><button id="modeDrop" style="flex:1;height:40px;border-radius:12px;border:1.5px solid #e2e8f0;background:#fff;font-weight:800" onclick="setMode('drop')">🏁 الوصول</button></div>
+<div class="section">
+<h2>🕖 موعد الانطلاق</h2>
+<input id="departTime" type="datetime-local" class="input">
+</div>
+<div class="section">
+<h2>💺 المقاعد والسعر</h2>
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><span style="font-size:13px;font-weight:800">عدد المقاعد الكلي</span><div class="stepper"><button onclick="stepSeats(-1)">−</button><b id="seatsVal">4</b><button onclick="stepSeats(1)">＋</button></div></div>
+<div style="display:flex;gap:8px;align-items:center"><span style="font-size:13px;font-weight:800">سعر المقعد</span><input id="pricePerSeat" type="number" class="input" placeholder="2.00" style="flex:1"> <span style="font-size:12px;color:#64748b">$</span></div>
+</div>
+<div class="section">
+<div style="display:flex;justify-content:space-between;align-items:center">
+<div><h2 style="margin:0">🔄 يوجد شاغر في منتصف الطريق</h2><p style="font-size:11px;color:#64748b">سيركب زبون وينزل منتصف الطريق فيتوفر مقعد</p></div>
+<div class="toggle" id="vacancyToggle" onclick="toggleVacancy()"><span></span></div>
+</div>
+<div id="vacancyBox" style="display:none;margin-top:10px">
+<label style="font-size:12px;font-weight:800">أين سينزل الراكب ويتوفر المقعد؟</label>
+<div style="display:flex;gap:8px;margin-top:6px"><input id="vacancyPoint" class="input" placeholder="نقطة نزول الراكب — اضغط على الخريطة" style="flex:1"><button onclick="setMode('vacancy')" style="padding:0 12px;height:44px;border-radius:12px;border:1px solid #e2e8f0;background:#f1f5f9;font-weight:800">📍 على الخريطة</button></div>
+<div style="font-size:11px;color:#64748b;margin-top:6px">سيظهر للركاب على طول المسار أن مقعداً سيتوفر في هذه النقطة</div>
+</div>
+</div>
+<div class="publish">
+<button id="publishBtn" onclick="publish()" disabled>حدد الانطلاق والوصول أولاً</button>
+</div>
+<div id="toast" class="toast"></div>
+<script>
+// ===== توجيه حقيقي على الطرق (OSRM) — بديل الخط المستقيم =====
+const ROUTE_CACHE={}
+async function getRoute(points){
+ const key=points.map(p=>p[0].toFixed(5)+','+p[1].toFixed(5)).join(';')
+ if(ROUTE_CACHE[key]) return ROUTE_CACHE[key]
+ const coords=points.map(p=>p[1]+','+p[0]).join(';')
+ const ctrl=new AbortController(); const tm=setTimeout(()=>ctrl.abort(),10000)
+ try{
+   const r=await fetch('https://router.project-osrm.org/route/v1/driving/'+coords+'?overview=full&geometries=geojson',{signal:ctrl.signal})
+   const j=await r.json()
+   if(j.code!=='Ok'||!j.routes||!j.routes.length) throw new Error('no route')
+   const rt=j.routes[0]
+   const res={ok:true, km:rt.distance/1000, min:rt.duration/60, latlngs:rt.geometry.coordinates.map(c=>[c[1],c[0]])}
+   ROUTE_CACHE[key]=res; return res
+ }catch(e){ return {ok:false} } finally{ clearTimeout(tm) }
+}
+function fmtMin(m){ m=Math.round(m); return m<60? m+' د' : Math.floor(m/60)+' س '+(m%60)+' د' }
+let routeKm=0, routeMin=0, routeOk=false, routeReq=0
+let map, mode='pick', pickup=null, dropoff=null, vacancy=null, totalSeats=4, hasVacancy=false
+let markerPick=null, markerDrop=null, markerVacancy=null, line=null
+function showToast(m){ const t=document.getElementById('toast'); t.textContent=m; t.style.display='block'; setTimeout(()=> t.style.display='none',2500); }
+function setMode(m){
+ mode=m
+ document.getElementById('modePick').style.background=m==='pick'?'#4F46E5':'#fff'
+ document.getElementById('modePick').style.color=m==='pick'?'#fff':'#0f172a'
+ document.getElementById('modePick').style.borderColor=m==='pick'?'#4F46E5':'#e2e8f0'
+ document.getElementById('modeDrop').style.background=m==='drop'?'#4F46E5':'#fff'
+ document.getElementById('modeDrop').style.color=m==='drop'?'#fff':'#0f172a'
+ document.getElementById('modeDrop').style.borderColor=m==='drop'?'#4F46E5':'#e2e8f0'
+}
+function initMap(){
+ map=L.map('map',{zoomControl:false}).setView([33.5138,36.2765],12)
+ L.tileLayer('https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map)
+ map.on('click', e=>{
+   const ll=[e.latlng.lat, e.latlng.lng]
+   if(mode==='pick'){
+     pickup=ll
+     if(markerPick) map.removeLayer(markerPick)
+     markerPick=L.marker(ll,{icon:L.divIcon({html:'<div style="background:#22c55e;width:14px;height:14px;border-radius:999px;border:2px solid #fff"></div>',iconSize:[14,14]})}).addTo(map)
+     setMode('drop')
+   } else if(mode==='drop'){
+     dropoff=ll
+     if(markerDrop) map.removeLayer(markerDrop)
+     markerDrop=L.marker(ll,{icon:L.divIcon({html:'<div style="background:#ef4444;width:14px;height:14px;border-radius:999px;border:2px solid #fff"></div>',iconSize:[14,14]})}).addTo(map)
+   } else if(mode==='vacancy'){
+     vacancy=ll
+     if(markerVacancy) map.removeLayer(markerVacancy)
+     markerVacancy=L.marker(ll,{icon:L.divIcon({html:'<div style="background:#f59e0b;width:14px;height:14px;border-radius:999px;border:2px solid #fff"></div>',iconSize:[14,14]})}).addTo(map)
+     document.getElementById('vacancyPoint').value=ll[0].toFixed(5)+', '+ll[1].toFixed(5)
+     setMode('drop')
+   }
+   updateLine(); updatePublish();
+ })
+}
+async function updateLine(){
+ if(!(pickup && dropoff)) return
+ const info=document.getElementById('routeInfo'); info.style.display='block'; info.textContent='⏳ جاري حساب المسار على الطرق...'
+ routeOk=false; updatePublish()
+ const pts=[pickup, dropoff]
+ if(hasVacancy && vacancy) pts.splice(1,0,vacancy)
+ const my=++routeReq
+ const r=await getRoute(pts)
+ if(my!==routeReq) return
+ if(line) map.removeLayer(line)
+ if(!r.ok){ info.textContent='⚠️ تعذر حساب المسار — أعد تحديد النقطة'; updatePublish(); return }
+ routeOk=true; routeKm=r.km; routeMin=r.min
+ info.textContent=`🛣️ ${routeKm.toFixed(1)} كم على الطريق • ${fmtMin(routeMin)}`
+ line=L.polyline(r.latlngs,{color:'#4F46E5',weight:5,opacity:.9}).addTo(map)
+ map.fitBounds(line.getBounds(),{padding:[20,20]})
+ updatePublish()
+}
+function stepSeats(d){ totalSeats=Math.max(1,Math.min(11,totalSeats+d)); document.getElementById('seatsVal').textContent=totalSeats; updatePublish(); }
+function toggleVacancy(){
+ hasVacancy=!hasVacancy
+ document.getElementById('vacancyToggle').classList.toggle('active', hasVacancy)
+ document.getElementById('vacancyBox').style.display=hasVacancy?'block':'none'
+ if(hasVacancy) setMode('vacancy')
+ updateLine(); updatePublish();
+}
+function updatePublish(){
+ const btn=document.getElementById('publishBtn')
+ if(!pickup || !dropoff){ btn.disabled=true; btn.textContent='حدد الانطلاق والوصول أولاً'; return }
+ if(!routeOk){ btn.disabled=true; btn.textContent='جاري حساب المسار...'; return }
+ const time=document.getElementById('departTime').value
+ if(!time){ btn.disabled=true; btn.textContent='حدد موعد الانطلاق'; return }
+ const price=document.getElementById('pricePerSeat').value
+ if(!price || Number(price)<=0){ btn.disabled=true; btn.textContent='حدد سعر المقعد'; return }
+ if(hasVacancy && !vacancy){ btn.disabled=true; btn.textContent='حدد نقطة الشاغر على الخريطة'; return }
+ btn.disabled=false; btn.textContent='📢 نشر رحلة راكب'
+}
+document.getElementById('departTime').addEventListener('change', updatePublish)
+document.getElementById('pricePerSeat').addEventListener('input', updatePublish)
+function publish(){
+ const payload={
+   pickup_lat: pickup[0], pickup_lng: pickup[1],
+   dropoff_lat: dropoff[0], dropoff_lng: dropoff[1],
+   waypoints: hasVacancy && vacancy ? [pickup, vacancy, dropoff] : [pickup, dropoff],
+   route_polyline: line ? line.getLatLngs().map(p=>[p.lat,p.lng]) : null,
+   distance_km: Number(routeKm.toFixed(2)),
+   duration_min: Math.round(routeMin),
+   departure_time: document.getElementById('departTime').value,
+   total_seats: totalSeats,
+   available_seats: totalSeats,
+   price_per_seat: Number(document.getElementById('pricePerSeat').value),
+   has_vacancy_mid: hasVacancy,
+   vacancy_point: vacancy,
+   vacancy_text: document.getElementById('vacancyPoint').value||null,
+ }
+ console.log(payload)
+ showToast('تم نشر رحلة الراكب — ستظهر لكل من على طول المسار')
+}
+setTimeout(initMap,100)
+</script>
+</body></html>

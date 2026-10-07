@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>نقل - مناسبة جديدة</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+function showToast(msg, isError=false){
+  const t=document.getElementById('toast');
+  if(!t) return;
+  t.textContent=msg;
+  t.className='toast'+(isError?' error':'');
+  t.style.display='block';
+  clearTimeout(window._toastTimer);
+  window._toastTimer=setTimeout(()=> t.style.display='none', 2500);
+}
+
+</script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,-apple-system,'Segoe UI',sans-serif;background:#f8fafc;color:#0f172a;max-width:520px;margin:0 auto}
+.header{position:sticky;top:0;z-index:10;background:#fff;border-bottom:1px solid #e2e8f0;padding:14px 16px;display:flex;align-items:center;gap:12px}
+.header h1{font-size:18px;font-weight:900}
+.header p{font-size:12px;color:#64748b}
+.back{width:40px;height:40px;border-radius:12px;border:1px solid #e2e8f0;background:#fff;display:grid;place-items:center;cursor:pointer}
+.section{background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:14px;margin:12px}
+.section h2{font-size:14px;font-weight:900;margin-bottom:6px;display:flex;align-items:center;gap:6px}
+.section h2 span.badge{font-size:10px;padding:2px 8px;border-radius:999px;background:#f1f5f9;color:#475569;font-weight:800}
+.hint{font-size:12px;color:#64748b;margin-bottom:10px;line-height:1.5}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{padding:8px 14px;border-radius:999px;border:1.5px solid #e2e8f0;background:#fff;font-size:13px;font-weight:800;cursor:pointer;transition:.15s}
+.chip.active{background:#4F46E5;color:#fff;border-color:#4F46E5}
+.chip.small{font-size:12px;padding:6px 10px}
+.input{width:100%;height:44px;border:1.5px solid #e2e8f0;border-radius:12px;padding:0 12px;font-size:14px;background:#fff;outline:none}
+.input:focus{border-color:#4F46E5}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.row{display:flex;gap:8px;align-items:center}
+.stepper{display:flex;align-items:center;gap:6px;background:#f1f5f9;border-radius:999px;padding:4px}
+.stepper button{width:32px;height:32px;border-radius:999px;border:1px solid #e2e8f0;background:#fff;font-weight:900;cursor:pointer}
+.stepper b{min-width:24px;text-align:center}
+.leaflet-map{height:180px;border-radius:12px;border:1.5px solid #e2e8f0;overflow:hidden}
+.vehicle{border:1px solid #e2e8f0;border-radius:12px;padding:10px;display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;background:#fff}
+.vehicle .name{font-size:13px;font-weight:800}
+.vehicle .sub{font-size:11px;color:#64748b}
+.total{border-radius:12px;padding:10px;text-align:center;font-weight:900;margin-top:8px}
+.total.ok{background:#f0fdf4;border:1px solid #a7f3d0;color:#065f46}
+.total.warn{background:#fef2f2;border:1px solid #fecaca;color:#991b1b}
+.publish{position:sticky;bottom:0;background:#fff;border-top:1px solid #e2e8f0;padding:12px;display:flex;gap:8px}
+.publish button{flex:1;height:48px;border-radius:14px;border:none;font-weight:900;font-size:15px;cursor:pointer}
+.btn-primary{background:#4F46E5;color:#fff}
+.btn-primary:disabled{background:#cbd5e1;color:#64748b;cursor:not-allowed}
+
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#065f46;color:#fff;padding:12px 20px;border-radius:999px;font-weight:800;font-size:13px;box-shadow:0 8px 24px rgba(0,0,0,.2);z-index:9999;display:none;max-width:90%;text-align:center}
+.toast.error{background:#991b1b}
+
+</style>
+</head>
+<body>
+<div class="header">
+<div class="back" onclick="history.back()">→</div>
+<div>
+<h1>✨ طلب مناسبة جديد</h1>
+<p>زفاف • رحلة عائلية • سياحية • أخرى</p>
+</div>
+</div>
+
+<div class="section">
+<h2>🎉 نوع المناسبة <span class="badge">اختر واحداً</span></h2>
+<div class="chips" id="typeChips">
+<span class="chip" data-t="wedding" onclick="setType('wedding')">💍 زفاف</span>
+<span class="chip" data-t="family" onclick="setType('family')">👨‍👩‍👧‍👦 رحلة عائلية</span>
+<span class="chip" data-t="tourist" onclick="setType('tourist')">🏖️ رحلة سياحية</span>
+<span class="chip" data-t="other" onclick="setType('other')">✨ أخرى</span>
+</div>
+<div id="otherBox" style="display:none;margin-top:10px">
+<input id="otherType" class="input" placeholder="اكتب نوع المناسبة" oninput="updatePublish()">
+</div>
+</div>
+
+<div id="details" style="display:none">
+
+<div class="section">
+<h2>📍 المسار والمواعيد</h2>
+<p class="hint" id="routeHint">حدد نقطة التجمع والوجهات بدقة على الخريطة — اسحب الدبوس</p>
+
+<div style="margin-bottom:8px">
+<label style="font-size:12px;font-weight:800">نقطة التجمع</label>
+<div style="display:flex;gap:8px;margin-top:4px">
+<input id="gatherPoint" class="input" placeholder="اكتب نقطة التجمع — اسم الحي والشارع" style="flex:1" oninput="updatePublish()">
+<button class="chip small" onclick="focusMap()">📍 على الخريطة</button>
+</div>
+</div>
+
+<div id="mapGather" class="leaflet-map"></div>
+<p style="font-size:11px;color:#64748b;margin-top:6px;text-align:center">اسحب الدبوس الأزرق لتحديد نقطة التجمع بدقة — تُحفظ الإحداثيات تلقائياً</p>
+
+<div class="grid2" style="margin-top:10px">
+<div>
+<label style="font-size:12px;font-weight:800">موعد التجمع</label>
+<input id="gatherTime" type="datetime-local" class="input" style="margin-top:4px" onchange="updatePublish();autoDuration()">
+</div>
+<div>
+<label style="font-size:12px;font-weight:800">موعد الانطلاق</label>
+<input id="departTime" type="datetime-local" class="input" style="margin-top:4px" onchange="updatePublish();autoDuration()">
+</div>
+</div>
+
+<div style="margin-top:10px">
+<label style="font-size:12px;font-weight:800">الوجهة / مسار الرحلة <span style="color:#4F46E5">— أكثر من مكان</span></label>
+<div id="destList"></div>
+<button class="chip small" style="margin-top:6px;background:#f1f5f9" onclick="addDest()">＋ إضافة وجهة</button>
+</div>
+<div id="mapRoute" class="leaflet-map" style="margin-top:8px"></div>
+<p style="font-size:11px;color:#64748b;margin-top:6px;text-align:center">خريطة المسار — تُظهر خط الرحلة بين النقاط المحددة</p>
+
+<div class="grid2" style="margin-top:10px">
+<div>
+<label style="font-size:12px;font-weight:800">المدة بالساعات</label>
+<div class="row" style="margin-top:4px">
+<div class="stepper"><button onclick="stepDur(-1)">−</button><b id="durVal">4</b><button onclick="stepDur(1)">＋</button></div>
+<span style="font-size:12px;color:#64748b">ساعة</span>
+</div>
+<label style="font-size:11px;display:flex;gap:6px;align-items:center;margin-top:6px"><input type="checkbox" id="waitCheck" checked> السائق ينتظر طوال المدة</label>
+</div>
+<div>
+<label style="font-size:12px;font-weight:800">موعد العودة</label>
+<input id="returnTime" type="datetime-local" class="input" style="margin-top:4px" onchange="updatePublish()">
+</div>
+</div>
+
+<div style="margin-top:10px">
+<label style="font-size:12px;font-weight:800">نقطة التجمع النهائية / الوصول الأخيرة</label>
+<input id="finalPoint" class="input" placeholder="نقطة الوصول الأخيرة" style="margin-top:4px" oninput="updatePublish()">
+</div>
+</div>
+
+<div class="section">
+<h2>👥 الأشخاص والمركبات</h2>
+<div class="row" style="justify-content:space-between">
+<span style="font-size:13px;font-weight:800">عدد الأشخاص</span>
+<div class="stepper"><button onclick="stepPeople(-1)">−</button><b id="peopleVal">20</b><button onclick="stepPeople(1)">＋</button></div>
+</div>
+<p style="font-size:11px;color:#64748b;margin:6px 0">المقاعد الإجمالية تُحسب تلقائياً من المركبات المختارة</p>
+<div id="vehicles"></div>
+<div id="totalBox" class="total ok">✅ المقاعد: 0 / 20</div>
+<div id="weddingCarBox" style="display:none;margin-top:10px;border:1px dashed #a5b4fc;border-radius:12px;padding:10px;background:#f8fafc">
+<p style="font-size:12px;font-weight:900;margin-bottom:6px">💍 تفاصيل سيارة الزفاف</p>
+<div class="chips">
+<span class="chip small active" id="wcNormal" onclick="setWedding('normal')">عادية</span>
+<span class="chip small" id="wcLux" onclick="setWedding('lux')">فاخرة</span>
+<span class="chip small active" id="wcDecoYes" onclick="setDeco(true)">مع زينة ✨</span>
+<span class="chip small" id="wcDecoNo" onclick="setDeco(false)">بدون زينة</span>
+</div>
+</div>
+</div>
+
+<div class="section">
+<h2>📝 ملاحظات أو طلبات إضافية</h2>
+<textarea id="notes" rows="3" style="width:100%;border:1.5px solid #e2e8f0;border-radius:12px;padding:10px;font-size:13px;outline:none" placeholder="مثال: كراسي أطفال، توقف إضافي..."></textarea>
+</div>
+
+<div class="section" style="border:2px solid #4F46E5">
+<h2>💰 الميزانية <span class="badge" style="background:#4F46E5;color:#fff">مهم</span></h2>
+<p class="hint">هل تريد تحديد ميزانية أم طلب عروض أسعار من السائقين؟</p>
+<div class="chips">
+<span class="chip active" id="budgetFixed" onclick="setBudget('fixed')">💰 تحديد ميزانية</span>
+<span class="chip" id="budgetQuote" onclick="setBudget('quote')">📩 طلب عروض أسعار</span>
+</div>
+<div id="budgetFixedBox" style="margin-top:10px">
+<div class="row">
+<input id="budgetFrom" class="input" type="number" placeholder="من" oninput="updatePublish()">
+<span>—</span>
+<input id="budgetTo" class="input" type="number" placeholder="إلى" oninput="updatePublish()">
+<select id="currency" class="input" style="max-width:90px"><option value="USD">$ USD</option><option value="SYP">ل.س SYP</option></select>
+</div>
+</div>
+<div id="budgetQuoteBox" style="display:none;margin-top:10px;background:#f0fdf4;border:1px solid #a7f3d0;border-radius:12px;padding:10px;text-align:center">
+<b>📩 طلب عروض أسعار مفعّل</b><div style="font-size:12px;color:#065f46;margin-top:4px">سيقدّم السائقون عروضهم وستختار الأنسب</div>
+</div>
+</div>
+
+</div>
+
+<div class="publish">
+<button id="publishBtn" class="btn-primary" onclick="publish()" disabled>اختر نوع المناسبة أولاً</button>
+</div>
+
+<script>
+let eventType=null, people=20, duration=4, budgetType='fixed'
+let vehicles={
+ wedding_car:{name:'💍 سيارة زفاف',seats:4,count:0},
+ bus_large_50:{name:'🚌 باص كبير 50',seats:50,count:0},
+ bus_mid_27:{name:'🚌 باص متوسط 27',seats:27,count:0},
+ bus_mid_21:{name:'🚌 باص متوسط 21',seats:21,count:0},
+ bus_mid_18:{name:'🚌 باص متوسط 18',seats:18,count:0},
+ bus_small_14:{name:'🚐 باص صغير 14',seats:14,count:0},
+ van_11:{name:'🚐 فان 11',seats:11,count:0},
+ van_8:{name:'🚐 فان 8',seats:8,count:0},
+}
+let weddingStyle='normal', weddingDeco=true
+let dests=[]
+let mapGather=null, mapRoute=null, markerGather=null, routeLine=null
+let gatherLatLng = [33.5138, 36.2765] // دمشق — مجرد مركز افتراضي، يُحدد دقيقاً بالسحب بدون ذكر دولة
+
+function initMaps(){
+ if(mapGather) return
+ mapGather = L.map('mapGather',{zoomControl:false}).setView(gatherLatLng, 13)
+ L.tileLayer('https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png',{maxZoom:19, attribution:'© OSM HOT'}).addTo(mapGather)
+ markerGather = L.marker(gatherLatLng,{draggable:true}).addTo(mapGather)
+ markerGather.on('dragend', e=>{
+   const p=e.target.getLatLng(); gatherLatLng=[p.lat,p.lng]
+   document.getElementById('gatherPoint').value = p.lat.toFixed(5)+', '+p.lng.toFixed(5)
+   updateRoute(); updatePublish()
+ })
+ setTimeout(()=> mapGather.invalidateSize(), 200)
+
+ mapRoute = L.map('mapRoute',{zoomControl:false}).setView(gatherLatLng, 11)
+ L.tileLayer('https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png',{maxZoom:19}).addTo(mapRoute)
+ routeLine = L.polyline([gatherLatLng], {color:'#4F46E5', weight:4}).addTo(mapRoute)
+ setTimeout(()=> mapRoute.invalidateSize(), 400)
+}
+function focusMap(){ document.getElementById('mapGather').scrollIntoView({behavior:'smooth', block:'center'}) }
+function updateRoute(){
+ if(!mapRoute||!routeLine) return
+ const pts=[gatherLatLng]
+ // نقاط وهمية للمسار — في التطبيق الفعلي تُحسب من العناوين
+ dests.forEach((_,i)=>{
+   pts.push([gatherLatLng[0]+0.01*(i+1), gatherLatLng[1]+0.015*(i+1)])
+ })
+ routeLine.setLatLngs(pts)
+ mapRoute.fitBounds(routeLine.getBounds(), {padding:[20,20]})
+}
+function setType(t){
+ eventType=t
+ document.querySelectorAll('#typeChips .chip').forEach(c=>c.classList.toggle('active', c.dataset.t===t))
+ document.getElementById('otherBox').style.display = t==='other' ? 'block' : 'none'
+ document.getElementById('details').style.display='block'
+ document.getElementById('routeHint').textContent = t==='wedding' ? 'زفاف: حدد نقطة التجمع والوجهات والعودة' : 'حدد نقطة التجمع والمسار والعودة'
+ if(dests.length===0) addDest()
+ renderVehicles()
+ updatePublish()
+ setTimeout(initMaps, 100)
+ document.getElementById('details').scrollIntoView({behavior:'smooth'})
+}
+function addDest(){ dests.push({name:''}); renderDests(); updateRoute(); }
+function renderDests(){
+ const c=document.getElementById('destList'); c.innerHTML=''
+ dests.forEach((d,i)=>{
+   const row=document.createElement('div')
+   row.style.cssText='display:flex;gap:6px;margin-top:6px'
+   row.innerHTML=`<input class="input" placeholder="وجهة ${i+1} — اكتب اسم المكان" value="${d.name}" oninput="dests[${i}].name=this.value;updateRoute();updatePublish()" style="flex:1"><button class="chip small" onclick="dests.splice(${i},1);renderDests();updateRoute();updatePublish()">✕</button>`
+   c.appendChild(row)
+ })
+ updateRoute()
+}
+function stepPeople(d){ people=Math.max(1, Math.min(500, people+d)); document.getElementById('peopleVal').textContent=people; updateTotals(); updatePublish()}
+function stepDur(d){ duration=Math.max(1, Math.min(72, duration+d)); document.getElementById('durVal').textContent=duration; updatePublish()}
+function setWedding(s){ weddingStyle=s; document.getElementById('wcNormal').classList.toggle('active', s==='normal'); document.getElementById('wcLux').classList.toggle('active', s==='lux'); }
+function setDeco(v){ weddingDeco=v; document.getElementById('wcDecoYes').classList.toggle('active', v); document.getElementById('wcDecoNo').classList.toggle('active', !v); }
+function renderVehicles(){
+ const c=document.getElementById('vehicles'); c.innerHTML=''
+ Object.entries(vehicles).forEach(([k,v])=>{
+   const div=document.createElement('div'); div.className='vehicle'
+   div.innerHTML=`<div><div class="name">${v.name}</div><div class="sub">${v.seats} مقاعد • العدد: ${v.count}</div></div><div class="stepper"><button onclick="chgVeh('${k}',-1)">−</button><b>${v.count}</b><button onclick="chgVeh('${k}',1)">＋</button></div>`
+   c.appendChild(div)
+ })
+ document.getElementById('weddingCarBox').style.display = vehicles.wedding_car.count>0 ? 'block' : 'none'
+ updateTotals()
+}
+function chgVeh(k,d){ vehicles[k].count=Math.max(0, vehicles[k].count+d); renderVehicles(); updatePublish() }
+function totalSeats(){ return Object.values(vehicles).reduce((s,v)=> s+v.count*v.seats, 0) }
+function updateTotals(){
+ const t=totalSeats()
+ const box=document.getElementById('totalBox')
+ const ok = t>=people && t>0
+ box.textContent = t===0 ? `⚠️ اختر مركبات — المقاعد: 0 / ${people}` : (ok ? `✅ المقاعد: ${t} / ${people}` : `⚠️ المقاعد لا تكفي: ${t} / ${people}`)
+ box.className='total '+(ok?'ok':'warn')
+}
+function autoDuration(){
+ const dep=document.getElementById('departTime').value, ret=document.getElementById('returnTime').value
+ if(dep && ret){ const d=(new Date(ret)-new Date(dep))/36e5; if(d>0){ duration=Math.round(d); document.getElementById('durVal').textContent=duration }}
+}
+function setBudget(t){
+ budgetType=t
+ document.getElementById('budgetFixed').classList.toggle('active', t==='fixed')
+ document.getElementById('budgetQuote').classList.toggle('active', t==='quote')
+ document.getElementById('budgetFixedBox').style.display = t==='fixed' ? 'block':'none'
+ document.getElementById('budgetQuoteBox').style.display = t==='quote' ? 'block':'none'
+ updatePublish()
+}
+function updatePublish(){
+ const btn=document.getElementById('publishBtn')
+ if(!eventType){ btn.disabled=true; btn.textContent='اختر نوع المناسبة أولاً'; return }
+ if(eventType==='other' && !document.getElementById('otherType').value.trim()){ btn.disabled=true; btn.textContent='اكتب نوع المناسبة'; return }
+ const hasGather=document.getElementById('gatherPoint').value.trim()
+ const hasDest=dests.some(d=>d.name.trim())
+ if(!hasGather || !hasDest){ btn.disabled=true; btn.textContent='حدد نقطة التجمع والوجهة'; return }
+ if(totalSeats()===0){ btn.disabled=true; btn.textContent='اختر مركبة واحدة على الأقل'; return }
+ if(budgetType==='fixed'){
+   const a=document.getElementById('budgetFrom').value, b=document.getElementById('budgetTo').value
+   if(!a || !b || Number(a)>Number(b)){ btn.disabled=true; btn.textContent='حدد ميزانية صحيحة (من ≤ إلى)'; return }
+   btn.disabled=false; btn.textContent='📢 نشر الطلب'
+ } else { btn.disabled=false; btn.textContent='📩 طلب عروض أسعار' }
+}
+function publish(){
+ const payload={
+   event_type:eventType,
+   event_type_other: eventType==='other'? document.getElementById('otherType').value.trim(): null,
+   gathering_point: document.getElementById('gatherPoint').value.trim(),
+   gathering_latlng: gatherLatLng,
+   gathering_time: document.getElementById('gatherTime').value || null,
+   departure_time: document.getElementById('departTime').value || null,
+   destinations: dests.filter(d=>d.name.trim()).map(d=>({name:d.name})),
+   duration_hours: duration,
+   wait: document.getElementById('waitCheck').checked,
+   return_time: document.getElementById('returnTime').value || null,
+   final_point: document.getElementById('finalPoint').value.trim()||null,
+   num_people: people,
+   vehicles: Object.entries(vehicles).filter(([k,v])=>v.count>0).map(([k,v])=>({type:k,seats:v.seats,count:v.count, ...(k==='wedding_car'?{style:weddingStyle,deco:weddingDeco}:{}) })),
+   total_seats: totalSeats(),
+   notes: document.getElementById('notes').value.trim()||null,
+   budget_type: budgetType,
+   budget_from: budgetType==='fixed'? Number(document.getElementById('budgetFrom').value): null,
+   budget_to: budgetType==='fixed'? Number(document.getElementById('budgetTo').value): null,
+   currency: document.getElementById('currency').value,
+ }
+ console.log('publish', payload)
+ showToast((budgetType==='quote' ? '📩 طلب عروض أسعار\n' : '📢 نشر الطلب\n')+ JSON.stringify(payload,null,2))
+}
+renderVehicles()
+</script>
+<div id="toast" class="toast"></div>
+</body>
+</html>

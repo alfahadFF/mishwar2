@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>تسعيرة بالبنزين الحقيقي</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:#F8F9FA;direction:rtl}
+.topbar{height:52px;background:#fff;display:flex;align-items:center;gap:10px;padding:0 14px;box-shadow:0 1px 10px rgba(0,0,0,.06);position:sticky;top:0;z-index:20}
+.back{width:36px;height:36px;border-radius:10px;background:#F3F4F6;display:flex;align-items:center;justify-content:center;border:none;cursor:pointer}
+.topbar h1{font-size:13px;font-weight:800}
+.topbar p{font-size:11px;color:#6B7280}
+.fuel-box{margin:12px;background:#1A1A2E;border-radius:16px;padding:14px;color:#fff;position:relative;overflow:hidden}
+.fuel-box::after{content:'';position:absolute;top:-30px;left:-30px;width:120px;height:120px;background:radial-gradient(circle,rgba(255,107,0,.15),transparent 70%);border-radius:50%}
+.fuel-title{font-size:12px;font-weight:800;margin-bottom:10px;display:flex;align-items:center;gap:6px;position:relative}
+.fuel-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;position:relative}
+.fuel-item{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:10px}
+.fuel-item label{font-size:10px;color:rgba(255,255,255,.7);font-weight:700}
+.fuel-item div{font-size:13px;font-weight:800;margin-top:4px}
+.fuel-item small{font-size:10px;opacity:.6}
+.slider-row{margin-top:12px;position:relative}
+.slider-row label{font-size:11px;font-weight:700;display:flex;justify-content:space-between}
+input[type=range]{width:100%;margin-top:6px}
+.map-wrap{position:relative;height:34vh;min-height:240px;background:#E5E7EB}
+#map{height:100%;width:100%}
+.overlay{position:absolute;top:10px;left:10px;right:10px;display:flex;gap:8px;z-index:10}
+.mode-btn{flex:1;height:34px;border-radius:10px;border:none;font-weight:800;font-size:12px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.12)}
+.mode-btn.active{background:#1A1A2E;color:#fff}
+.mode-btn.idle{background:#fff;color:#1A1A2E;border:1px solid #E5E7EB}
+.hint{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);background:rgba(26,26,46,.92);color:#fff;padding:7px 12px;border-radius:999px;font-size:11px;font-weight:700;z-index:10;white-space:nowrap}
+.inputs{margin:12px;background:#fff;border-radius:14px;padding:12px;border:1px solid #E5E7EB;box-shadow:0 2px 12px rgba(0,0,0,.05)}
+.row{display:flex;gap:10px;align-items:center;padding:6px 0}
+.row + .row{border-top:1px dashed #E5E7EB}
+.dot{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;flex-shrink:0}
+.dot.pick{background:#ECFDF5;color:#059669;border:1px solid #A7F3D0}
+.dot.drop{background:#FEF2F2;color:#DC2626;border:1px solid #FECACA}
+.breakdown{margin:0 12px;background:#fff;border-radius:16px;padding:14px;border:1px solid #E5E7EB;box-shadow:0 2px 12px rgba(0,0,0,.05)}
+.break-title{font-size:13px;font-weight:800;margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.break-row{display:flex;justify-content:space-between;padding:7px 0;font-size:12px;border-bottom:1px dashed #F3F4F6}
+.break-row:last-child{border:none}
+.break-row b{font-weight:800}
+.break-total{display:flex;justify-content:space-between;align-items:center;background:linear-gradient(135deg,#059669,#047857);color:#fff;padding:12px;border-radius:12px;margin-top:10px}
+.break-total b{font-size:18px}
+.vehicle{margin:12px;background:#fff;border-radius:14px;padding:12px;border:1px solid #E5E7EB}
+.vehicle h3{font-size:13px;font-weight:800;margin-bottom:10px}
+.grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.vtype{border:1.5px solid #E5E7EB;border-radius:12px;padding:10px;text-align:center;cursor:pointer}
+.vtype.active{border-color:#059669;background:#ECFDF5}
+.cta{margin:12px;background:#fff;padding:12px;border-radius:16px;box-shadow:0 -4px 20px rgba(0,0,0,.06);position:sticky;bottom:0}
+.btn{width:100%;height:52px;border-radius:14px;background:linear-gradient(135deg,#FF6B00,#FF8C42);color:#fff;border:none;font-weight:900;font-size:15px;cursor:pointer;box-shadow:0 6px 16px rgba(255,107,0,.3)}
+.btn:disabled{opacity:.4}
+.note{font-size:10px;color:#6B7280;text-align:center;margin-top:8px;line-height:1.4}
+@media(min-width:480px){body{display:flex;justify-content:center;background:#E5E7EB}.phone{width:390px;min-height:100vh;background:#F8F9FA;box-shadow:0 0 0 8px #1A1A2E,0 20px 60px rgba(0,0,0,.25)}}
+</style>
+</head>
+<body>
+<div class="phone">
+  <div class="topbar">
+    <button class="back" onclick="history.back()">→</button>
+    <div><h1>تسعيرة بالبنزين الحقيقي</h1><p>بنزين + مصاريف + مربح • $1.50/لتر</p></div>
+    <div style="margin-right:auto;background:#ECFDF5;border:1px solid #A7F3D0;padding:6px 10px;border-radius:999px;font-size:11px;font-weight:800;color:#065F46">شفاف</div>
+  </div>
+
+  <div class="fuel-box">
+    <div class="fuel-title">⛽ حساب الوقود الحقيقي (سوريا الآن)</div>
+    <div class="fuel-grid">
+      <div class="fuel-item"><label>سعر اللتر</label><div>$1.50</div><small>20,100 ليرة (13400×1.5)</small></div>
+      <div class="fuel-item"><label>استهلاك اقتصادية</label><div id="cons">7.5 لتر/100كم</div><small id="fuelPerKm">$0.11/كم</small></div>
+      <div class="fuel-item"><label>مصاريف أخرى (زيت/إطارات)</label><div>$0.05/كم</div><small>صيانة + تأمين</small></div>
+      <div class="fuel-item"><label>مربح الكابتن</label><div id="profitPerKm">$0.14/كم</div><small>قابل للتعديل</small></div>
+    </div>
+    <div class="slider-row">
+      <label><span>مربح الكابتن لكل كم</span><span id="profitVal">$0.14</span></label>
+      <input type="range" id="profitSlider" min="8" max="25" value="14" oninput="updateProfit(this.value)">
+      <div style="display:flex;justify-content:space-between;font-size:10px;opacity:.6"><span>$0.08 (قليل)</span><span>$0.25 (مرتفع)</span></div>
+    </div>
+  </div>
+
+  <div class="map-wrap">
+    <div id="map"></div>
+    <div class="overlay">
+      <button id="btnPick" class="mode-btn active" onclick="setMode('pick')">📍 الانطلاق</button>
+      <button id="btnDrop" class="mode-btn idle" onclick="setMode('drop')">🏁 الوجهة</button>
+    </div>
+    <div class="hint" id="hint">اضغط على الخريطة</div>
+  </div>
+
+  <div class="inputs">
+    <div class="row"><div class="dot pick">A</div><div style="flex:1"><div style="font-size:10px;color:#9CA3AF;font-weight:700">الانطلاق</div><div id="pickText" style="font-size:13px;font-weight:700">اضغط على الخريطة</div></div></div>
+    <div class="row"><div class="dot drop">B</div><div style="flex:1"><div style="font-size:10px;color:#9CA3AF;font-weight:700">الوجهة</div><div id="dropText" style="font-size:13px;font-weight:700">اضغط على الخريطة</div></div></div>
+  </div>
+
+  <div class="breakdown">
+    <div class="break-title">🧾 تفصيل الأجرة <span style="margin-right:auto;background:#F3F4F6;padding:4px 8px;border-radius:999px;font-size:11px" id="distBadge">0.0 كم</span></div>
+    <div class="break-row"><span>⛽ بنزين (<span id="bFuel">0.0</span> لتر × $1.50)</span><b id="cFuel">$0.00</b></div>
+    <div class="break-row"><span>🔧 مصاريف (زيت/صيانة)</span><b id="cMaint">$0.00</b></div>
+    <div class="break-row"><span>👨‍✈️ مربح الكابتن</span><b id="cProfit">$0.00</b></div>
+    <div class="break-row"><span>🏢 عمولة التطبيق 15%</span><b id="cComm">$0.00</b></div>
+    <div class="break-row"><span>🚕 فتح العداد</span><b>$1.20</b></div>
+    <div class="break-total"><span>الإجمالي للراكب</span><b id="total">$1.20</b></div>
+    <div style="display:flex;gap:6px;margin-top:8px;font-size:11px">
+      <div style="flex:1;background:#ECFDF5;border:1px solid #A7F3D0;border-radius:10px;padding:8px;text-align:center"><div style="font-size:10px;color:#065F46">صافي الكابتن</div><b id="driverNet" style="color:#065F46">$0.00</b></div>
+      <div style="flex:1;background:#FFFBEB;border:1px solid #FDE68A;border-radius:10px;padding:8px;text-align:center"><div style="font-size:10px;color:#92400E">سوري</div><b id="syp" style="color:#92400E">0 ليرة</b></div>
+    </div>
+  </div>
+
+  <div class="vehicle">
+    <h3>نوع المركبة (استهلاك مختلف)</h3>
+    <div class="grid">
+      <div class="vtype active" onclick="sel(this,'economy',7.5)"><div>🚕</div><b>اقتصادية</b><small>7.5ل/100كم</small><br><span style="font-size:10px;color:#059669" id="pEco">$1.20+</span></div>
+      <div class="vtype" onclick="sel(this,'comfort',9)"><div>🚙</div><b>مريحة</b><small>9ل/100كم</small><br><span style="font-size:10px" id="pCom">$1.50+</span></div>
+      <div class="vtype" onclick="sel(this,'van',12)"><div>🚐</div><b>فان</b><small>12ل/100كم</small><br><span style="font-size:10px" id="pVan">$1.80+</span></div>
+    </div>
+  </div>
+
+  <div class="cta">
+    <button class="btn" id="ctaBtn" disabled onclick="req()">اطلب الآن — <span id="ctaPrice">$1.20</span></button>
+    <div class="note">الحساب: بنزين حقيقي ($1.50×استهلاك) + $0.05 مصاريف + مربح قابل للتعديل — فائدة للطرفين</div>
+  </div>
+</div>
+<script>
+let mode='pick', pick=null, drop=null, pickM=null, dropM=null, line=null, profit=0.14, cons=7.5, vehicle='economy';
+const map=L.map('map',{zoomControl:false}).setView([33.5138,36.2765],12);
+L.tileLayer('https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
+function setMode(m){mode=m;document.getElementById('btnPick').className=m==='pick'?'mode-btn active':'mode-btn idle';document.getElementById('btnDrop').className=m==='drop'?'mode-btn active':'mode-btn idle';}
+function iconA(){return L.divIcon({html:'<div style="width:28px;height:28px;background:#059669;border:3px solid #fff;border-radius:50%;box-shadow:0 2px 8px rgba(0,0,0,.3);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:900;font-size:12px">A</div>',iconSize:[28,28],iconAnchor:[14,14]})}
+function iconB(){return L.divIcon({html:'<div style="width:28px;height:28px;background:#DC2626;border:3px solid #fff;border-radius:50%;box-shadow:0 2px 8px rgba(0,0,0,.3);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:900;font-size:12px">B</div>',iconSize:[28,28],iconAnchor:[14,14]})}
+map.on('click',e=>{
+  const {lat,lng}=e.latlng;
+  if(mode==='pick'){pick={lat,lng};if(pickM)map.removeLayer(pickM);pickM=L.marker([lat,lng],{icon:iconA()}).addTo(map);setMode('drop')}
+  else{drop={lat,lng};if(dropM)map.removeLayer(dropM);dropM=L.marker([lat,lng],{icon:iconB()}).addTo(map)}
+  update();
+});
+function hav(a,b){const R=6371,dLat=(b.lat-a.lat)*Math.PI/180,dLng=(b.lng-a.lng)*Math.PI/180,s=Math.sin(dLat/2)**2+Math.cos(a.lat*Math.PI/180)*Math.cos(b.lat*Math.PI/180)*Math.sin(dLng/2)**2;return 2*R*Math.asin(Math.sqrt(s))}
+function calc(km){
+  const fuelPerKm = cons*1.5/100;
+  const maint=0.05;
+  let base=1.20;
+  if(km<3) return {total:1.20, fuel:0, maint:0, profit:0, comm:0, net:0, syp:1.20*13400};
+  const effKm=km;
+  const fuel=effKm*fuelPerKm;
+  const m=effKm*maint;
+  const prof=effKm*profit;
+  const subtotal=base+fuel+m+prof;
+  const comm=subtotal*0.15;
+  const total=subtotal+comm;
+  // Actually commission should be part of total: we did subtotal includes profit, then add comm
+  // But to keep total = base+fuel+maint+profit+comm, driver net = total - comm - fuel - maint = profit + base*0.85? Let's compute driver net as profit + base*0.85? Simpler: driverNet = total*0.85 - fuel - m
+  const driverNet = total*0.85 - fuel - m;
+  return {total, fuel, maint:m, profit:prof, comm, driverNet, syp:total*13400, litres: effKm*cons/100};
+}
+function update(){
+  if(pick) document.getElementById('pickText').textContent=pick.lat.toFixed(4)+', '+pick.lng.toFixed(4);
+  if(drop) document.getElementById('dropText').textContent=drop.lat.toFixed(4)+', '+drop.lng.toFixed(4);
+  if(pick&&drop){
+    const km=hav(pick,drop);
+    const c=calc(km);
+    document.getElementById('distBadge').textContent=km.toFixed(1)+' كم';
+    document.getElementById('bFuel').textContent=c.litres.toFixed(1);
+    document.getElementById('cFuel').textContent='$'+c.fuel.toFixed(2);
+    document.getElementById('cMaint').textContent='$'+c.maint.toFixed(2);
+    document.getElementById('cProfit').textContent='$'+c.profit.toFixed(2);
+    document.getElementById('cComm').textContent='$'+c.comm.toFixed(2);
+    document.getElementById('total').textContent='$'+c.total.toFixed(2);
+    document.getElementById('ctaPrice').textContent='$'+c.total.toFixed(2);
+    document.getElementById('driverNet').textContent='$'+c.driverNet.toFixed(2);
+    document.getElementById('syp').textContent=c.syp.toFixed(0)+' ليرة';
+    document.getElementById('fuelPerKm').textContent='$'+(cons*1.5/100).toFixed(2)+'/كم';
+    if(line)map.removeLayer(line);line=L.polyline([pick,drop],{color:'#059669',weight:4,dashArray:'8 8'}).addTo(map);map.fitBounds([pick,drop],{padding:[40,40]});
+    document.getElementById('ctaBtn').disabled=false;
+    document.getElementById('hint').textContent=km.toFixed(1)+' كم • $'+c.total.toFixed(2)+' • بنزين $'+c.fuel.toFixed(2);
+  }
+}
+function sel(el,type,c){document.querySelectorAll('.vtype').forEach(v=>v.classList.remove('active'));el.classList.add('active');vehicle=type;cons=c;document.getElementById('cons').textContent=c+' لتر/100كم';update();}
+function updateProfit(v){profit=parseInt(v)/100;document.getElementById('profitVal').textContent='$'+profit.toFixed(2);document.getElementById('profitPerKm').textContent='$'+profit.toFixed(2)+'/كم';update();}
+function req(){if(!pick||!drop) return;const km=hav(pick,drop),c=calc(km);alert('تفصيل '+km.toFixed(1)+' كم\nبنزين: $'+c.fuel.toFixed(2)+' ('+c.litres.toFixed(1)+'ل)\nمصاريف: $'+c.maint.toFixed(2)+'\nمربح: $'+c.profit.toFixed(2)+'\nعمولة: $'+c.comm.toFixed(2)+'\nالإجمالي: $'+c.total.toFixed(2)+' = '+c.syp.toFixed(0)+' ليرة\nصافي الكابتن: $'+c.driverNet.toFixed(2));}
+setTimeout(()=>{pick={lat:33.51,lng:36.2913};pickM=L.marker([pick.lat,pick.lng],{icon:iconA()}).addTo(map);document.getElementById('pickText').textContent='33.5100, 36.2913';},300);
+</script>
+</body>
+</html>
