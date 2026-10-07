@@ -25,6 +25,10 @@ jobs:
       - name: Setup EAS
         run: npm install -g eas-cli
 
+      - name: Install dependencies
+        working-directory: app
+        run: npm ci
+
       - name: Start cloud build
         working-directory: app
         env:
