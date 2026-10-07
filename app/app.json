@@ -2,6 +2,7 @@
   "expo": {
     "name": "مشوار",
     "slug": "mishwar",
+    "owner": "mishwartaxis-team",
     "version": "1.0.0",
     "orientation": "portrait",
     "scheme": "mishwar",
