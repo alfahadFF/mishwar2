@@ -2,8 +2,8 @@ import Stars from '../components/Stars';
 import { fetchRatings, Rating } from '../utils/rating';
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, Pressable, ScrollView, StyleSheet } from 'react-native';
-import * as Location from 'expo-location';
 import { supabase } from '../utils/supabase';
+import { getMyLocation, DEFAULT_LL } from '../utils/location';
 import { guestBlocked } from '../utils/guest';
 import { getRoute, fmtMin, etaToPoint } from '../utils/route';
 import { useRouter, useFocusEffect } from 'expo-router';
@@ -53,21 +53,15 @@ export default function TaxiScreen(){
   };
   const payActive=()=>{ if(active) router.push(`/wallet?pay=taxi:${active.id}` as any); };
   useEffect(()=>{
-    (async()=>{
-      const { status }=await Location.requestForegroundPermissionsAsync();
-      if(status==='granted'){
-        const loc=await Location.getCurrentPositionAsync({});
-        setPickup([loc.coords.latitude, loc.coords.longitude]);
-      } else {
-        setPickup([33.5138,36.2765]);
-      }
-    })();
+    let alive=true;
+    getMyLocation().then(({ll})=>{ if(alive) setPickup(ll); })
+      .catch(()=>{ if(alive) setPickup(DEFAULT_LL); });
+    return ()=>{ alive=false; };
   },[]);
   const useMyLocation=async()=>{
-    const { status }=await Location.requestForegroundPermissionsAsync();
-    if(status!=='granted') return;
-    const loc=await Location.getCurrentPositionAsync({});
-    setPickup([loc.coords.latitude, loc.coords.longitude]);
+    const {ll,real}=await getMyLocation();
+    setPickup(ll);
+    if(!real){ showToast('تعذر تحديد موقعك؛ يمكنك اختيار النقطة على الخريطة'); return; }
     setMode('drop');
   };
   const [route,setRoute]=useState<{km:number,min:number,path:any[]}|null>(null);

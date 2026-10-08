@@ -1,6 +1,11 @@
 import React, { forwardRef, useEffect, useId, useImperativeHandle, useRef } from 'react';
-import { View, Text } from 'react-native';
+import { Platform, View, Text } from 'react-native';
 import MapLibreGL from '@maplibre/maplibre-react-native';
+
+// MapLibre v10 requires explicit null-token initialization on native Android/iOS.
+if (Platform.OS !== 'web') {
+  void MapLibreGL.setAccessToken(null).catch(() => {});
+}
 
 const TILE_URL = 'https://a.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png';
 const OSM_STYLE = {
