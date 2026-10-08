@@ -4,7 +4,9 @@ import MapLibreGL from '@maplibre/maplibre-react-native';
 
 // MapLibre v10 requires explicit null-token initialization on native Android/iOS.
 if (Platform.OS !== 'web') {
-  void MapLibreGL.setAccessToken(null).catch(() => {});
+  // The native v10 Android module returns void here, not a Promise.
+  // Calling .catch() on that result crashes Hermes during route loading.
+  void MapLibreGL.setAccessToken(null);
 }
 
 const TILE_URL = 'https://a.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png';
