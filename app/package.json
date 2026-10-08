@@ -2,7 +2,7 @@
   "name": "naql-taxi",
   "version": "1.0.0",
   "private": true,
-  "main": "expo-router/entry",
+  "main": "index.js",
   "scripts": {
     "start": "expo start --host --port 3000",
     "web": "expo start --web --host --port 3000",
