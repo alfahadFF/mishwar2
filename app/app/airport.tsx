@@ -75,7 +75,7 @@ export default function AirportScreen() {
   }, [edit]);
 
   const list = useMemo(() => sortByNear(airports, ll), [airports, ll]);
-  const openMap = async () => { if (!ll) { const r = await getMyLocation(); setLl(r.ll); } setPick(true); };
+  const openMap = async () => { if (!ll) { const r = await getMyLocation(); if (r.real && r.ll) setLl(r.ll); } setPick(true); };
 
   const submit = async () => {
     if (!kind) return toast.show('اختر: استقبال أو وداع', 'err');

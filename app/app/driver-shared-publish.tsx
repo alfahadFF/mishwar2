@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, Pressable, TextInput, StyleSheet, ScrollView } from 'react-native';
 import { supabase } from '../utils/supabase';
 import { guestBlocked } from '../utils/guest';
 import { errMsg } from '../utils/errors';
 import { getRoute, fmtMin } from '../utils/route';
 import { placeName } from '../utils/geocode';
+import { getMyLocation } from '../utils/location';
 import DatePicker, { ymd } from '../components/DatePicker';
 import TimePicker, { timeLabel } from '../components/TimePicker';
 import { MapView, UrlTile, Marker, Polyline } from '../components/OpenMapView';
@@ -24,8 +25,20 @@ export default function DriverSharedPublish(){
   const [price,setPrice]=useState('');
   const [hasVacancy,setHasVacancy]=useState(false);
   const [toast,setToast]=useState<string|null>(null);
+  const [locationLoading,setLocationLoading]=useState(true);
+  const [locationError,setLocationError]=useState(false);
   const [route,setRoute]=useState<any>(null);
   const [routeState,setRouteState]=useState<'idle'|'loading'|'error'|'ok'>('idle');
+  const locatePickup=useCallback(async()=>{
+    setLocationLoading(true);
+    try{
+      const {ll,real}=await getMyLocation();
+      if(!real || !ll){ setLocationError(true); return; }
+      setPickup(ll); setMode('drop'); setLocationError(false);
+    }catch{ setLocationError(true); }
+    finally{ setLocationLoading(false); }
+  },[]);
+  useEffect(()=>{ void locatePickup(); },[locatePickup]);
   useEffect(()=>{
     if(!pickup || !dropoff){ setRoute(null); setRouteState('idle'); return; }
     const pts=hasVacancy && vacancy ? [pickup,vacancy,dropoff] : [pickup,dropoff];
@@ -81,13 +94,20 @@ export default function DriverSharedPublish(){
           <Pressable onPress={()=> setMode('drop')} style={[s.modeBtn, mode==='drop' && s.modeActive]}><Text style={[s.modeT, mode==='drop' && s.modeTActive]}>🏁 الوصول</Text></Pressable>
         </View>
         <View style={{height:240, borderRadius:14, overflow:'hidden', marginTop:10, borderWidth:1, borderColor:'#e2e8f0'}}>
-          <MapView style={{flex:1}} initialRegion={{latitude:33.5138, longitude:36.2765, latitudeDelta:0.06, longitudeDelta:0.06}} onPress={onMapPress}>
-            <UrlTile urlTemplate="https://a.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png" maximumZ={19} flipY={false}/>
-            {pickup && <Marker coordinate={{latitude:pickup[0], longitude:pickup[1]}} pinColor="green"/>}
-            {dropoff && <Marker coordinate={{latitude:dropoff[0], longitude:dropoff[1]}} pinColor="red"/>}
-            {hasVacancy && vacancy && <Marker coordinate={{latitude:vacancy[0], longitude:vacancy[1]}} pinColor="orange"/>}
-            {route && <Polyline coordinates={route.path} strokeColor="#4F46E5" strokeWidth={5}/>}
-          </MapView>
+          {pickup ? (
+            <MapView style={{flex:1}} initialRegion={{latitude:pickup[0], longitude:pickup[1], latitudeDelta:0.02, longitudeDelta:0.02}} onPress={onMapPress}>
+              <UrlTile urlTemplate="https://a.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png" maximumZ={19} flipY={false}/>
+              <Marker coordinate={{latitude:pickup[0], longitude:pickup[1]}} pinColor="green"/>
+              {dropoff && <Marker coordinate={{latitude:dropoff[0], longitude:dropoff[1]}} pinColor="red"/>}
+              {hasVacancy && vacancy && <Marker coordinate={{latitude:vacancy[0], longitude:vacancy[1]}} pinColor="orange"/>}
+              {route && <Polyline coordinates={route.path} strokeColor="#4F46E5" strokeWidth={5}/>}
+            </MapView>
+          ) : (
+            <View style={s.locationGate}>
+              <Text style={s.locationGateT}>{locationLoading?'📡 جارٍ تحديد موقعك لفتح الخريطة بالقرب منك':locationError?'تعذر تحديد موقعك. اسمح بإذن الموقع ثم أعد المحاولة.':'حدد موقع الانطلاق لفتح الخريطة'}</Text>
+              {!locationLoading && <Pressable onPress={locatePickup} style={s.locationRetry}><Text style={s.locationRetryT}>تحديد موقعي وإعادة المحاولة</Text></Pressable>}
+            </View>
+          )}
         </View>
         {routeState!=='idle' && <View style={[s.card,{backgroundColor:'#eef2ff',borderColor:'#c7d2fe'}]}><Text style={{textAlign:'center',fontWeight:'900',color:'#3730a3'}}>{routeState==='loading'? '⏳ جاري حساب المسار على الطرق...' : routeState==='error'? '⚠️ تعذر حساب المسار — أعد تحديد النقطة' : `🛣️ ${route.km.toFixed(1)} كم على الطريق • ${fmtMin(route.min)}`}</Text></View>}
         <View style={s.card}>
@@ -142,6 +162,10 @@ const s=StyleSheet.create({
   modeActive:{backgroundColor:'#4F46E5', borderColor:'#4F46E5'},
   modeT:{fontSize:12, fontWeight:'800'},
   modeTActive:{color:'#fff'},
+  locationGate:{flex:1, alignItems:'center', justifyContent:'center', padding:18, gap:10, backgroundColor:'#f8fafc'},
+  locationGateT:{fontSize:12, lineHeight:18, fontWeight:'800', color:'#334155', textAlign:'center'},
+  locationRetry:{height:38, paddingHorizontal:14, borderRadius:11, backgroundColor:'#4F46E5', alignItems:'center', justifyContent:'center'},
+  locationRetryT:{color:'#fff', fontWeight:'900', fontSize:11},
   chip:{paddingHorizontal:12, height:36, borderRadius:999, borderWidth:1.5, borderColor:'#e2e8f0', backgroundColor:'#fff', alignItems:'center', justifyContent:'center'},
   card:{backgroundColor:'#fff', borderWidth:1, borderColor:'#e2e8f0', borderRadius:14, padding:12, marginTop:10},
   h2:{fontSize:13, fontWeight:'900'},

@@ -22,16 +22,38 @@ export default function TaxiSharedScreen(){
   const [pickup,setPickup]=useState<LL|null>(null);
   const [dropoff,setDropoff]=useState<LL|null>(null);
   const [mode,setMode]=useState<'pick'|'drop'>('pick');
+  const mapRef=useRef<any>(null);
   const [selected,setSelected]=useState<string|null>(null);
   const [myReqs,setMyReqs]=useState<Record<string,Req>>({});
   const [confirm,setConfirm]=useState<{trip:Trip, off:number, km:number, min:number, path:LL[], wrongDir:boolean}|null>(null);
   const [counter,setCounter]=useState<{trip:Trip, req:Req}|null>(null);
   const [busy,setBusy]=useState(false);
   const [toast,setToast]=useState<{m:string,err?:boolean}|null>(null);
+  const [locating,setLocating]=useState(true);
+  const [locationError,setLocationError]=useState(false);
   const toastTimer=useRef<any>(null);
   // تنبيه صوتي/اهتزاز عند وصول رد السائق
   const notify=(type:'success'|'warning'|'error'='warning')=>{ Haptics.notificationAsync(type==='success'? Haptics.NotificationFeedbackType.Success : type==='error'? Haptics.NotificationFeedbackType.Error : Haptics.NotificationFeedbackType.Warning); Vibration.vibrate([0,200,100,200]); };
   const showToast=(m:string, err=false)=>{ setToast({m,err}); clearTimeout(toastTimer.current); toastTimer.current=setTimeout(()=> setToast(null),2800); };
+  const locatePickup=async()=>{
+    let found=false;
+    setLocating(true); setLocationError(false);
+    try{
+      const { status }=await Location.requestForegroundPermissionsAsync();
+      if(status!=='granted') throw new Error('LOCATION_PERMISSION');
+      const last=await Location.getLastKnownPositionAsync({maxAge:60_000,requiredAccuracy:1500}).catch(()=>null);
+      if(last){
+        const p=[last.coords.latitude,last.coords.longitude];
+        setPickup(p); setMode('drop'); found=true;
+      }
+      const loc=await Location.getCurrentPositionAsync({accuracy:Location.Accuracy.Balanced});
+      const p=[loc.coords.latitude,loc.coords.longitude];
+      setPickup(p); setMode('drop'); found=true;
+      mapRef.current?.animateToRegion?.({latitude:p[0],longitude:p[1],latitudeDelta:0.02,longitudeDelta:0.02});
+    }catch{
+      if(!found) setLocationError(true);
+    }finally{ setLocating(false); }
+  };
 
   // تحميل الرحلات + حساب مساراتها الحقيقية
   useEffect(()=>{
@@ -54,10 +76,7 @@ export default function TaxiSharedScreen(){
       const rm=await fetchRatings('shared_trip', withRoutes.map(t=>t.id));
       setTrips(withRoutes.map(t=>({...t, rating:rm[t.id]})));
     })();
-    (async()=>{
-      const { status }=await Location.requestForegroundPermissionsAsync();
-      if(status==='granted'){ const loc=await Location.getCurrentPositionAsync({}); setPickup([loc.coords.latitude, loc.coords.longitude]); setMode('drop'); }
-    })();
+    void locatePickup();
   },[]);
 
   // متابعة رد السائق فوراً (Realtime)
@@ -160,14 +179,24 @@ export default function TaxiSharedScreen(){
         <Pressable onPress={()=> setMode('drop')} style={[s.modeBtn, dropoff && s.modeDone, mode==='drop' && s.modeActive]}><Text style={[s.modeT, mode==='drop' && {color:'#fff'}]}>🏁 موقع نزولي</Text></Pressable>
       </View>
       <View style={s.mapBox}>
-        <MapView style={{flex:1}} initialRegion={{latitude:33.52, longitude:36.30, latitudeDelta:0.12, longitudeDelta:0.12}} onPress={onMapPress}>
-          <UrlTile urlTemplate="https://a.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png" maximumZ={19} flipY={false}/>
-          {evaluated.map(({t})=> t.path ? <Polyline key={t.id} coordinates={t.path.map(toLatLng)} strokeColor={t.id===selected?'#4F46E5':'#818cf8'} strokeWidth={t.id===selected?6:4} tappable onPress={()=> setSelected(t.id)}/> : null)}
-          {pickup && <Marker coordinate={toLatLng(pickup)} pinColor="green"/>}
-          {dropoff && <Marker coordinate={toLatLng(dropoff)} pinColor="red"/>}
-          {sel && <Marker coordinate={toLatLng(sel.fromLL)} pinColor="indigo"/>}
-        </MapView>
-        <View style={s.hint}><Text style={s.hintT}>{mode==='pick'? 'اضغط على الخريطة لتحديد موقع ركوبك' : 'اضغط على الخريطة لتحديد موقع نزولك'}</Text></View>
+        {pickup ? (
+          <>
+            <MapView ref={mapRef} style={{flex:1}} initialRegion={{latitude:pickup[0], longitude:pickup[1], latitudeDelta:0.02, longitudeDelta:0.02}} onPress={onMapPress}>
+              <UrlTile urlTemplate="https://a.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png" maximumZ={19} flipY={false}/>
+              {evaluated.map(({t})=> t.path ? <Polyline key={t.id} coordinates={t.path.map(toLatLng)} strokeColor={t.id===selected?'#4F46E5':'#818cf8'} strokeWidth={t.id===selected?6:4} tappable onPress={()=> setSelected(t.id)}/> : null)}
+              <Marker coordinate={toLatLng(pickup)} pinColor="green"/>
+              {dropoff && <Marker coordinate={toLatLng(dropoff)} pinColor="red"/>}
+              {sel && <Marker coordinate={toLatLng(sel.fromLL)} pinColor="indigo"/>}
+            </MapView>
+            <View style={s.hint}><Text style={s.hintT}>{mode==='pick'? 'اضغط على الخريطة لتحديد موقع ركوبك' : 'اضغط على الخريطة لتحديد موقع نزولك'}</Text></View>
+            {locating && <View style={s.locationBadge}><Text style={s.locationBadgeT}>⏳ جارٍ تحديث موقعك</Text></View>}
+          </>
+        ) : (
+          <View style={s.locationGate}>
+            <Text style={s.locationGateT}>{locating?'📡 جارٍ تحديد موقعك لفتح الخريطة بالقرب منك':locationError?'تعذر تحديد موقعك. اسمح بإذن الموقع ثم أعد المحاولة.':'حدد موقعك لفتح الخريطة'}</Text>
+            {!locating && <Pressable onPress={locatePickup} style={s.locationRetry}><Text style={s.locationRetryT}>تحديد موقعي وإعادة المحاولة</Text></Pressable>}
+          </View>
+        )}
       </View>
       <ScrollView contentContainerStyle={{padding:10, gap:10, paddingBottom:40}}>
         <MySharedJoins/>
@@ -266,6 +295,12 @@ const s=StyleSheet.create({
   modeActive:{backgroundColor:'#4F46E5', borderColor:'#4F46E5'},
   modeT:{fontSize:12, fontWeight:'800', color:'#0f172a'},
   mapBox:{height:250, marginHorizontal:10, borderRadius:14, overflow:'hidden', borderWidth:1, borderColor:'#e2e8f0'},
+  locationGate:{flex:1, alignItems:'center', justifyContent:'center', padding:20, gap:12, backgroundColor:'#f8fafc'},
+  locationGateT:{fontSize:13, lineHeight:20, fontWeight:'800', color:'#334155', textAlign:'center'},
+  locationRetry:{height:42, paddingHorizontal:16, borderRadius:12, backgroundColor:'#4F46E5', alignItems:'center', justifyContent:'center'},
+  locationRetryT:{color:'#fff', fontWeight:'900', fontSize:12},
+  locationBadge:{position:'absolute',bottom:8,alignSelf:'center',backgroundColor:'#fff',paddingHorizontal:10,paddingVertical:5,borderRadius:999},
+  locationBadgeT:{fontSize:10,fontWeight:'800',color:'#334155'},
   hint:{position:'absolute', top:8, alignSelf:'center', backgroundColor:'rgba(15,23,42,.85)', paddingHorizontal:12, paddingVertical:6, borderRadius:999},
   hintT:{color:'#fff', fontSize:11, fontWeight:'800'},
   empty:{textAlign:'center', color:'#64748b', padding:24},

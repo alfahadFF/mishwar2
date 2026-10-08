@@ -10,7 +10,7 @@ export default function NewOrdersToggle({ ping, compact, onChange }: { ping?: bo
   useFocusEffect(useCallback(() => {
     supabase.rpc('my_push_prefs').then(({ data }) => setOn((data as any)?.new_orders ?? true), () => {});
     if (ping) getMyLocation().then(({ ll, real }) => {
-      if (real) supabase.rpc('provider_location_ping', { p_lat: ll[0], p_lng: ll[1] }).then(() => {}, () => {});
+      if (real && ll) supabase.rpc('provider_location_ping', { p_lat: ll[0], p_lng: ll[1] }).then(() => {}, () => {});
     });
   }, [ping]));
   const toggle = async (v: boolean) => {

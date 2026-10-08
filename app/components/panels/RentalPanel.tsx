@@ -63,7 +63,7 @@ export default function RentalPanel({ mode = 'all', embedded = false }: { mode?:
     const { data } = await supabase.rpc('my_work_profile');
     const d: any = data || {};
     if (d.type === 'business' && d.lat != null && d.lng != null) return setForm({ ...EMPTY, ll: [d.lat, d.lng] });
-    const { ll } = await getMyLocation(); setForm({ ...EMPTY, ll });
+    const { ll, real } = await getMyLocation(); setForm({ ...EMPTY, ll: real && ll ? ll : null });
   };
   const editCar = (x: any) => setForm({ id: x.id, photos: { ...x.photos }, brand_model: x.brand_model, year: String(x.year || ''), seats: x.seats || 5,
     transmission: x.transmission, color: x.color || '', fuel: x.fuel || '', ac: !!x.ac, ll: [x.lat, x.lng], conditions: x.conditions || [],

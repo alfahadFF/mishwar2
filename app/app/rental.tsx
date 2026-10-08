@@ -85,7 +85,7 @@ export default function RentalScreen() {
     setMine({ ...m });
   }, [ll]);
 
-  useEffect(() => { (async () => { const { ll: p } = await getMyLocation(); setLl(p); setGPoint(p); loadCars(p); })(); }, []);
+  useEffect(() => { (async () => { const { ll: p, real } = await getMyLocation(); if (real && p) { setLl(p); setGPoint(p); loadCars(p); } })(); }, []);
   useFocusEffect(useCallback(() => { loadMine(); }, [loadMine]));
 
   const openCar = (x: any) => {

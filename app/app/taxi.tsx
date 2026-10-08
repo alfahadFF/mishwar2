@@ -1,9 +1,9 @@
 import Stars from '../components/Stars';
 import { fetchRatings, Rating } from '../utils/rating';
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { View, Text, Pressable, ScrollView, StyleSheet } from 'react-native';
 import { supabase } from '../utils/supabase';
-import { getMyLocation, DEFAULT_LL } from '../utils/location';
+import { getMyLocation } from '../utils/location';
 import { guestBlocked } from '../utils/guest';
 import { getRoute, fmtMin, etaToPoint } from '../utils/route';
 import { useRouter, useFocusEffect } from 'expo-router';
@@ -18,6 +18,9 @@ export default function TaxiScreen(){
   const [pickup,setPickup]=useState<number[]|null>(null);
   const [dropoff,setDropoff]=useState<number[]|null>(null);
   const [mode,setMode]=useState<'pick'|'drop'>('pick');
+  const mapRef=useRef<any>(null);
+  const [locationLoading,setLocationLoading]=useState(true);
+  const [locationError,setLocationError]=useState(false);
   const [selected,setSelected]=useState('ordinary');
   const [radius,setRadius]=useState(5);
   const [toast,setToast]=useState<string|null>(null);
@@ -54,15 +57,21 @@ export default function TaxiScreen(){
   const payActive=()=>{ if(active) router.push(`/wallet?pay=taxi:${active.id}` as any); };
   useEffect(()=>{
     let alive=true;
-    getMyLocation().then(({ll})=>{ if(alive) setPickup(ll); })
-      .catch(()=>{ if(alive) setPickup(DEFAULT_LL); });
+    getMyLocation().then(({ll,real})=>{
+      if(!alive) return;
+      if(real && ll){ setPickup(ll); setLocationError(false); }
+      else setLocationError(true);
+      setLocationLoading(false);
+    }).catch(()=>{ if(alive){ setLocationError(true); setLocationLoading(false); } });
     return ()=>{ alive=false; };
   },[]);
   const useMyLocation=async()=>{
+    setLocationLoading(true);
     const {ll,real}=await getMyLocation();
-    setPickup(ll);
-    if(!real){ showToast('تعذر تحديد موقعك؛ يمكنك اختيار النقطة على الخريطة'); return; }
-    setMode('drop');
+    setLocationLoading(false);
+    if(!real || !ll){ setLocationError(true); showToast('تعذر تحديد موقعك؛ اسمح بإذن الموقع ثم أعد المحاولة'); return; }
+    setLocationError(false); setPickup(ll); setMode('drop');
+    mapRef.current?.animateToRegion?.({latitude:ll[0],longitude:ll[1],latitudeDelta:0.02,longitudeDelta:0.02});
   };
   const [route,setRoute]=useState<{km:number,min:number,path:any[]}|null>(null);
   const [routeState,setRouteState]=useState<'idle'|'loading'|'error'|'ok'>('idle');
@@ -223,17 +232,24 @@ export default function TaxiScreen(){
         <Pressable onPress={useMyLocation} style={[s.modeBtn,{backgroundColor:'#f1f5f9'}]}><Text style={s.modeT}>📍 موقعي</Text></Pressable>
       </View>
       <View style={{flex:1, marginHorizontal:10, borderRadius:14, overflow:'hidden', borderWidth:1, borderColor:'#e2e8f0'}}>
-        {pickup && (
-          <MapView style={{flex:1}} initialRegion={{latitude:pickup[0], longitude:pickup[1], latitudeDelta:0.02, longitudeDelta:0.02}} onPress={onMapPress}>
-            <UrlTile urlTemplate="https://a.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png" maximumZ={19} flipY={false}/>
-            <Marker coordinate={{latitude:pickup[0], longitude:pickup[1]}} pinColor="green"/>
-            {dropoff && <Marker coordinate={{latitude:dropoff[0], longitude:dropoff[1]}} pinColor="red"/>}
-            {route && <Polyline coordinates={route.path} strokeColor="#4F46E5" strokeWidth={5}/>}
-            {carPos && <Marker coordinate={{latitude:carPos[0], longitude:carPos[1]}} anchor={{x:.5,y:.5}}><Text style={{fontSize:26}}>🚕</Text></Marker>}
-            {!showActive && cars.map((c,i)=> <Marker key={'car'+i} coordinate={{latitude:c.lat, longitude:c.lng}} anchor={{x:.5,y:.5}} tracksViewChanges={false}><Text style={{fontSize:20}}>🚕</Text></Marker>)}
-          </MapView>
+        {pickup ? (
+          <>
+            <MapView ref={mapRef} style={{flex:1}} initialRegion={{latitude:pickup[0], longitude:pickup[1], latitudeDelta:0.02, longitudeDelta:0.02}} onPress={onMapPress}>
+              <UrlTile urlTemplate="https://a.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png" maximumZ={19} flipY={false}/>
+              <Marker coordinate={{latitude:pickup[0], longitude:pickup[1]}} pinColor="green"/>
+              {dropoff && <Marker coordinate={{latitude:dropoff[0], longitude:dropoff[1]}} pinColor="red"/>}
+              {route && <Polyline coordinates={route.path} strokeColor="#4F46E5" strokeWidth={5}/>}
+              {carPos && <Marker coordinate={{latitude:carPos[0], longitude:carPos[1]}} anchor={{x:.5,y:.5}}><Text style={{fontSize:26}}>🚕</Text></Marker>}
+              {!showActive && cars.map((c,i)=> <Marker key={'car'+i} coordinate={{latitude:c.lat, longitude:c.lng}} anchor={{x:.5,y:.5}} tracksViewChanges={false}><Text style={{fontSize:20}}>🚕</Text></Marker>)}
+            </MapView>
+            <View style={s.hint}><Text style={s.hintT}>{routeState==='loading'? '⏳ جاري حساب المسار...' : routeState==='error'? '⚠️ تعذر حساب المسار' : route? `🛣️ ${route.km.toFixed(1)} كم • ${fmtMin(route.min)}` : (mode==='pick'? 'اضغط على الخريطة لتحديد الانطلاق' : 'اضغط على الخريطة لتحديد الوصول')}</Text></View>
+          </>
+        ) : (
+          <View style={s.locationGate}>
+            <Text style={s.locationGateT}>{locationLoading?'📡 جارٍ تحديد موقعك لفتح الخريطة بالقرب منك':locationError?'تعذر تحديد موقعك. اسمح بإذن الموقع ثم أعد المحاولة.':'حدد موقعك لعرض الخريطة'}</Text>
+            {!locationLoading && <Pressable onPress={useMyLocation} style={s.locationRetry}><Text style={s.locationRetryT}>تحديد موقعي وإعادة المحاولة</Text></Pressable>}
+          </View>
         )}
-        <View style={s.hint}><Text style={s.hintT}>{routeState==='loading'? '⏳ جاري حساب المسار...' : routeState==='error'? '⚠️ تعذر حساب المسار' : route? `🛣️ ${route.km.toFixed(1)} كم • ${fmtMin(route.min)}` : (mode==='pick'? 'اضغط على الخريطة لتحديد الانطلاق' : 'اضغط على الخريطة لتحديد الوصول')}</Text></View>
       </View>
       {showActive && st && (
         <View style={s.activeWrap}>
@@ -316,6 +332,10 @@ const s=StyleSheet.create({
   modeActive:{backgroundColor:'#4F46E5', borderColor:'#4F46E5'},
   modeT:{fontSize:12, fontWeight:'800'},
   modeTActive:{color:'#fff'},
+  locationGate:{flex:1, alignItems:'center', justifyContent:'center', padding:20, gap:12, backgroundColor:'#f8fafc'},
+  locationGateT:{fontSize:13, lineHeight:20, fontWeight:'800', color:'#334155', textAlign:'center'},
+  locationRetry:{height:42, paddingHorizontal:16, borderRadius:12, backgroundColor:'#4F46E5', alignItems:'center', justifyContent:'center'},
+  locationRetryT:{color:'#fff', fontWeight:'900', fontSize:12},
   hint:{position:'absolute', bottom:10, alignSelf:'center', backgroundColor:'rgba(15,23,42,.85)', paddingHorizontal:12, paddingVertical:6, borderRadius:999},
   hintT:{color:'#fff', fontSize:11},
   sliderWrap:{backgroundColor:'#fff', borderTopWidth:1, borderColor:'#e2e8f0', paddingVertical:10},

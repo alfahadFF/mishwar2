@@ -32,6 +32,7 @@ export default function ContractsPanel({ mode = 'all', embedded = false }: Panel
   const { wallet, refresh: refreshWallet, isFree } = useWallet();
   const [profile, setProfile] = useState<DriverProfile | null>(null);
   const [me, setMe] = useState<[number, number] | null>(null);
+  const [locationLoading, setLocationLoading] = useState(true);
   const [tab, setTab] = useState(mode === 'bookings' ? 'jobs' : 'feed');
   const [feed, setFeed] = useState<any[] | null>(null);
   const [offers, setOffers] = useState<any[] | null>(null);
@@ -49,10 +50,20 @@ export default function ContractsPanel({ mode = 'all', embedded = false }: Panel
   const [walletOpen, setWalletOpen] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
-    getMyLocation().then(r => setMe(r.ll));
-    supabase.rpc('my_driver_profile').then(({ data }) => setProfile((data || {}) as DriverProfile));
+  const locateMe = useCallback(async () => {
+    setLocationLoading(true); setMe(null);
+    try {
+      const { ll, real } = await getMyLocation();
+      if (!real || !ll) { setMe(null); return; }
+      setMe(ll);
+    } catch { setMe(null); }
+    finally { setLocationLoading(false); }
   }, []);
+
+  useEffect(() => {
+    if (mode !== 'bookings') void locateMe();
+    supabase.rpc('my_driver_profile').then(({ data }) => setProfile((data || {}) as DriverProfile));
+  }, [locateMe, mode]);
 
   const loadFeed = useCallback(async () => {
     if (!me || mode === 'bookings') return;
@@ -170,7 +181,7 @@ export default function ContractsPanel({ mode = 'all', embedded = false }: Panel
         )}
         </>}
 
-        {tab === 'feed' && (noVehicle ? (
+        {tab === 'feed' && (!me ? (locationLoading ? <Empty icon="📡" title="جارٍ تحديد موقعك لعرض الطلبات القريبة" /> : <View style={{gap:8}}><Empty icon="📍" title="تعذر تحديد موقعك" sub="اسمح بإذن الموقع ثم أعد المحاولة؛ لن نعرض طلبات مدينة أخرى." /><Btn small label="تحديد موقعي وإعادة المحاولة" onPress={locateMe} /></View>) : noVehicle ? (
           <Empty icon="🚌" title="بيانات مركبتك قيد الاعتماد" sub="تظهر طلبات العقود بعد اعتماد نوع المركبة من الإدارة" />
         ) : !feed ? <Empty icon="⏳" title="جاري تحميل الطلبات" /> : feed.length === 0 ? (
           <Empty icon="📭" title="لا توجد طلبات حالياً" sub="تظهر هنا طلبات العقود ضمن 10 كم من أول نقطة انطلاق" />

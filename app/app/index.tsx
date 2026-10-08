@@ -170,7 +170,7 @@ export default function HomeScreen() {
             <View style={s.authIcon}><Text style={{ color: '#fff', fontSize: 18 }}>👤</Text></View>
             <View>
               <Text style={s.authTitle}>ابدأ رحلتك الآن</Text>
-              <Text style={s.authSub}>سجّل دخولك لاستخدام جميع الخدمات</Text>
+              <Text style={s.authSub}>سجّل الدخول لطلب الخدمات والاستفادة منها</Text>
             </View>
           </View>
 
@@ -178,22 +178,6 @@ export default function HomeScreen() {
             <Text style={s.btnPrimaryText}>تسجيل الدخول / إنشاء حساب  ←</Text>
           </Pressable>
 
-          <Pressable style={s.btnSecondary} onPress={() => toast.show('يمكنك التصفح، والطلب يتطلب تسجيل الدخول', 'info')}>
-            <Text style={s.btnSecondaryText}>👁️  تصفح كضيف</Text>
-          </Pressable>
-
-          <View style={s.divider}>
-            <View style={s.divLine} />
-            <Text style={s.divText}>ملاحظة</Text>
-            <View style={s.divLine} />
-          </View>
-
-          <View style={s.guestNote}>
-            <View style={s.guestIcon}><Text style={{ color: '#fff', fontSize: 12 }}>!</Text></View>
-            <Text style={s.guestText}>
-              <Text style={{ fontWeight: '800', color: '#78350F' }}>الضيف يستطيع تصفح</Text> كل محتوى التطبيق (الخدمات، الأسعار، المركبات)، <Text style={{ fontWeight: '800', color: '#78350F' }}>دون إمكانية استخدام</Text> أي خدمة فعلية — <Text style={{ fontWeight: '800', color: '#78350F' }}>التسجيل أو تسجيل الدخول شرط أساسي</Text> لطلب تكسي، سفريات، نقل، مناسبات، عقود أو تأجير.
-            </Text>
-          </View>
         </View>}
 
         <View style={{ height: 80 }} />
@@ -266,14 +250,6 @@ const s = StyleSheet.create({
   authSub: { fontSize: 11, color: '#6B7280', marginTop: 2, textAlign: 'right' },
   btnPrimary: { height: 48, borderRadius: 14, backgroundColor: ORANGE, alignItems: 'center', justifyContent: 'center' },
   btnPrimaryText: { color: '#fff', fontWeight: '800', fontSize: 14 },
-  btnSecondary: { height: 48, borderRadius: 14, backgroundColor: '#fff', borderWidth: 1.5, borderColor: '#E5E7EB', alignItems: 'center', justifyContent: 'center', marginTop: 10 },
-  btnSecondaryText: { color: DARK, fontWeight: '800', fontSize: 14 },
-  divider: { flexDirection: 'row', alignItems: 'center', gap: 12, marginVertical: 14 },
-  divLine: { flex: 1, height: 1, backgroundColor: '#E5E7EB' },
-  divText: { color: '#9CA3AF', fontSize: 11 },
-  guestNote: { backgroundColor: '#FFFBEB', borderWidth: 1, borderColor: '#FDE68A', borderRadius: 12, padding: 12, flexDirection: 'row', gap: 10, alignItems: 'flex-start' },
-  guestIcon: { width: 28, height: 28, borderRadius: 999, backgroundColor: '#F59E0B', alignItems: 'center', justifyContent: 'center' },
-  guestText: { flex: 1, fontSize: 11, lineHeight: 16, color: '#92400E', textAlign: 'right' },
   tabbar: { position: 'absolute', bottom: 0, left: 0, right: 0, height: 64, backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: '#E5E7EB', flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center', paddingBottom: 6 },
   tab: { flex: 1, alignItems: 'center', gap: 3 },
   tabActive: { flex: 1, alignItems: 'center', gap: 3 },

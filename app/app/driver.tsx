@@ -103,14 +103,25 @@ function DriverMap({ wp }:{ wp:any }){
   // موقع السائق + الطلبات المنتظرة ضمن دائرة 5 كم
   const [myLL,setMyLL]=useState<number[]|null>(null);
   const [nearby,setNearby]=useState<any[]>([]);
+  const [locationLoading,setLocationLoading]=useState(true);
+  const [locationError,setLocationError]=useState(false);
   const myRef=React.useRef<number[]|null>(null);
+  const mapRef=React.useRef<any>(null);
   const loadNearby=useCallback(async()=>{
-    const { ll }=await getMyLocation(); setMyLL(ll); myRef.current=ll;
-    const since=new Date(Date.now()-60*60*1000).toISOString();
-    const { data }=await supabase.from('taxi_orders').select('id,pickup_text,dropoff_text,pickup_lat,pickup_lng,dropoff_lat,dropoff_lng,distance_km,duration_min,vehicle_category,estimated_fare,fare_local,local_currency,search_radius_km,created_at')
-      .eq('status','pending').is('driver_id',null).gte('created_at',since).order('created_at',{ascending:false}).limit(50);
-    setNearby(((data||[]) as any[]).map(r=> ({...toReq(r), away:kmBetween(ll,[r.pickup_lat,r.pickup_lng])}))
-      .filter(r=> r.away<=r.radius).sort((a,b)=> a.away-b.away));
+    setLocationLoading(true); setLocationError(false);
+    try{
+      const { ll, real }=await getMyLocation();
+      if(!real || !ll){ setMyLL(null); myRef.current=null; setNearby([]); setLocationError(true); return; }
+      setMyLL(ll); myRef.current=ll;
+      mapRef.current?.animateToRegion?.({latitude:ll[0],longitude:ll[1],latitudeDelta:0.12,longitudeDelta:0.12});
+      const since=new Date(Date.now()-60*60*1000).toISOString();
+      const { data }=await supabase.from('taxi_orders').select('id,pickup_text,dropoff_text,pickup_lat,pickup_lng,dropoff_lat,dropoff_lng,distance_km,duration_min,vehicle_category,estimated_fare,fare_local,local_currency,search_radius_km,created_at')
+        .eq('status','pending').is('driver_id',null).gte('created_at',since).order('created_at',{ascending:false}).limit(50);
+      setNearby(((data||[]) as any[]).map(r=> ({...toReq(r), away:kmBetween(ll,[r.pickup_lat,r.pickup_lng])}))
+        .filter(r=> r.away<=r.radius).sort((a,b)=> a.away-b.away));
+    }catch{
+      setMyLL(null); myRef.current=null; setNearby([]); setLocationError(true);
+    }finally{ setLocationLoading(false); }
   },[]);
   useFocusEffect(useCallback(()=>{ loadNearby(); },[loadNearby]));
   // طلب جديد لحظياً: يظهر فقط إذا كان ضمن الدائرة
@@ -210,13 +221,22 @@ function DriverMap({ wp }:{ wp:any }){
       <WorkStatusBanner />
       <WorkNav profile={wp} here="map" />
       <View style={{flex:1, margin:10, borderRadius:14, overflow:'hidden', borderWidth:1, borderColor:'#e2e8f0'}}>
-        <MapView style={{flex:1}} region={{latitude:(myLL||[33.5138,36.2765])[0], longitude:(myLL||[33.5138,36.2765])[1], latitudeDelta:0.12, longitudeDelta:0.12}}>
-          <UrlTile urlTemplate="https://a.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png" maximumZ={19} flipY={false}/>
-          {myLL && <Circle center={toLL(myLL)} radius={RADIUS_KM*1000} fillColor="rgba(79,70,229,0.08)" strokeColor="rgba(79,70,229,0.5)"/>}
-          {myLL && <Marker coordinate={toLL(myLL)} pinColor="#4F46E5"/>}
-          {nearby.map(r=> <Marker key={r.id} coordinate={toLL(r.fromLL)} pinColor="green" onPress={()=> openWithRoute(r)}/>)}
-        </MapView>
-        <View style={s.legend}><Text style={{fontSize:10, fontWeight:'900'}}>نطاق الطلبات {RADIUS_KM} كم{status?.taxi_category? ' • '+(CAT[status.taxi_category]||'') : ''}</Text></View>
+        {myLL ? (
+          <>
+            <MapView ref={mapRef} style={{flex:1}} initialRegion={{latitude:myLL[0], longitude:myLL[1], latitudeDelta:0.12, longitudeDelta:0.12}}>
+              <UrlTile urlTemplate="https://a.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png" maximumZ={19} flipY={false}/>
+              <Circle center={toLL(myLL)} radius={RADIUS_KM*1000} fillColor="rgba(79,70,229,0.08)" strokeColor="rgba(79,70,229,0.5)"/>
+              <Marker coordinate={toLL(myLL)} pinColor="#4F46E5"/>
+              {nearby.map(r=> <Marker key={r.id} coordinate={toLL(r.fromLL)} pinColor="green" onPress={()=> openWithRoute(r)}/>)}
+            </MapView>
+            <View style={s.legend}><Text style={{fontSize:10, fontWeight:'900'}}>نطاق الطلبات {RADIUS_KM} كم{status?.taxi_category? ' • '+(CAT[status.taxi_category]||'') : ''}</Text></View>
+          </>
+        ) : (
+          <View style={{flex:1,alignItems:'center',justifyContent:'center',padding:20,gap:12,backgroundColor:'#f8fafc'}}>
+            <Text style={{fontSize:13,lineHeight:20,fontWeight:'800',color:'#334155',textAlign:'center'}}>{locationLoading?'📡 جارٍ تحديد موقعك لعرض الطلبات القريبة':'تعذر تحديد موقعك؛ اسمح بإذن الموقع وفعّل الموقع ثم أعد المحاولة.'}</Text>
+            {!locationLoading && <Pressable onPress={loadNearby} style={{height:40,paddingHorizontal:16,borderRadius:12,backgroundColor:'#4F46E5',alignItems:'center',justifyContent:'center'}}><Text style={{color:'#fff',fontWeight:'900',fontSize:12}}>تحديد موقعي وإعادة المحاولة</Text></Pressable>}
+          </View>
+        )}
       </View>
       <View style={{padding:10, gap:8, paddingBottom:80}}>
         {status?.taxi_suspended && (

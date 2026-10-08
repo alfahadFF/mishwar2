@@ -58,6 +58,8 @@ export const MapView = forwardRef<any, any>(function OpenMapView(props, forwarde
     });
   }, [region?.latitude, region?.longitude, region?.latitudeDelta, region?.longitudeDelta]);
 
+  if (!firstRegion) return <View style={[style,{alignItems:'center',justifyContent:'center',backgroundColor:'#f8fafc'}]}><Text>حدد موقعك لعرض الخريطة</Text></View>;
+
   return (
     <MapLibreGL.MapView
       {...nativeProps}
@@ -74,7 +76,7 @@ export const MapView = forwardRef<any, any>(function OpenMapView(props, forwarde
       <MapLibreGL.Camera
         ref={cameraRef}
         defaultSettings={{
-          centerCoordinate: firstRegion ? [firstRegion.longitude, firstRegion.latitude] : [36.2765, 33.5138],
+          centerCoordinate: [firstRegion.longitude, firstRegion.latitude],
           zoomLevel: regionZoom(firstRegion),
         }}
       />

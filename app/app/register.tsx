@@ -12,7 +12,8 @@ const ORANGE = '#FF6B00';
 function signupError(e: any): string {
   const m = String(e?.message || e || '');
   if (/already registered|already exists|users_email_key/i.test(m)) return 'هذا الرقم مسجّل مسبقاً';
-  if (/BAD_PHONE|Database error saving new user/i.test(m)) return 'رقم الهاتف غير صحيح';
+  if (/BAD_PHONE/i.test(m)) return 'رقم الهاتف غير صحيح';
+  if (/Database error saving new user/i.test(m)) return 'تعذر إنشاء ملف الحساب؛ قد يكون الرقم مسجلاً مسبقاً. جرّب تسجيل الدخول أو استخدم رقماً آخر';
   if (/TERMS_REQUIRED/.test(m)) return 'يجب الموافقة على الشروط وسياسة الخصوصية';
   if (/password/i.test(m)) return 'كلمة المرور غير مقبولة، اختر كلمة أطول';
   if (/rate limit|too many/i.test(m)) return 'محاولات كثيرة، حاول بعد قليل';

@@ -56,7 +56,7 @@ export default function OfficeRegisterScreen() {
   const otherPhone = !!parsed && !!myPhone && parsed.phone !== myPhone;
 
   const openMap = async () => {
-    if (!f.ll) { const { ll } = await getMyLocation(); if (ll) set('ll', ll); }
+    if (!f.ll) { const { ll, real } = await getMyLocation(); if (real && ll) set('ll', ll); }
     setPick(true);
   };
 

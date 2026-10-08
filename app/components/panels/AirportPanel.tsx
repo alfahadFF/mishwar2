@@ -25,6 +25,7 @@ export default function AirportPanel({ mode = 'requests' }: PanelProps) {
   const toast = useToast();
   const { wallet, refresh: refreshWallet, isFree } = useWallet();
   const [me, setMe] = useState<number[] | null>(null);
+  const [locationLoading, setLocationLoading] = useState(true);
   const [feed, setFeed] = useState<any[] | null>(null);
   const [jobs, setJobs] = useState<any[] | null>(null);
   const [dist, setDist] = useState<Record<string, OrderDist>>({});
@@ -37,8 +38,17 @@ export default function AirportPanel({ mode = 'requests' }: PanelProps) {
   const [busy, setBusy] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const bookings = mode === 'bookings';
+  const locateMe = useCallback(async () => {
+    setLocationLoading(true); setMe(null);
+    try {
+      const { ll, real } = await getMyLocation();
+      if (!real || !ll) { setMe(null); return; }
+      setMe(ll);
+    } catch { setMe(null); }
+    finally { setLocationLoading(false); }
+  }, []);
 
-  useEffect(() => { if (!bookings) getMyLocation().then(r => setMe(r.ll)); }, []);
+  useEffect(() => { if (!bookings) void locateMe(); }, [bookings, locateMe]);
   const loadFeed = useCallback(async () => {
     if (!me) return;
     const { data, error } = await supabase.rpc('driver_airport_feed', { p_lat: me[0], p_lng: me[1] });
@@ -129,7 +139,7 @@ export default function AirportPanel({ mode = 'requests' }: PanelProps) {
             <Text style={[ui.note, { color: C.err }]}>توقف ظهور الطلبات الجديدة حتى شحن الرصيد</Text>
           </View>
         )}
-        {!feed ? <Empty icon="⏳" title="جاري تحميل الطلبات" /> : feed.length === 0 ? (
+        {!me ? (locationLoading ? <Empty icon="📡" title="جارٍ تحديد موقعك لعرض الطلبات القريبة" /> : <View style={{gap:8}}><Empty icon="📍" title="تعذر تحديد موقعك" sub="اسمح بإذن الموقع ثم أعد المحاولة؛ لن نعرض طلبات مدينة أخرى." /><Btn small label="تحديد موقعي وإعادة المحاولة" onPress={locateMe} /></View>) : !feed ? <Empty icon="⏳" title="جاري تحميل الطلبات" /> : feed.length === 0 ? (
           <Empty icon="📭" title="لا توجد طلبات مطار حالياً" sub="تظهر هنا الطلبات ضمن 20 كم من موقعك" />
         ) : feed.map(o => {
           const d = dist[o.id];

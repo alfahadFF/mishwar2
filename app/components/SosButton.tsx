@@ -36,7 +36,7 @@ export default function SosButton() {
 
   const start = async (mode: 'family' | 'all') => {
     if (busy) return; setBusy(true);
-    const ll = (await getFreshLocation()) || (await getMyLocation().then(r => (r.real ? r.ll : null)));
+    const ll = (await getFreshLocation()) || (await getMyLocation().then(r => (r.real && r.ll ? r.ll : null)));
     const { data, error } = await supabase.rpc('sos_start', { p_mode: mode, p_lat: ll?.[0] ?? null, p_lng: ll?.[1] ?? null });
     setBusy(false);
     if (error) { flash(errMsg(error)); return; }

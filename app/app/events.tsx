@@ -11,6 +11,7 @@ import TripRouteMap, { Segment, TripMarker } from '../components/TripRouteMap';
 type Pt={ll:number[]|null,label:string};
 const EMPTY:Pt={ll:null,label:''};
 
+type EventType='wedding'|'family'|'tourist'|'other';
 const VEH = [
   { key:'wedding_car', name:'💍 سيارة زفاف', seats:4 },
   { key:'bus_large_50', name:'🚌 باص كبير 50', seats:50 },
@@ -21,10 +22,17 @@ const VEH = [
   { key:'van_11', name:'🚐 فان 11', seats:11 },
   { key:'van_8', name:'🚐 فان 8', seats:8 },
 ] as const;
+const EVENT_FORM:Record<EventType,{title:string;gather:string;routeTitle:string;routeHint:string;duration:string;detailsTitle:string;detailsHint:string}>={
+  wedding:{title:'تفاصيل الزفاف',gather:'مكان التجمع (العروس/العريس)',routeTitle:'مسار الزفاف والصالة',routeHint:'حدد التجمع والصالة وأي محطات بينهما ومكان الوصول الأخير.',duration:'مدة خدمة الزفاف',detailsTitle:'ترتيبات الزفاف',detailsHint:'اسم الصالة وترتيب المراسم وأي متطلبات خاصة بنقل العروسين.'},
+  family:{title:'خطة الرحلة العائلية',gather:'نقطة تجمع العائلة',routeTitle:'وجهات الرحلة العائلية',routeHint:'أضف وجهات الرحلة العائلية بالترتيب وحدد نقطة العودة.',duration:'مدة الرحلة العائلية',detailsTitle:'احتياجات العائلة',detailsHint:'أطفال، مقاعد أطفال، أمتعة أو متطلبات خاصة بالعائلة.'},
+  tourist:{title:'برنامج الرحلة السياحية',gather:'نقطة انطلاق الرحلة السياحية',routeTitle:'المعالم ومحطات الزيارة',routeHint:'أضف المواقع السياحية بالترتيب وحدد نقطة الوصول الأخيرة.',duration:'مدة الجولة السياحية',detailsTitle:'برنامج الزيارة',detailsHint:'أماكن الزيارة المرغوبة ومدة التوقف أو تفاصيل البرنامج.'},
+  other:{title:'تفاصيل المناسبة',gather:'نقطة تجمع المناسبة',routeTitle:'مسار المناسبة ونقاط التنقل',routeHint:'حدد نقطة التجمع والوجهات المطلوبة ونقطة الوصول الأخيرة.',duration:'مدة المناسبة',detailsTitle:'متطلبات المناسبة',detailsHint:'اشرح ما تحتاجه المناسبة من مركبات أو ترتيبات خاصة.'},
+};
 
 export default function EventsScreen(){
-  const [eventType, setEventType] = useState<string|null>(null);
+  const [eventType, setEventType] = useState<EventType|null>(null);
   const [otherType, setOtherType] = useState('');
+  const [typeDetails, setTypeDetails] = useState('');
   const [gather, setGather] = useState<Pt>(EMPTY);
   const [gatherTime, setGatherTime] = useState('');
   const [departTime, setDepartTime] = useState('');
@@ -46,9 +54,17 @@ export default function EventsScreen(){
   const router=useRouter();
   const [loading, setLoading] = useState(false);
 
-  const totalSeats = VEH.reduce((s,v)=> s + (counts[v.key]||0)*v.seats, 0);
-  const canPublish = !!eventType && !!gather.ll && dests.some(d=>d.ll) && totalSeats>0 && people>=1 && (eventType!=='other' || otherType.trim());
+  const eventForm=eventType?EVENT_FORM[eventType]:null;
+  const eventVehicles=eventType==='wedding'?VEH:VEH.filter(v=>v.key!=='wedding_car');
+  const totalSeats = eventVehicles.reduce((s,v)=> s + (counts[v.key]||0)*v.seats, 0);
+  const canPublish = !!eventType && !!gather.ll && dests.some(d=>d.ll) && totalSeats>=people && people>=1 && (eventType!=='other' || !!otherType.trim());
 
+  const selectEventType=(next:EventType)=>{
+    if(next===eventType) return;
+    setEventType(next); setTypeDetails(''); setCounts({});
+    setWeddingStyle('normal'); setWeddingDeco(true);
+    if(next!=='other') setOtherType('');
+  };
   const chg = (k:string, d:number)=> setCounts(c=> ({...c, [k]: Math.max(0,(c[k]||0)+d)}));
   const addDest = ()=> setDests(d=> [...d,EMPTY]);
   const openPick=(title:string,color:string,initial:number[]|null,apply:(ll:number[],label:string)=>void)=> setPicker({title,color,initial,apply});
@@ -68,7 +84,11 @@ export default function EventsScreen(){
     try{
       const { data:{user}} = await supabase.auth.getUser();
       if(!user){ guestBlocked(); return; }
-      const vehicles = VEH.filter(v=> (counts[v.key]||0)>0).map(v=> ({ type:v.key, seats:v.seats, count:counts[v.key], ...(v.key==='wedding_car'? {style:weddingStyle, deco:weddingDeco}:{}) }));
+      const vehicles = eventVehicles.filter(v=> (counts[v.key]||0)>0).map(v=> ({ type:v.key, seats:v.seats, count:counts[v.key], ...(eventType==='wedding' && v.key==='wedding_car'? {style:weddingStyle, deco:weddingDeco}:{}) }));
+      const orderNotes=[
+        typeDetails.trim()? `${eventForm?.detailsTitle||'تفاصيل الطلب'}: ${typeDetails.trim()}`:null,
+        notes.trim()? `ملاحظات إضافية: ${notes.trim()}`:null,
+      ].filter(Boolean).join('\n\n')||null;
       const payload:any = {
         user_id:user.id,
         event_type: eventType,
@@ -86,7 +106,7 @@ export default function EventsScreen(){
         num_people: people,
         vehicles,
         total_seats: totalSeats,
-        notes: notes.trim()||null,
+        notes: orderNotes,
         budget_type: 'quote',
       };
       const { error } = await supabase.from('event_orders').insert(payload);
@@ -111,54 +131,62 @@ export default function EventsScreen(){
             ['tourist','🏖️ سياحية'],
             ['other','✨ أخرى'],
           ].map(([k,l])=> (
-            <Pressable key={k} onPress={()=> setEventType(k)} style={[s.chip, eventType===k && s.chipActive]}><Text style={[s.chipT, eventType===k && s.chipTActive]}>{l}</Text></Pressable>
+            <Pressable key={k} onPress={()=> selectEventType(k as EventType)} style={[s.chip, eventType===k && s.chipActive]}><Text style={[s.chipT, eventType===k && s.chipTActive]}>{l}</Text></Pressable>
           ))}
         </View>
         {eventType==='other' && <TextInput value={otherType} onChangeText={setOtherType} placeholder="اكتب نوع المناسبة" style={s.input}/>}
       </View>
 
-      {eventType && (
+      {eventType && eventForm && (
         <>
           <View style={s.card}>
-            <Text style={s.h2}>📍 المسار والمواعيد</Text>
-            <Text style={s.hint}>{eventType==='wedding'? 'زفاف: نقطة التجمع → الوجهات → العودة' : 'نقطة التجمع والمسار والعودة'}</Text>
-            <PointRow badge="📍" color="#16a34a" title="نقطة التجمع" label={gather.label} set={!!gather.ll}
-              onPick={()=> openPick('نقطة التجمع','green',gather.ll,(ll,label)=> setGather({ll,label}))}/>
+            <Text style={s.h2}>{eventForm.title}</Text>
+            <Text style={s.hint}>{eventForm.detailsHint}</Text>
+            <TextInput value={typeDetails} onChangeText={setTypeDetails} maxLength={500} multiline
+              placeholder={eventForm.detailsHint} style={[s.input,{height:80,textAlignVertical:'top',paddingTop:8}]}/>
+          </View>
+
+          <View style={s.card}>
+            <Text style={s.h2}>📍 {eventForm.routeTitle}</Text>
+            <Text style={s.hint}>{eventForm.routeHint}</Text>
+            <PointRow badge="📍" color="#16a34a" title={eventForm.gather} label={gather.label} set={!!gather.ll}
+              onPick={()=> openPick(eventForm.gather,'green',gather.ll,(ll,label)=> setGather({ll,label}))}/>
 
             <View style={{flexDirection:'row', gap:8, marginTop:8}}>
-              <View style={{flex:1}}><Text style={s.label}>موعد التجمع</Text><TextInput value={gatherTime} onChangeText={setGatherTime} placeholder="2026-09-30 18:00" style={s.input}/></View>
-              <View style={{flex:1}}><Text style={s.label}>موعد الانطلاق</Text><TextInput value={departTime} onChangeText={setDepartTime} placeholder="2026-09-30 19:00" style={s.input}/></View>
+              <View style={{flex:1}}><Text style={s.label}>موعد التجمع</Text><TextInput value={gatherTime} onChangeText={setGatherTime} placeholder="YYYY-MM-DD HH:MM" style={s.input}/></View>
+              <View style={{flex:1}}><Text style={s.label}>موعد الانطلاق</Text><TextInput value={departTime} onChangeText={setDepartTime} placeholder="YYYY-MM-DD HH:MM" style={s.input}/></View>
             </View>
-            <Text style={[s.label,{marginTop:8}]}>الوجهة / مسار الرحلة — أكثر من مكان</Text>
-            {dests.map((d,i)=> (
-              <PointRow key={i} badge={String(i+1)} color="#4F46E5" title={'الوجهة '+(i+1)} label={d.label} set={!!d.ll}
-                onPick={()=> openPick('الوجهة '+(i+1),'indigo',d.ll,(ll,label)=> setDests(x=> x.map((y,idx)=> idx===i? {ll,label}:y)))}
-                onRemove={i>0? ()=> setDests(x=> x.filter((_,idx)=> idx!==i)) : undefined}/>
-            ))}
-            <Pressable onPress={addDest} style={s.addPt}><Text style={s.addPtT}>＋ إضافة وجهة</Text></Pressable>
+            <Text style={[s.label,{marginTop:8}]}>{eventForm.routeTitle} — أكثر من محطة</Text>
+            {dests.map((d,i)=> {
+              const pointTitle=eventType==='wedding'?`وجهة الزفاف ${i+1}`:eventType==='tourist'?`محطة الزيارة ${i+1}`:eventType==='family'?`وجهة العائلة ${i+1}`:`وجهة ${i+1}`;
+              return <PointRow key={i} badge={String(i+1)} color="#4F46E5" title={pointTitle} label={d.label} set={!!d.ll}
+                onPick={()=> openPick(pointTitle,'indigo',d.ll,(ll,label)=> setDests(x=> x.map((y,idx)=> idx===i? {ll,label}:y)))}
+                onRemove={i>0? ()=> setDests(x=> x.filter((_,idx)=> idx!==i)) : undefined}/>;
+            })}
+            <Pressable onPress={addDest} style={s.addPt}><Text style={s.addPtT}>{eventType==='tourist'?'＋ إضافة محطة زيارة':'＋ إضافة وجهة'}</Text></Pressable>
 
             <View style={{flexDirection:'row', gap:8, marginTop:10}}>
               <View style={{flex:1}}>
-                <Text style={s.label}>المدة بالساعات</Text>
+                <Text style={s.label}>{eventForm.duration} (بالساعات)</Text>
                 <View style={s.stepper}>
                   <Pressable onPress={()=> setDuration(d=> Math.max(1,d-1))} style={s.stepBtn}><Text>−</Text></Pressable>
                   <Text style={s.stepVal}>{duration}</Text>
                   <Pressable onPress={()=> setDuration(d=> Math.min(72,d+1))} style={s.stepBtn}><Text>＋</Text></Pressable>
                 </View>
-                <Pressable onPress={()=> setWait(v=> !v)} style={{flexDirection:'row', gap:6, marginTop:6}}><Text>{wait?'☑':'☐'}</Text><Text style={{fontSize:11}}>السائق ينتظر</Text></Pressable>
+                <Pressable onPress={()=> setWait(v=> !v)} style={{flexDirection:'row', gap:6, marginTop:6}}><Text>{wait?'☑':'☐'}</Text><Text style={{fontSize:11}}>{eventType==='wedding'?'السائق ينتظر بين محطات الزفاف':eventType==='tourist'?'السائق ينتظر بين الزيارات':'السائق ينتظر بين المحطات'}</Text></Pressable>
               </View>
-              <View style={{flex:1}}><Text style={s.label}>موعد العودة</Text><TextInput value={returnTime} onChangeText={setReturnTime} placeholder="2026-10-01 02:00" style={s.input}/></View>
+              <View style={{flex:1}}><Text style={s.label}>موعد العودة</Text><TextInput value={returnTime} onChangeText={setReturnTime} placeholder="YYYY-MM-DD HH:MM" style={s.input}/></View>
             </View>
-            <PointRow badge="🏁" color="#dc2626" title="نقطة الوصول الأخيرة" label={finalPt.label} set={!!finalPt.ll} optional
-              onPick={()=> openPick('نقطة الوصول الأخيرة','red',finalPt.ll,(ll,label)=> setFinalPt({ll,label}))}
+            <PointRow badge="🏁" color="#dc2626" title={eventType==='wedding'?'الوصول الأخير (الصالة/المنزل)':eventType==='tourist'?'نهاية الجولة السياحية':'نقطة الوصول الأخيرة'} label={finalPt.label} set={!!finalPt.ll} optional
+              onPick={()=> openPick(eventType==='wedding'?'الوصول الأخير للزفاف':eventType==='tourist'?'نهاية الجولة السياحية':'نقطة الوصول الأخيرة','red',finalPt.ll,(ll,label)=> setFinalPt({ll,label}))}
               onRemove={finalPt.ll? ()=> setFinalPt(EMPTY) : undefined}/>
             {segments.length>0 && <><Text style={[s.label,{marginTop:12}]}>🛣️ مسار الرحلة</Text><TripRouteMap segments={segments} markers={markers} onResult={setRouteInfo}/></>}
           </View>
 
           <View style={s.card}>
-            <Text style={s.h2}>👥 الأشخاص والمركبات</Text>
+            <Text style={s.h2}>{eventType==='wedding'?'💍 الأشخاص ومركبات الزفاف':eventType==='family'?'👨‍👩‍👧‍👦 أفراد العائلة والمركبات':eventType==='tourist'?'🏖️ المشاركون ومركبات الجولة':'👥 الأشخاص والمركبات'}</Text>
             <View style={{flexDirection:'row', justifyContent:'space-between', alignItems:'center'}}>
-              <Text style={{fontWeight:'800'}}>عدد الأشخاص</Text>
+              <Text style={{fontWeight:'800'}}>{eventType==='family'?'عدد أفراد العائلة':eventType==='tourist'?'عدد المشاركين':'عدد الأشخاص'}</Text>
               <View style={s.stepper}>
                 <Pressable onPress={()=> setPeople(people-1)} style={s.stepBtn}><Text>−</Text></Pressable>
                 <TextInput value={peopleTxt} keyboardType="number-pad" maxLength={3} style={s.peopleIn}
@@ -172,7 +200,7 @@ export default function EventsScreen(){
                 <Pressable key={n} onPress={()=> setPeople(n)} style={[s.chipSmall, people===n && s.chipActive]}><Text style={[s.chipT, people===n && s.chipTActive]}>{n}</Text></Pressable>
               ))}
             </View>
-            {VEH.map(v=> (
+            {eventVehicles.map(v=> (
               <View key={v.key} style={s.veh}>
                 <View><Text style={{fontWeight:'800', fontSize:13}}>{v.name}</Text><Text style={{fontSize:11, color:'#64748b'}}>{v.seats} مقاعد • العدد: {counts[v.key]||0}</Text></View>
                 <View style={s.stepper}>
@@ -185,7 +213,7 @@ export default function EventsScreen(){
             <View style={[s.total, (totalSeats>=people && totalSeats>0)? s.totalOk: s.totalWarn]}>
               <Text style={{fontWeight:'900', textAlign:'center'}}>{totalSeats===0? `⚠️ اختر مركبات — 0 / ${people}` : totalSeats>=people? `✅ المقاعد: ${totalSeats} / ${people}` : `⚠️ لا تكفي: ${totalSeats} / ${people}`}</Text>
             </View>
-            {(counts['wedding_car']||0)>0 && (
+            {eventType==='wedding' && (counts['wedding_car']||0)>0 && (
               <View style={s.wedBox}>
                 <Text style={{fontWeight:'900', fontSize:12}}>💍 تفاصيل سيارة الزفاف</Text>
                 <View style={s.chips}>
@@ -199,8 +227,8 @@ export default function EventsScreen(){
           </View>
 
           <View style={s.card}>
-            <Text style={s.h2}>📝 ملاحظات</Text>
-            <TextInput value={notes} onChangeText={setNotes} placeholder="كراسي أطفال، توقف إضافي..." style={[s.input,{height:80, textAlignVertical:'top', paddingTop:8}]} multiline/>
+            <Text style={s.h2}>📝 ملاحظات إضافية مشتركة (اختياري)</Text>
+            <TextInput value={notes} onChangeText={setNotes} placeholder="أي ملاحظة أخرى للطلب..." style={[s.input,{height:80, textAlignVertical:'top', paddingTop:8}]} multiline/>
           </View>
 
           <Pressable onPress={handlePublish} disabled={!canPublish || loading} style={[s.publish, (!canPublish||loading) && {backgroundColor:'#cbd5e1'}]}>

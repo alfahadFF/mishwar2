@@ -1,6 +1,6 @@
 import Constants from 'expo-constants';
 
-// توجيه الطرق عبر OpenRouteService عند تهيئة المفتاح؛ OSRM العام يبقى بديلاً للتطوير فقط.
+// يجرّب OpenRouteService عند تهيئته، ثم يستخدم OSRM بديلاً عند تعذّر الطلب الأساسي.
 export type LatLng = number[];
 export type RouteResult = { ok: true; km: number; min: number; path: { latitude: number; longitude: number }[] } | { ok: false };
 const cache: Record<string, RouteResult> = {};
@@ -8,14 +8,14 @@ export const OSRM_URL = 'https://router.project-osrm.org';
 const ORS_URL = 'https://api.openrouteservice.org/v2';
 const ORS_API_KEY = String(Constants.expoConfig?.extra?.orsApiKey || '').trim();
 
-function requestSignal() {
+function requestSignal(ms=15000) {
   const ctrl = new AbortController();
-  const tm = setTimeout(() => ctrl.abort(), 15000);
+  const tm = setTimeout(() => ctrl.abort(), ms);
   return { signal: ctrl.signal, clear: () => clearTimeout(tm) };
 }
 
 async function orsMatrix(locations: LatLng[], sources: number[], destinations: number[], metric: 'duration' | 'distance') {
-  const timeout = requestSignal();
+  const timeout = requestSignal(10000);
   try {
     const response = await fetch(`${ORS_URL}/matrix/driving-car`, {
       method: 'POST',
@@ -37,56 +37,62 @@ async function orsMatrix(locations: LatLng[], sources: number[], destinations: n
   }
 }
 
-export async function getRoute(points: LatLng[]): Promise<RouteResult> {
-  const key = points.map(p => p[0].toFixed(5) + ',' + p[1].toFixed(5)).join(';');
-  if (cache[key]) return cache[key];
-  const timeout = requestSignal();
+function routeResult(distance: number, duration: number, coordinates: number[][]): RouteResult | null {
+  if (!Number.isFinite(distance) || !Number.isFinite(duration) || !coordinates?.length) return null;
+  const path = coordinates.map((coordinate: number[]) => ({ latitude: Number(coordinate[1]), longitude: Number(coordinate[0]) }));
+  if (path.length < 2 || path.some(p => !Number.isFinite(p.latitude) || !Number.isFinite(p.longitude))) return null;
+  return { ok: true, km: distance / 1000, min: duration / 60, path };
+}
+
+async function routeViaORS(points: LatLng[]): Promise<RouteResult | null> {
+  const timeout = requestSignal(10000);
   try {
-    let distance: number;
-    let duration: number;
-    let coordinates: number[][];
-
-    if (ORS_API_KEY) {
-      const response = await fetch(`${ORS_URL}/directions/driving-car/geojson`, {
-        method: 'POST',
-        headers: { Authorization: ORS_API_KEY, 'Content-Type': 'application/json', Accept: 'application/geo+json, application/json' },
-        body: JSON.stringify({ coordinates: points.map(p => [p[1], p[0]]), instructions: false }),
-        signal: timeout.signal,
-      });
-      const data = await response.json();
-      const feature = data.features?.[0];
-      const summary = feature?.properties?.summary;
-      coordinates = feature?.geometry?.coordinates;
-      if (!response.ok || data.error || !summary || !Array.isArray(coordinates)) {
-        throw new Error(data.error?.message || `OpenRouteService ${response.status}`);
-      }
-      distance = Number(summary.distance);
-      duration = Number(summary.duration);
-    } else {
-      const coords = points.map(p => p[1] + ',' + p[0]).join(';');
-      const response = await fetch(`${OSRM_URL}/route/v1/driving/${coords}?overview=full&geometries=geojson`, { signal: timeout.signal });
-      const data = await response.json();
-      if (data.code !== 'Ok' || !data.routes?.length) throw new Error('no route');
-      const route = data.routes[0];
-      distance = Number(route.distance);
-      duration = Number(route.duration);
-      coordinates = route.geometry.coordinates;
-    }
-
-    if (!Number.isFinite(distance) || !Number.isFinite(duration) || !coordinates?.length) throw new Error('invalid route');
-    const result: RouteResult = {
-      ok: true,
-      km: distance / 1000,
-      min: duration / 60,
-      path: coordinates.map((coordinate: number[]) => ({ latitude: coordinate[1], longitude: coordinate[0] })),
-    };
-    cache[key] = result;
-    return result;
+    const response = await fetch(`${ORS_URL}/directions/driving-car/geojson`, {
+      method: 'POST',
+      headers: { Authorization: ORS_API_KEY, 'Content-Type': 'application/json', Accept: 'application/geo+json, application/json' },
+      body: JSON.stringify({ coordinates: points.map(p => [p[1], p[0]]), instructions: false }),
+      signal: timeout.signal,
+    });
+    const data = await response.json();
+    const feature = data.features?.[0];
+    const summary = feature?.properties?.summary;
+    const coordinates = feature?.geometry?.coordinates;
+    if (!response.ok || data.error || !summary || !Array.isArray(coordinates)) return null;
+    return routeResult(Number(summary.distance), Number(summary.duration), coordinates);
   } catch {
-    return { ok: false };
+    return null;
   } finally {
     timeout.clear();
   }
+}
+
+async function routeViaOSRM(points: LatLng[]): Promise<RouteResult | null> {
+  const timeout = requestSignal(12000);
+  try {
+    const coords = points.map(p => p[1] + ',' + p[0]).join(';');
+    const response = await fetch(`${OSRM_URL}/route/v1/driving/${coords}?overview=full&geometries=geojson`, { signal: timeout.signal });
+    const data = await response.json();
+    if (!response.ok || data.code !== 'Ok' || !data.routes?.length) return null;
+    const route = data.routes[0];
+    return routeResult(Number(route.distance), Number(route.duration), route.geometry?.coordinates || []);
+  } catch {
+    return null;
+  } finally {
+    timeout.clear();
+  }
+}
+
+export async function getRoute(points: LatLng[]): Promise<RouteResult> {
+  const key = points.map(p => p[0].toFixed(5) + ',' + p[1].toFixed(5)).join(';');
+  if (cache[key]) return cache[key];
+
+  if (ORS_API_KEY) {
+    const primary = await routeViaORS(points);
+    if (primary) { cache[key] = primary; return primary; }
+  }
+  const fallback = await routeViaOSRM(points);
+  if (fallback) { cache[key] = fallback; return fallback; }
+  return { ok: false };
 }
 
 export const fmtMin = (m: number) => { m = Math.round(m); return m < 60 ? `${m} د` : `${Math.floor(m / 60)} س ${m % 60} د`; };
@@ -109,16 +115,15 @@ export async function orderDistances(me: LatLng | null, pts: LatLng[]): Promise<
 }
 export const fmtKm = (km?: number) => (km == null ? '—' : km < 1 ? `${Math.round(km * 1000)} م` : `${km.toFixed(1)} كم`);
 
-// مدة الوصول على الطريق من عدة سيارات إلى نقطة واحدة عبر Matrix.
+// زمن الوصول على الطريق؛ عند فشل خدمة المصفوفة الأساسية تُجرَّب مصفوفة OSRM.
 export async function etaToPoint(from: LatLng[], to: LatLng): Promise<(number | null)[]> {
   if (!from.length) return [];
   if (ORS_API_KEY) {
     try {
       const values = await orsMatrix([to, ...from], from.map((_, i) => i + 1), [0], 'duration');
-      return from.map((_, i) => values?.[i]?.[0] == null ? null : values[i][0] / 60);
-    } catch {
-      return from.map(() => null);
-    }
+      const result = from.map((_, i) => values?.[i]?.[0] == null ? null : Number(values[i][0]) / 60);
+      if (result.every(v => v != null && Number.isFinite(v))) return result;
+    } catch { /* try the OSRM fallback below */ }
   }
   const coords = [to, ...from].map(p => p[1] + ',' + p[0]).join(';');
   const src = from.map((_, i) => i + 1).join(';');
@@ -126,8 +131,8 @@ export async function etaToPoint(from: LatLng[], to: LatLng): Promise<(number | 
   try {
     const response = await fetch(`${OSRM_URL}/table/v1/driving/${coords}?sources=${src}&destinations=0`, { signal: timeout.signal });
     const data = await response.json();
-    if (data.code !== 'Ok') throw new Error('no table');
-    return data.durations.map((row: (number | null)[]) => row[0] == null ? null : row[0] / 60);
+    if (!response.ok || data.code !== 'Ok' || !Array.isArray(data.durations)) throw new Error('no table');
+    return data.durations.map((row: (number | null)[]) => row?.[0] == null ? null : row[0] / 60);
   } catch {
     return from.map(() => null);
   } finally {
@@ -135,16 +140,15 @@ export async function etaToPoint(from: LatLng[], to: LatLng): Promise<(number | 
   }
 }
 
-// مسافة الطريق (كم) من نقطة واحدة إلى عدة نقاط — طلب Matrix واحد فقط.
+// مسافات الطريق من نقطة واحدة إلى عدة وجهات.
 export async function roadKmFrom(origin: LatLng, to: LatLng[]): Promise<(number | null)[]> {
   if (!to.length) return [];
   if (ORS_API_KEY) {
     try {
       const values = await orsMatrix([origin, ...to], [0], to.map((_, i) => i + 1), 'distance');
-      return to.map((_, i) => values?.[0]?.[i] == null ? null : values[0][i] / 1000);
-    } catch {
-      return to.map(() => null);
-    }
+      const result = to.map((_, i) => values?.[0]?.[i] == null ? null : Number(values[0][i]) / 1000);
+      if (result.every(v => v != null && Number.isFinite(v))) return result;
+    } catch { /* try the OSRM fallback below */ }
   }
   const coords = [origin, ...to].map(p => p[1] + ',' + p[0]).join(';');
   const dst = to.map((_, i) => i + 1).join(';');
@@ -152,7 +156,7 @@ export async function roadKmFrom(origin: LatLng, to: LatLng[]): Promise<(number 
   try {
     const response = await fetch(`${OSRM_URL}/table/v1/driving/${coords}?sources=0&destinations=${dst}&annotations=distance`, { signal: timeout.signal });
     const data = await response.json();
-    if (data.code !== 'Ok') throw new Error('no table');
+    if (!response.ok || data.code !== 'Ok' || !Array.isArray(data.distances?.[0])) throw new Error('no table');
     return data.distances[0].map((distance: number | null) => distance == null ? null : distance / 1000);
   } catch {
     return to.map(() => null);
