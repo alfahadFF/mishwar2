@@ -1,4 +1,5 @@
 import { View, Text, Pressable, ScrollView, StyleSheet, Image } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useToast } from '../components/Toast';
 import { useRouter, useFocusEffect } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
@@ -11,6 +12,7 @@ const DARK = '#1A1A2E';
 
 export default function HomeScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
   const toast = useToast();
   // عدد الإشعارات غير المقروءة على الجرس
@@ -60,15 +62,12 @@ export default function HomeScreen() {
   return (
     <View style={s.container}>
       {/* Top Bar */}
-      <View style={s.topbar}>
+      <View style={[s.topbar, { height: 56 + insets.top, paddingTop: insets.top, paddingLeft: 70 + insets.left, paddingRight: 16 + insets.right }]}>
         <View style={s.logoRow}>
           <Image source={require('../assets/icon.png')} style={s.logoIcon} />
           <Text style={s.logoTitle}>مشوار</Text>
         </View>
         <View style={s.topActions}>
-          {authed && <Pressable onPress={() => router.push('/account' as any)} style={s.iconBtn} hitSlop={6}>
-            <Text>👤</Text>
-          </Pressable>}
           <Pressable onPress={() => router.push('/notifications' as any)} style={s.iconBtn} hitSlop={6}>
             <Text>🔔</Text>
             {unread > 0 && <View style={s.bellBadge}><Text style={s.bellBadgeT}>{unread > 99 ? '99+' : unread}</Text></View>}
@@ -189,7 +188,7 @@ export default function HomeScreen() {
         <Pressable onPress={() => router.push('/my-orders' as any)} style={s.tab}><Text style={s.tabIcon}>🧾</Text><Text style={s.tabLabel}>طلباتي</Text></Pressable>
         <Pressable onPress={() => router.push('/wallet' as any)} style={s.tab}><Text style={s.tabIcon}>👛</Text><Text style={s.tabLabel}>المحفظة</Text></Pressable>
         <Pressable onPress={() => router.push('/loyalty' as any)} style={s.tab}><Text style={s.tabIcon}>🎁</Text><Text style={s.tabLabel}>نقاطي</Text></Pressable>
-        <Pressable onPress={() => toast.show('يتطلب تسجيل الدخول', 'info')} style={s.tab}><Text style={s.tabIcon}>👤</Text><Text style={s.tabLabel}>حسابي</Text></Pressable>
+        <Pressable onPress={() => authed ? router.push('/account' as any) : router.push('/login' as any)} style={s.tab}><Text style={s.tabIcon}>👤</Text><Text style={s.tabLabel}>حسابي</Text></Pressable>
       </View>
       {toast.node}
     </View>

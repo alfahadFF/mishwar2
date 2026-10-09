@@ -76,7 +76,7 @@ export default function SosButton() {
   return (
     <>
       <Pressable onPress={() => setStep(active ? 'panel' : 'confirm')} hitSlop={8}
-        style={[s.fab, { top: insets.top + 6 }, active && s.fabOn]}>
+        style={[s.fab, { top: insets.top + 13 }, active && s.fabOn]}>
         <Text style={[s.fabT, active && { color: '#fff' }]}>{active ? '🆘 نشطة' : '🆘'}</Text>
       </Pressable>
 

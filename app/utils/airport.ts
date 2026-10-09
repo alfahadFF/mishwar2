@@ -12,7 +12,8 @@ export const hoursText = (h: number) => (h === 1 ? 'ساعة' : h === 2 ? 'سا�
 let cache: Airport[] | null = null;
 export async function loadAirports(): Promise<Airport[]> {
   if (cache) return cache;
-  const { data } = await supabase.from('airports').select('code,name,country,lat,lng');
+  // إصدار 1 لسوريا فقط؛ تُضاف الدول الأخرى عند فتحها في إصدار لاحق.
+  const { data } = await supabase.from('airports').select('code,name,country,lat,lng').eq('country', 'SY');
   cache = (data || []) as Airport[];
   return cache;
 }

@@ -80,7 +80,7 @@ export default function AirportScreen() {
   const submit = async () => {
     if (!kind) return toast.show('اختر: استقبال أو وداع', 'err');
     if (!ll) return toast.show('حدد نقطة الانطلاق على الخريطة', 'err');
-    if (!airport) return toast.show('اختر المطار', 'err');
+    if (!airport || !airports.some(a => a.code === airport)) return toast.show('اختر مطاراً داخل سوريا', 'err');
     if (!date || !time) return toast.show('اختر اليوم والساعة', 'err');
     const at = new Date(`${date}T${hm(time)}:00`);
     if (at.getTime() < Date.now() + 30 * 60e3) return toast.show('اختر موعداً بعد نصف ساعة على الأقل', 'err');

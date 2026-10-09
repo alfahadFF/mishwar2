@@ -12,7 +12,8 @@ type Pt={ll:number[]|null,label:string};
 const EMPTY:Pt={ll:null,label:''};
 
 type EventType='wedding'|'family'|'tourist'|'other';
-const VEH = [
+type EventVehicle = { key: string; name: string; seats: number };
+const VEH: EventVehicle[] = [
   { key:'wedding_car', name:'💍 سيارة زفاف', seats:4 },
   { key:'bus_large_50', name:'🚌 باص كبير 50', seats:50 },
   { key:'bus_mid_27', name:'🚌 باص متوسط 27', seats:27 },
@@ -21,7 +22,7 @@ const VEH = [
   { key:'bus_small_14', name:'🚐 باص صغير 14', seats:14 },
   { key:'van_11', name:'🚐 فان 11', seats:11 },
   { key:'van_8', name:'🚐 فان 8', seats:8 },
-] as const;
+];
 const EVENT_FORM:Record<EventType,{title:string;gather:string;routeTitle:string;routeHint:string;duration:string;detailsTitle:string;detailsHint:string}>={
   wedding:{title:'تفاصيل الزفاف',gather:'مكان التجمع (العروس/العريس)',routeTitle:'مسار الزفاف والصالة',routeHint:'حدد التجمع والصالة وأي محطات بينهما ومكان الوصول الأخير.',duration:'مدة خدمة الزفاف',detailsTitle:'ترتيبات الزفاف',detailsHint:'اسم الصالة وترتيب المراسم وأي متطلبات خاصة بنقل العروسين.'},
   family:{title:'خطة الرحلة العائلية',gather:'نقطة تجمع العائلة',routeTitle:'وجهات الرحلة العائلية',routeHint:'أضف وجهات الرحلة العائلية بالترتيب وحدد نقطة العودة.',duration:'مدة الرحلة العائلية',detailsTitle:'احتياجات العائلة',detailsHint:'أطفال، مقاعد أطفال، أمتعة أو متطلبات خاصة بالعائلة.'},
@@ -56,7 +57,7 @@ export default function EventsScreen(){
 
   const eventForm=eventType?EVENT_FORM[eventType]:null;
   const eventVehicles=eventType==='wedding'?VEH:VEH.filter(v=>v.key!=='wedding_car');
-  const totalSeats = eventVehicles.reduce((s,v)=> s + (counts[v.key]||0)*v.seats, 0);
+  const totalSeats = eventVehicles.reduce<number>((s,v)=> s + (counts[v.key]||0)*v.seats, 0);
   const canPublish = !!eventType && !!gather.ll && dests.some(d=>d.ll) && totalSeats>=people && people>=1 && (eventType!=='other' || !!otherType.trim());
 
   const selectEventType=(next:EventType)=>{
