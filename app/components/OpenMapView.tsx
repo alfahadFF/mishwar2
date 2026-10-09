@@ -9,19 +9,9 @@ if (Platform.OS !== 'web') {
   void MapLibreGL.setAccessToken(null);
 }
 
-const TILE_URL = 'https://a.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png';
-const OSM_STYLE = {
-  version: 8,
-  sources: {
-    'osm-hot': {
-      type: 'raster',
-      tiles: [TILE_URL],
-      tileSize: 256,
-      attribution: '© OpenStreetMap contributors · HOT',
-    },
-  },
-  layers: [{ id: 'osm-hot', type: 'raster', source: 'osm-hot' }],
-};
+// Unversioned Liberty style: the source resolves to OpenFreeMap's latest weekly OSM tiles.
+// Its road, place, and POI labels render Latin plus name:nonlatin (Arabic when tagged in OSM).
+const LATEST_STREET_STYLE_URL = 'https://tiles.openfreemap.org/styles/liberty';
 
 type Region = { latitude: number; longitude: number; latitudeDelta: number; longitudeDelta: number };
 function regionZoom(region?: Region) {
@@ -64,7 +54,7 @@ export const MapView = forwardRef<any, any>(function OpenMapView(props, forwarde
     <MapLibreGL.MapView
       {...nativeProps}
       style={style}
-      mapStyle={OSM_STYLE}
+      mapStyle={LATEST_STREET_STYLE_URL}
       attributionEnabled
       onPress={(feature: any) => {
         const coordinates = feature?.geometry?.coordinates;
@@ -85,7 +75,7 @@ export const MapView = forwardRef<any, any>(function OpenMapView(props, forwarde
   );
 });
 
-// The base map is configured in OSM_STYLE; kept as a no-op so existing screen markup stays simple.
+// The base map is configured by MapLibre's style URL; kept as a no-op for existing screen markup.
 export function UrlTile(_props: any) {
   return null;
 }
