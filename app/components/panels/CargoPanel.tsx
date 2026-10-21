@@ -203,7 +203,7 @@ export default function CargoPanel({ mode = 'all', embedded = false }: PanelProp
         {mode !== 'bookings' && <>
         <MyRatingCard />
         <NewOrdersToggle ping />
-        {(Number(wallet?.balance) < 0) && (
+        {wallet && Number(wallet.balance) < 0 && (
           <View style={[ui.banner, { backgroundColor: C.errBg, borderColor: '#fecaca' }]}>
             <Text style={{ fontWeight: '900', color: C.err, textAlign: 'right' }}>رصيدك سالب ({money(wallet.balance)})</Text>
             <Text style={[ui.note, { color: C.err }]}>توقف ظهور الطلبات الجديدة حتى شحن الرصيد</Text>

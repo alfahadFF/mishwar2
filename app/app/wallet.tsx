@@ -1,13 +1,16 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { View, Text, ScrollView, RefreshControl, TextInput, Pressable, StyleSheet } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import * as Clipboard from 'expo-clipboard';
+import QRCode from 'react-native-qrcode-svg';
 import { supabase } from '../utils/supabase';
-import { useWallet, money, txLabel, fmtWalletId, fmtCard, SVC_NAME } from '../utils/wallet';
+import { useWallet, money, txLabel, fmtCard, SVC_NAME } from '../utils/wallet';
 import { errMsg } from '../utils/errors';
 import { formatWalletUsd } from '../utils/taxi-pricing';
 import { fmtDateTime } from '../utils/events';
 import { useToast } from '../components/Toast';
 import PinPad from '../components/PinPad';
+import WalletQRScanner from '../components/WalletQRScanner';
 import { Header, Pill, Empty, Row, Btn, Sheet, ui, C } from '../components/DriverUI';
 
 type Payable = { service: string; ref_id: string; period: number; title: string; done_at?: string; payee_name?: string; gross: number; discount_pct: number; discount: number; to_pay: number };
@@ -23,6 +26,8 @@ export default function WalletScreen() {
   const [payables, setPayables] = useState<Payable[] | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [qrOpen, setQrOpen] = useState(false);
+  const [scanOpen, setScanOpen] = useState(false);
 
   const [topupOpen, setTopupOpen] = useState(false);
   const [card, setCard] = useState('');
@@ -90,14 +95,32 @@ export default function WalletScreen() {
 
   // تحويل رصيد
   const closeTransfer = () => { setTrOpen(false); setTrUser(null); setTrQuery(''); setTrAmount(''); setTrNote(''); };
-  const findUser = async () => {
-    const q = trQuery.replace(/\D/g, '');
+  const findUser = async (query = trQuery) => {
+    const q = query.replace(/\D/g, '');
     if (q.length < 8) return toast.show('أدخل معرّف المحفظة (8 أرقام) أو رقم الهاتف', 'err');
     setBusy(true);
     const { data, error } = await supabase.rpc('wallet_find_user', { p_query: q });
     setBusy(false);
     if (error) return toast.show(errMsg(error), 'err');
     setTrUser(data);
+  };
+  const copyWalletId = async () => {
+    if (!wallet?.wallet_id) return;
+    await Clipboard.setStringAsync(wallet.wallet_id);
+    toast.show('تم نسخ المعرّف ✓');
+  };
+  const openWalletScanner = () => {
+    setScanOpen(true);
+  };
+  const handleWalletScan = async (raw: string) => {
+    setScanOpen(false);
+    const candidate = String(raw || '').trim().replace(/[\s-]/g, '');
+    if (!/^\d{8}$/.test(candidate)) {
+      toast.show('هذا ليس كود محفظة مشوار صالحاً', 'err');
+      return;
+    }
+    setTrQuery(candidate);
+    await findUser(candidate);
   };
   const amountNum = Number(trAmount.replace(',', '.'));
   const sendTransfer = () => {
@@ -191,7 +214,14 @@ export default function WalletScreen() {
         <View style={[s.balCard, (Number(wallet?.balance) < 0) && s.balNeg]}>
           <Text style={s.balL}>الرصيد الحالي • USD</Text>
           <Text style={[s.balV, (Number(wallet?.balance) < 0) && { color: C.err }]}>{wallet ? formatWalletUsd(balance) : '—'}</Text>
-          <Text style={s.idT}>معرّف المحفظة: <Text style={s.idV}>{fmtWalletId(wallet?.wallet_id)}</Text></Text>
+          <View style={s.walletIdBlock}>
+            <Text style={s.idT}>معرّف المحفظة</Text>
+            <Text style={s.idV}>{wallet?.wallet_id || '—'}</Text>
+            <View style={s.idActions}>
+              <Btn small tone="ghost" label="نسخ المعرّف" onPress={copyWalletId} disabled={!wallet?.wallet_id} />
+              <Btn small label="عرض QR" onPress={() => setQrOpen(true)} disabled={!wallet?.wallet_id} />
+            </View>
+          </View>
           {(Number(wallet?.balance) < 0) && <Text style={s.neg}>الرصيد سالب، اشحن لمتابعة استقبال الطلبات</Text>}
           <View style={s.actions}>
             <Pressable onPress={() => setTopupOpen(true)} style={[s.act, { backgroundColor: C.brand }]}><Text style={s.actI}>＋</Text><Text style={[s.actT, { color: '#fff' }]}>إضافة رصيد</Text></Pressable>
@@ -278,19 +308,23 @@ export default function WalletScreen() {
       </Sheet>
 
       {/* تحويل رصيد */}
-      <Sheet visible={trOpen && !pinMode} onClose={closeTransfer} title="تحويل رصيد">
+      <Sheet visible={trOpen && !pinMode && !scanOpen} onClose={closeTransfer} title="تحويل رصيد">
         {!trUser ? <>
           <Text style={ui.label}>معرّف المحفظة أو رقم الهاتف</Text>
           <TextInput value={trQuery} onChangeText={v => setTrQuery(v.replace(/[^\d+ ]/g, ''))} keyboardType="phone-pad"
-            placeholder="مثال: 1234 5678 أو 09xxxxxxxx" style={ui.input} autoFocus />
+            placeholder="مثال: 12345678 أو رقم الهاتف" style={ui.input} />
+          <Text style={ui.note}>أدخل المعرّف أو امسح كود محفظة مشوار.</Text>
           <View style={ui.btns}>
-            <Btn label="متابعة" onPress={findUser} loading={busy} />
+            <Btn label="متابعة" onPress={() => findUser()} loading={busy} />
+            <Btn label="قراءة QR" tone="ghost" onPress={openWalletScanner} />
+          </View>
+          <View style={ui.btns}>
             <Btn label="رجوع" tone="ghost" onPress={closeTransfer} />
           </View>
         </> : <>
           <View style={[ui.banner, { backgroundColor: '#eef2ff', borderColor: '#c7d2fe', marginBottom: 0 }]}>
             <Text style={{ fontWeight: '900', textAlign: 'right', color: C.txt }}>{trUser.name}</Text>
-            <Text style={[ui.sub, { marginTop: 2 }]}>معرّف المحفظة: {fmtWalletId(trUser.wallet_id)}</Text>
+            <Text style={[ui.sub, { marginTop: 2 }]}>معرّف المحفظة: <Text style={s.ltrId}>{trUser.wallet_id}</Text></Text>
           </View>
           <Text style={ui.label}>المبلغ</Text>
           <TextInput value={trAmount} onChangeText={v => setTrAmount(v.replace(/[^\d.,]/g, ''))} keyboardType="decimal-pad" placeholder="0" style={[ui.input, { fontSize: 20, fontWeight: '900' }]} autoFocus />
@@ -299,12 +333,29 @@ export default function WalletScreen() {
           <TextInput value={trNote} onChangeText={setTrNote} maxLength={80} placeholder="مثال: أجرة مشتركة" style={ui.input} />
           <View style={ui.btns}>
             <Btn label={amountNum > 0 ? `تحويل ${money(amountNum)}` : 'تحويل'} onPress={sendTransfer} loading={pinBusy} disabled={!(amountNum > 0) || amountNum > balance} />
-            <Btn label="تغيير المستلم" tone="ghost" onPress={() => setTrUser(null)} />
+            <Btn label="تغيير المستلم" tone="ghost" onPress={() => { setTrUser(null); setTrAmount(''); setTrNote(''); }} />
           </View>
           {amountNum > balance && <Text style={[ui.note, { color: C.err }]}>المبلغ أكبر من رصيدك</Text>}
         </>}
         {toast.node}
       </Sheet>
+
+      {/* كود استلام الرصيد: يحتوي معرّف المحفظة فقط */}
+      <Sheet visible={qrOpen} onClose={() => setQrOpen(false)} title="كود محفظتي">
+        <Text style={ui.note}>امسح الكود من داخل مشوار لإدخال معرّفي كمستلم. لا يتم أي تحويل عند المسح.</Text>
+        {!!wallet?.wallet_id && (
+          <View style={s.qrWrap}>
+            <QRCode value={wallet.wallet_id} size={220} color="#0f172a" backgroundColor="#ffffff" />
+          </View>
+        )}
+        <Text style={s.qrWalletId}>{wallet?.wallet_id || '—'}</Text>
+        <View style={ui.btns}>
+          <Btn label="نسخ المعرّف" tone="ghost" onPress={copyWalletId} />
+          <Btn label="إغلاق" onPress={() => setQrOpen(false)} />
+        </View>
+      </Sheet>
+
+      <WalletQRScanner visible={scanOpen} onClose={() => setScanOpen(false)} onScanned={handleWalletScan} />
 
       {/* تأكيد الدفع */}
       <Sheet visible={!!payFor && !pinMode} onClose={() => setPayFor(null)} title="الدفع من التطبيق">
@@ -341,8 +392,13 @@ const s = StyleSheet.create({
   balNeg: { backgroundColor: C.errBg, borderColor: '#fecaca' },
   balL: { fontSize: 12, color: C.mute, fontWeight: '700' },
   balV: { fontSize: 34, fontWeight: '900', color: C.txt, marginTop: 2 },
+  walletIdBlock: { alignItems: 'center', marginTop: 4 },
   idT: { fontSize: 12, color: C.mute, marginTop: 4 },
-  idV: { fontWeight: '900', color: '#334155', letterSpacing: 1 },
+  idV: { fontWeight: '900', color: '#334155', letterSpacing: 2, fontSize: 18, writingDirection: 'ltr', textAlign: 'center', marginTop: 3 },
+  ltrId: { writingDirection: 'ltr', textAlign: 'left', fontWeight: '800' },
+  idActions: { flexDirection: 'row-reverse', gap: 8, marginTop: 7 },
+  qrWrap: { alignSelf: 'center', backgroundColor: '#fff', padding: 14, borderRadius: 16, borderWidth: 1, borderColor: C.line, marginVertical: 8 },
+  qrWalletId: { writingDirection: 'ltr', textAlign: 'center', fontSize: 16, fontWeight: '900', letterSpacing: 2, color: C.txt, marginBottom: 4 },
   neg: { fontSize: 12, color: C.err, fontWeight: '800', marginTop: 6, textAlign: 'center' },
   actions: { flexDirection: 'row-reverse', gap: 8, marginTop: 14, alignSelf: 'stretch' },
   act: { flex: 1, height: 52, borderRadius: 14, alignItems: 'center', justifyContent: 'center', flexDirection: 'row-reverse', gap: 6 },

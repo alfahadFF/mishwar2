@@ -11,7 +11,7 @@ Notifications.setNotificationHandler({
   handleNotification: async (n) => {
     const kind = (n.request.content.data as any)?.kind;
     const show = SHOW_IN_APP.includes(kind);
-    return { shouldShowAlert: show, shouldPlaySound: show, shouldSetBadge: false };
+    return { shouldShowBanner: show, shouldShowList: show, shouldPlaySound: show, shouldSetBadge: false };
   },
 });
 

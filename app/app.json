@@ -12,14 +12,7 @@
       "android",
       "web"
     ],
-    "newArchEnabled": false,
     "icon": "./assets/icon.png",
-    "splash": {
-      "image": "./assets/splash.png",
-      "imageWidth": 300,
-      "resizeMode": "contain",
-      "backgroundColor": "#111111"
-    },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.mishwar.app",
@@ -53,6 +46,17 @@
     },
     "plugins": [
       "expo-router",
+      "expo-asset",
+      "expo-status-bar",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash.png",
+          "imageWidth": 300,
+          "resizeMode": "contain",
+          "backgroundColor": "#111111"
+        }
+      ],
       "@maplibre/maplibre-react-native",
       [
         "expo-location",
@@ -67,6 +71,12 @@
         {
           "photosPermission": "نحتاج الوصول للصور لإضافة صور السيارة",
           "cameraPermission": "نحتاج الكاميرا لتصوير السيارة"
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "نحتاج الكاميرا لمسح كود محفظة مشوار للتحويل بعد التأكيد."
         }
       ],
       [

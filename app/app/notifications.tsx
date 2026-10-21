@@ -100,7 +100,7 @@ export default function NotificationsScreen() {
             <Text style={s.emptyT}>لا توجد إشعارات حتى الآن</Text>
             <Text style={ui.sub}>ستصلك هنا العروض والقبول والمكافآت</Text>
           </View>
-        ) : null}
+        ) : undefined}
         renderItem={({ item: n }) => {
           const to = routeForNotification({ ...(n.data || {}), kind: n.kind });
           const isNew = !n.read_at;

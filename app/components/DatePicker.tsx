@@ -49,7 +49,7 @@ export default function DatePicker({ visible, value, minDate, title, onClose, on
 }
 
 const s = StyleSheet.create({
-  shade: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(15,23,42,.45)' },
+  shade: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(15,23,42,.45)' },
   box: { position: 'absolute', left: 16, right: 16, top: '18%', backgroundColor: '#fff', borderRadius: 20, padding: 14 },
   title: { fontWeight: '900', fontSize: 15, textAlign: 'center', marginBottom: 8 },
   nav: { flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },

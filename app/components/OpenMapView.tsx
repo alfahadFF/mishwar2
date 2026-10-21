@@ -1,13 +1,15 @@
 import React, { forwardRef, useEffect, useId, useImperativeHandle, useRef } from 'react';
-import { Platform, View, Text } from 'react-native';
-import MapLibreGL from '@maplibre/maplibre-react-native';
-
-// MapLibre v10 requires explicit null-token initialization on native Android/iOS.
-if (Platform.OS !== 'web') {
-  // The native v10 Android module returns void here, not a Promise.
-  // Calling .catch() on that result crashes Hermes during route loading.
-  void MapLibreGL.setAccessToken(null);
-}
+import { View, Text } from 'react-native';
+import {
+  Camera,
+  GeoJSONSource,
+  Layer,
+  Map as NativeMap,
+  Marker as NativeMarker,
+  ViewAnnotation,
+  type Anchor,
+  type CameraRef,
+} from '@maplibre/maplibre-react-native';
 
 // Unversioned Liberty style: the source resolves to OpenFreeMap's latest weekly OSM tiles.
 // Its road, place, and POI labels render Latin plus name:nonlatin (Arabic when tagged in OSM).
@@ -24,54 +26,84 @@ function cleanId(value: string) {
   return value.replace(/[^a-zA-Z0-9_-]/g, '');
 }
 
+function toAnchor(anchor: any): Anchor {
+  if (typeof anchor === 'string') return anchor as Anchor;
+  if (!anchor || typeof anchor !== 'object') return 'center';
+
+  // Convert the legacy numeric anchor used by the old map wrapper to MapLibre's string form.
+  const horizontal = anchor.x <= 0.25 ? 'left' : anchor.x >= 0.75 ? 'right' : '';
+  const vertical = anchor.y <= 0.25 ? 'top' : anchor.y >= 0.75 ? 'bottom' : '';
+  if (vertical && horizontal) return `${vertical}-${horizontal}` as Anchor;
+  return (vertical || horizontal || 'center') as Anchor;
+}
+
 export const MapView = forwardRef<any, any>(function OpenMapView(props, forwardedRef) {
-  const { style, initialRegion, region, onPress, children, ...nativeProps } = props;
-  const cameraRef = useRef<any>(null);
+  const {
+    style,
+    initialRegion,
+    region,
+    onPress,
+    children,
+    scrollEnabled,
+    zoomEnabled,
+    ...nativeProps
+  } = props;
+  const cameraRef = useRef<CameraRef>(null);
   const firstRegion: Region | undefined = region || initialRegion;
 
   useImperativeHandle(forwardedRef, () => ({
     animateToRegion(next: Region, duration = 500) {
-      cameraRef.current?.setCamera({
-        centerCoordinate: [next.longitude, next.latitude],
-        zoomLevel: regionZoom(next),
-        animationDuration: duration,
+      cameraRef.current?.easeTo({
+        center: [next.longitude, next.latitude],
+        zoom: regionZoom(next),
+        duration,
       });
     },
   }), []);
 
   useEffect(() => {
     if (!region) return;
-    cameraRef.current?.setCamera({
-      centerCoordinate: [region.longitude, region.latitude],
-      zoomLevel: regionZoom(region),
-      animationDuration: 0,
+    cameraRef.current?.jumpTo({
+      center: [region.longitude, region.latitude],
+      zoom: regionZoom(region),
     });
   }, [region?.latitude, region?.longitude, region?.latitudeDelta, region?.longitudeDelta]);
 
-  if (!firstRegion) return <View style={[style,{alignItems:'center',justifyContent:'center',backgroundColor:'#f8fafc'}]}><Text>حدد موقعك لعرض الخريطة</Text></View>;
+  if (!firstRegion) {
+    return (
+      <View style={[style, { alignItems: 'center', justifyContent: 'center', backgroundColor: '#f8fafc' }]}>
+        <Text>حدد موقعك لعرض الخريطة</Text>
+      </View>
+    );
+  }
 
   return (
-    <MapLibreGL.MapView
+    <NativeMap
       {...nativeProps}
       style={style}
       mapStyle={LATEST_STREET_STYLE_URL}
-      attributionEnabled
-      onPress={(feature: any) => {
-        const coordinates = feature?.geometry?.coordinates;
-        if (onPress && Array.isArray(coordinates) && coordinates.length >= 2) {
-          onPress({ nativeEvent: { coordinate: { latitude: coordinates[1], longitude: coordinates[0] } } });
+      attribution
+      dragPan={scrollEnabled}
+      touchZoom={zoomEnabled}
+      doubleTapZoom={zoomEnabled}
+      doubleTapHoldZoom={zoomEnabled}
+      onPress={(event: any) => {
+        const lngLat = event?.nativeEvent?.lngLat;
+        if (onPress && Array.isArray(lngLat) && lngLat.length >= 2) {
+          const [longitude, latitude] = lngLat;
+          onPress({ nativeEvent: { coordinate: { latitude, longitude } } });
         }
       }}
     >
-      <MapLibreGL.Camera
+      <Camera
         ref={cameraRef}
-        defaultSettings={{
-          centerCoordinate: [firstRegion.longitude, firstRegion.latitude],
-          zoomLevel: regionZoom(firstRegion),
+        initialViewState={{
+          center: [firstRegion.longitude, firstRegion.latitude],
+          zoom: regionZoom(firstRegion),
         }}
       />
       {children}
-    </MapLibreGL.MapView>
+    </NativeMap>
   );
 });
 
@@ -87,16 +119,34 @@ export function Marker({ coordinate, pinColor = '#2563EB', title, onPress, ancho
       <Text accessibilityElementsHidden>{''}</Text>
     </View>
   );
+  const lngLat: [number, number] = [coordinate.longitude, coordinate.latitude];
+  const id = `marker-${cleanId(reactId)}`;
+  const mapAnchor = toAnchor(anchor);
+
+  // ViewAnnotation retains native callout titles; other markers use the interactive Marker API.
+  if (title) {
+    return (
+      <ViewAnnotation
+        id={id}
+        lngLat={lngLat}
+        title={title}
+        anchor={mapAnchor}
+        onPress={onPress ? (event: any) => onPress(event) : undefined}
+      >
+        {marker}
+      </ViewAnnotation>
+    );
+  }
+
   return (
-    <MapLibreGL.PointAnnotation
-      id={`marker-${cleanId(reactId)}`}
-      coordinate={[coordinate.longitude, coordinate.latitude]}
-      title={title}
-      anchor={anchor || { x: 0.5, y: 0.5 }}
-      onSelected={onPress ? (event: any) => onPress(event) : undefined}
+    <NativeMarker
+      id={id}
+      lngLat={lngLat}
+      anchor={mapAnchor}
+      onPress={onPress ? (event: any) => onPress(event) : undefined}
     >
       {marker}
-    </MapLibreGL.PointAnnotation>
+    </NativeMarker>
   );
 }
 
@@ -112,17 +162,23 @@ export function Polyline({ coordinates, strokeColor = '#4F46E5', strokeWidth = 4
     properties: {},
     geometry: { type: 'LineString' as const, coordinates: points },
   };
+  const paint: Record<string, unknown> = {
+    'line-color': strokeColor,
+    'line-width': strokeWidth,
+    ...(lineDashPattern ? { 'line-dasharray': lineDashPattern } : {}),
+  };
+
   return (
-    <MapLibreGL.ShapeSource id={`line-source-${id}`} shape={shape} onPress={onPress ? (event: any) => onPress(event) : undefined}>
-      <MapLibreGL.LineLayer
-        id={`line-layer-${id}`}
-        style={{
-          lineColor: strokeColor,
-          lineWidth: strokeWidth,
-          ...(lineDashPattern ? { lineDasharray: lineDashPattern } : {}),
-        }}
-      />
-    </MapLibreGL.ShapeSource>
+    <GeoJSONSource
+      id={`line-source-${id}`}
+      data={shape}
+      onPress={onPress ? (event: any) => {
+        event?.stopPropagation?.();
+        onPress(event);
+      } : undefined}
+    >
+      <Layer type="line" id={`line-layer-${id}`} paint={paint as any} />
+    </GeoJSONSource>
   );
 }
 
@@ -145,11 +201,12 @@ export function Circle({ center, radius, fillColor = 'rgba(79,70,229,0.08)', str
     properties: {},
     geometry: { type: 'Polygon' as const, coordinates: [ring] },
   };
+
   return (
-    <MapLibreGL.ShapeSource id={`circle-source-${id}`} shape={polygon}>
-      <MapLibreGL.FillLayer id={`circle-fill-${id}`} style={{ fillColor, fillOpacity: 0.18 }} />
-      <MapLibreGL.LineLayer id={`circle-line-${id}`} style={{ lineColor: strokeColor, lineWidth: 2 }} />
-    </MapLibreGL.ShapeSource>
+    <GeoJSONSource id={`circle-source-${id}`} data={polygon}>
+      <Layer type="fill" id={`circle-fill-${id}`} paint={{ 'fill-color': fillColor, 'fill-opacity': 0.18 }} />
+      <Layer type="line" id={`circle-line-${id}`} paint={{ 'line-color': strokeColor, 'line-width': 2 }} />
+    </GeoJSONSource>
   );
 }
 
