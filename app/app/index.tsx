@@ -113,52 +113,43 @@ export default function HomeScreen() {
               <View style={s.cardBadgeOrange}><Text style={s.cardBadgeText}>الأكثر طلباً</Text></View>
               <View style={[s.cardIcon, s.cardIconLight]}><Text style={s.cardEmoji}>🚕</Text></View>
               <Text style={[s.cardTitle, s.cardTitleWhite]}>تكسي</Text>
-              <Text style={[s.cardDesc, s.cardDescWhite]}>توصيل فوري خلال دقائق لأي مكان</Text>
-              <View style={s.cardArrow}><Text>←</Text></View>
+              <Text style={[s.cardDesc, s.cardDescWhite]} numberOfLines={2}>توصيل فوري خلال دقائق لأي مكان</Text>
             </Pressable>
 
             <Pressable style={[s.card, { backgroundColor: '#F0FDFA', borderColor: '#99F6E4' }]} onPress={() => handleService('سفريات')}>
               <View style={[s.cardIcon, { backgroundColor: '#CCFBF1' }]}><Text style={s.cardEmoji}>🧭</Text></View>
               <Text style={s.cardTitle}>سفريات</Text>
-              <Text style={s.cardDesc}>رحلات منشورة وعروض أجرة خاصة برحلتك</Text>
-              <View style={s.cardArrow}><Text>←</Text></View>
+              <Text style={s.cardDesc} numberOfLines={2}>رحلات منشورة وعروض أجرة خاصة برحلتك</Text>
             </Pressable>
 
             <Pressable style={s.card} onPress={() => handleService('نقل')}>
               <View style={[s.cardIcon, { backgroundColor: '#EEF2FF' }]}><Text style={s.cardEmoji}>🚚</Text></View>
               <Text style={s.cardTitle}>نقل</Text>
-              <Text style={s.cardDesc}>نقل بضائع وعفش بأمان</Text>
-              <View style={s.cardArrow}><Text>←</Text></View>
+              <Text style={s.cardDesc} numberOfLines={2}>نقل بضائع وعفش بأمان</Text>
             </Pressable>
 
             <Pressable style={s.card} onPress={() => handleService('مناسبات')}>
               <View style={[s.cardIcon, { backgroundColor: '#FEF3C7' }]}><Text style={s.cardEmoji}>🎉</Text></View>
               <Text style={s.cardTitle}>مناسبات</Text>
-              <Text style={s.cardDesc}>حجوزات أعراس ومؤتمرات</Text>
-              <View style={s.cardArrow}><Text>←</Text></View>
+              <Text style={s.cardDesc} numberOfLines={2}>حجوزات أعراس ومؤتمرات</Text>
             </Pressable>
 
             <Pressable style={s.card} onPress={() => handleService('عقود')}>
-              <View style={s.cardBadge}><Text style={s.cardBadgeText}>عقود</Text></View>
               <View style={[s.cardIcon, { backgroundColor: '#ECFDF5' }]}><Text style={s.cardEmoji}>📋</Text></View>
               <Text style={s.cardTitle}>عقود</Text>
-              <Text style={s.cardDesc}>عقود شهرية للشركات</Text>
-              <View style={s.cardArrow}><Text>←</Text></View>
+              <Text style={s.cardDesc} numberOfLines={2}>عقود شهرية للشركات</Text>
             </Pressable>
 
             <Pressable style={s.card} onPress={() => handleService('مطار')}>
               <View style={[s.cardIcon, { backgroundColor: '#E0F2FE' }]}><Text style={s.cardEmoji}>✈️</Text></View>
               <Text style={s.cardTitle}>المطار</Text>
-              <Text style={s.cardDesc}>استقبال المسافرين ووداعهم</Text>
-              <View style={s.cardArrow}><Text>←</Text></View>
+              <Text style={s.cardDesc} numberOfLines={2}>استقبال المسافرين ووداعهم</Text>
             </Pressable>
 
             <Pressable style={s.card} onPress={() => handleService('تأجير')}>
-              <View style={s.cardBadge}><Text style={s.cardBadgeText}>تأجير</Text></View>
               <View style={[s.cardIcon, { backgroundColor: '#EEF2FF' }]}><Text style={s.cardEmoji}>🔑</Text></View>
               <Text style={s.cardTitle}>تأجير سيارات</Text>
-              <Text style={s.cardDesc}>بالساعة واليوم والأسبوع والشهر</Text>
-              <View style={s.cardArrow}><Text>←</Text></View>
+              <Text style={s.cardDesc} numberOfLines={2}>بالساعة واليوم والأسبوع والشهر</Text>
             </Pressable>
           </View>
         </View>
@@ -179,11 +170,11 @@ export default function HomeScreen() {
 
         </View>}
 
-        <View style={{ height: 80 }} />
+        <View style={{ height: 80 + insets.bottom }} />
       </ScrollView>
 
       {/* Tab Bar */}
-      <View style={s.tabbar}>
+      <View style={[s.tabbar, { height: 64 + insets.bottom, paddingBottom: 6 + insets.bottom }]}>
         <Pressable style={s.tabActive}><Text style={s.tabIcon}>🏠</Text><Text style={s.tabLabelActive}>الرئيسية</Text></Pressable>
         <Pressable onPress={() => router.push('/my-orders' as any)} style={s.tab}><Text style={s.tabIcon}>🧾</Text><Text style={s.tabLabel}>طلباتي</Text></Pressable>
         <Pressable onPress={() => router.push('/wallet' as any)} style={s.tab}><Text style={s.tabIcon}>👛</Text><Text style={s.tabLabel}>المحفظة</Text></Pressable>
@@ -229,17 +220,15 @@ const s = StyleSheet.create({
   sectionTitle: { fontWeight: '800', fontSize: 15, color: DARK },
   sectionCount: { color: ORANGE, fontWeight: '700', fontSize: 11 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
-  card: { width: '48%', backgroundColor: '#fff', borderRadius: 18, padding: 16, borderWidth: 1, borderColor: '#E5E7EB', minHeight: 128 },
+  card: { width: '48%', backgroundColor: '#fff', borderRadius: 16, padding: 10, borderWidth: 1, borderColor: '#E5E7EB', minHeight: 110, shadowColor: '#0F172A', shadowOpacity: 0.04, shadowRadius: 5, shadowOffset: { width: 0, height: 2 }, elevation: 1 },
   cardTaxi: { backgroundColor: ORANGE, borderColor: ORANGE },
-  cardIcon: { width: 48, height: 48, borderRadius: 14, alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
+  cardIcon: { width: 38, height: 38, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginBottom: 7 },
   cardIconLight: { backgroundColor: 'rgba(255,255,255,.18)' },
-  cardEmoji: { fontSize: 22 },
-  cardTitle: { fontWeight: '800', fontSize: 14, color: DARK, textAlign: 'right' },
+  cardEmoji: { fontSize: 18 },
+  cardTitle: { fontWeight: '800', fontSize: 13, color: DARK, textAlign: 'right' },
   cardTitleWhite: { color: '#fff' },
-  cardDesc: { fontSize: 11, color: '#6B7280', marginTop: 4, textAlign: 'right', lineHeight: 14 },
+  cardDesc: { fontSize: 10, color: '#6B7280', marginTop: 3, textAlign: 'right', lineHeight: 13 },
   cardDescWhite: { color: 'rgba(255,255,255,.85)' },
-  cardArrow: { position: 'absolute', top: 12, left: 12, width: 28, height: 28, borderRadius: 999, backgroundColor: 'rgba(255,255,255,.9)', alignItems: 'center', justifyContent: 'center' },
-  cardBadge: { position: 'absolute', top: 10, right: 10, backgroundColor: '#10B981', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 999 },
   cardBadgeOrange: { position: 'absolute', top: 10, right: 10, backgroundColor: '#FF6B00', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 999 },
   cardBadgeText: { color: '#fff', fontSize: 9, fontWeight: '800' },
   authCard: { margin: 16, backgroundColor: '#fff', borderRadius: 18, padding: 18, borderWidth: 1, borderColor: '#E5E7EB' },
