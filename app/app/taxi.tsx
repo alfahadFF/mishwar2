@@ -73,7 +73,7 @@ export default function TaxiScreen(){
     setLocationError(false); setPickup(ll); setMode('drop');
     mapRef.current?.animateToRegion?.({latitude:ll[0],longitude:ll[1],latitudeDelta:0.02,longitudeDelta:0.02});
   };
-  const [route,setRoute]=useState<{km:number,min:number,path:any[]}|null>(null);
+  const [route,setRoute]=useState<{km:number,min:number,path:any[];snapStartMeters:number;snapEndMeters:number}|null>(null);
   const [routeState,setRouteState]=useState<'idle'|'loading'|'error'|'ok'>('idle');
   const [quotes,setQuotes]=useState<Record<string,TaxiQuote>>({});
   const [quoteCurrency,setQuoteCurrency]=useState('SYP');
@@ -85,7 +85,7 @@ export default function TaxiScreen(){
     let alive=true; setRouteState('loading');
     getRoute([pickup,dropoff]).then(r=>{
       if(!alive) return;
-      if(r.ok){ setRoute({km:r.km,min:r.min,path:r.path}); setRouteState('ok'); }
+      if(r.ok){ setRoute({km:r.km,min:r.min,path:r.path,snapStartMeters:r.snapStartMeters,snapEndMeters:r.snapEndMeters}); setRouteState('ok'); }
       else { setRoute(null); setRouteState('error'); showToast('تعذر حساب المسار على الطرق، حاول مرة أخرى'); }
     });
     return ()=>{ alive=false; };
@@ -239,10 +239,12 @@ export default function TaxiScreen(){
               <Marker coordinate={{latitude:pickup[0], longitude:pickup[1]}} pinColor="green"/>
               {dropoff && <Marker coordinate={{latitude:dropoff[0], longitude:dropoff[1]}} pinColor="red"/>}
               {route && <Polyline coordinates={route.path} strokeColor="#4F46E5" strokeWidth={5}/>}
+              {route && pickup && route.snapStartMeters > 15 && <Polyline coordinates={[{latitude:pickup[0],longitude:pickup[1]}, route.path[0]]} strokeColor="#f59e0b" strokeWidth={4} lineDashPattern={[3,3]}/>}
+              {route && dropoff && route.snapEndMeters > 15 && <Polyline coordinates={[route.path[route.path.length-1], {latitude:dropoff[0],longitude:dropoff[1]}]} strokeColor="#f59e0b" strokeWidth={4} lineDashPattern={[3,3]}/>}
               {carPos && <Marker coordinate={{latitude:carPos[0], longitude:carPos[1]}} anchor={{x:.5,y:.5}}><Text style={{fontSize:26}}>🚕</Text></Marker>}
               {!showActive && cars.map((c,i)=> <Marker key={'car'+i} coordinate={{latitude:c.lat, longitude:c.lng}} anchor={{x:.5,y:.5}} tracksViewChanges={false}><Text style={{fontSize:20}}>🚕</Text></Marker>)}
             </MapView>
-            <View style={s.hint}><Text style={s.hintT}>{routeState==='loading'? '⏳ جاري حساب المسار...' : routeState==='error'? '⚠️ تعذر حساب المسار' : route? `🛣️ ${route.km.toFixed(1)} كم • ${fmtMin(route.min)}` : (mode==='pick'? 'اضغط على الخريطة لتحديد الانطلاق' : 'اضغط على الخريطة لتحديد الوصول')}</Text></View>
+            <View style={s.hint}><Text style={s.hintT}>{routeState==='loading'? '⏳ جاري حساب المسار...' : routeState==='error'? '⚠️ تعذر حساب المسار' : route? `🛣️ ${route.km.toFixed(1)} كم على الطريق • ${fmtMin(route.min)}${Math.max(route.snapStartMeters,route.snapEndMeters)>25 ? ` • أبعد دبوس عن الطريق: ${Math.round(Math.max(route.snapStartMeters,route.snapEndMeters))}م` : ''}` : (mode==='pick'? 'اضغط على الخريطة لتحديد الانطلاق' : 'اضغط على الخريطة لتحديد الوصول')}</Text></View>
           </>
         ) : (
           <View style={s.locationGate}>

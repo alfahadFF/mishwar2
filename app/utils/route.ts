@@ -2,7 +2,15 @@ import Constants from 'expo-constants';
 
 // يجرّب OpenRouteService عند تهيئته، ثم يستخدم OSRM بديلاً عند تعذّر الطلب الأساسي.
 export type LatLng = number[];
-export type RouteResult = { ok: true; km: number; min: number; path: { latitude: number; longitude: number }[] } | { ok: false };
+export type RouteResult = {
+  ok: true;
+  km: number;
+  min: number;
+  path: { latitude: number; longitude: number }[];
+  // المسار المروري قد يبدأ/ينتهي عند أقرب طريق، لا عند الدبوس نفسه.
+  snapStartMeters: number;
+  snapEndMeters: number;
+} | { ok: false };
 const cache: Record<string, RouteResult> = {};
 export const OSRM_URL = 'https://router.project-osrm.org';
 const ORS_URL = 'https://api.openrouteservice.org/v2';
@@ -37,11 +45,30 @@ async function orsMatrix(locations: LatLng[], sources: number[], destinations: n
   }
 }
 
-function routeResult(distance: number, duration: number, coordinates: number[][]): RouteResult | null {
-  if (!Number.isFinite(distance) || !Number.isFinite(duration) || !coordinates?.length) return null;
+function metersBetween(a: LatLng, b: LatLng) {
+  const rad = (n: number) => n * Math.PI / 180;
+  const dLat = rad(b[0] - a[0]);
+  const dLng = rad(b[1] - a[1]);
+  const lat1 = rad(a[0]);
+  const lat2 = rad(b[0]);
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2;
+  return 6371000 * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
+}
+
+function routeResult(distance: number, duration: number, coordinates: number[][], requested: LatLng[]): RouteResult | null {
+  if (!Number.isFinite(distance) || !Number.isFinite(duration) || !coordinates?.length || requested.length < 2) return null;
   const path = coordinates.map((coordinate: number[]) => ({ latitude: Number(coordinate[1]), longitude: Number(coordinate[0]) }));
   if (path.length < 2 || path.some(p => !Number.isFinite(p.latitude) || !Number.isFinite(p.longitude))) return null;
-  return { ok: true, km: distance / 1000, min: duration / 60, path };
+  const first = path[0];
+  const last = path[path.length - 1];
+  return {
+    ok: true,
+    km: distance / 1000,
+    min: duration / 60,
+    path,
+    snapStartMeters: metersBetween(requested[0], [first.latitude, first.longitude]),
+    snapEndMeters: metersBetween(requested[requested.length - 1], [last.latitude, last.longitude]),
+  };
 }
 
 async function routeViaORS(points: LatLng[]): Promise<RouteResult | null> {
@@ -58,7 +85,7 @@ async function routeViaORS(points: LatLng[]): Promise<RouteResult | null> {
     const summary = feature?.properties?.summary;
     const coordinates = feature?.geometry?.coordinates;
     if (!response.ok || data.error || !summary || !Array.isArray(coordinates)) return null;
-    return routeResult(Number(summary.distance), Number(summary.duration), coordinates);
+    return routeResult(Number(summary.distance), Number(summary.duration), coordinates, points);
   } catch {
     return null;
   } finally {
@@ -74,7 +101,7 @@ async function routeViaOSRM(points: LatLng[]): Promise<RouteResult | null> {
     const data = await response.json();
     if (!response.ok || data.code !== 'Ok' || !data.routes?.length) return null;
     const route = data.routes[0];
-    return routeResult(Number(route.distance), Number(route.duration), route.geometry?.coordinates || []);
+    return routeResult(Number(route.distance), Number(route.duration), route.geometry?.coordinates || [], points);
   } catch {
     return null;
   } finally {
