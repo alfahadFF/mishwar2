@@ -5,7 +5,7 @@ import { View, Text, Pressable, ScrollView, StyleSheet } from 'react-native';
 import { supabase } from '../utils/supabase';
 import { getMyLocation } from '../utils/location';
 import { guestBlocked } from '../utils/guest';
-import { getRoute, fmtMin, etaToPoint } from '../utils/route';
+import { getRoute, fmtMin, etaToPoint, type RouteOption } from '../utils/route';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { errMsg } from '../utils/errors';
 import { TAXI_CATEGORY_META, TaxiPriceQuotes, TaxiQuote, formatLocalFare, formatWalletUsd } from '../utils/taxi-pricing';
@@ -13,6 +13,14 @@ import ShareTripBtn from '../components/ShareTripBtn';
 import ProviderPhotos from '../components/ProviderPhotos';
 import { MapView, UrlTile, Marker, Polyline } from '../components/OpenMapView';
 const RATES= TAXI_CATEGORY_META;
+const regionForRoutePoints=(points:any[])=>{
+  const coords=points.map(p=>Array.isArray(p)?[Number(p[0]),Number(p[1])]:[Number(p?.latitude),Number(p?.longitude)])
+    .filter(p=>Number.isFinite(p[0])&&Number.isFinite(p[1]));
+  if(!coords.length) return null;
+  let minLat=Infinity,maxLat=-Infinity,minLng=Infinity,maxLng=-Infinity;
+  coords.forEach(([lat,lng])=>{minLat=Math.min(minLat,lat);maxLat=Math.max(maxLat,lat);minLng=Math.min(minLng,lng);maxLng=Math.max(maxLng,lng);});
+  return {latitude:(maxLat+minLat)/2,longitude:(maxLng+minLng)/2,latitudeDelta:Math.max(0.015,(maxLat-minLat)*1.55+0.012),longitudeDelta:Math.max(0.015,(maxLng-minLng)*1.55+0.012)};
+};
 export default function TaxiScreen(){
   const router=useRouter();
   const [pickup,setPickup]=useState<number[]|null>(null);
@@ -73,7 +81,7 @@ export default function TaxiScreen(){
     setLocationError(false); setPickup(ll); setMode('drop');
     mapRef.current?.animateToRegion?.({latitude:ll[0],longitude:ll[1],latitudeDelta:0.02,longitudeDelta:0.02});
   };
-  const [route,setRoute]=useState<{km:number,min:number,path:any[];snapStartMeters:number;snapEndMeters:number}|null>(null);
+  const [route,setRoute]=useState<(RouteOption & {alternatives:RouteOption[]})|null>(null);
   const [routeState,setRouteState]=useState<'idle'|'loading'|'error'|'ok'>('idle');
   const [quotes,setQuotes]=useState<Record<string,TaxiQuote>>({});
   const [quoteCurrency,setQuoteCurrency]=useState('SYP');
@@ -83,9 +91,14 @@ export default function TaxiScreen(){
   useEffect(()=>{
     if(!pickup || !dropoff){ setRoute(null); setRouteState('idle'); return; }
     let alive=true; setRouteState('loading');
-    getRoute([pickup,dropoff]).then(r=>{
+    getRoute([pickup,dropoff],{alternatives:true,preference:'shortest'}).then(r=>{
       if(!alive) return;
-      if(r.ok){ setRoute({km:r.km,min:r.min,path:r.path,snapStartMeters:r.snapStartMeters,snapEndMeters:r.snapEndMeters}); setRouteState('ok'); }
+      if(r.ok){
+        setRoute({km:r.km,min:r.min,path:r.path,snapStartMeters:r.snapStartMeters,snapEndMeters:r.snapEndMeters,alternatives:r.alternatives});
+        const fitted=regionForRoutePoints([...r.path,...r.alternatives.flatMap(a=>a.path),pickup,dropoff]);
+        if(fitted) mapRef.current?.animateToRegion?.(fitted,700);
+        setRouteState('ok');
+      }
       else { setRoute(null); setRouteState('error'); showToast('تعذر حساب المسار على الطرق، حاول مرة أخرى'); }
     });
     return ()=>{ alive=false; };
@@ -238,13 +251,17 @@ export default function TaxiScreen(){
               <UrlTile urlTemplate="https://a.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png" maximumZ={19} flipY={false}/>
               <Marker coordinate={{latitude:pickup[0], longitude:pickup[1]}} pinColor="green"/>
               {dropoff && <Marker coordinate={{latitude:dropoff[0], longitude:dropoff[1]}} pinColor="red"/>}
+              {route?.alternatives.map((alt,i)=><Polyline key={`taxi-alt-${i}`} coordinates={alt.path} strokeColor="#818CF8" strokeWidth={4}/>)}
               {route && <Polyline coordinates={route.path} strokeColor="#4F46E5" strokeWidth={5}/>}
               {route && pickup && route.snapStartMeters > 15 && <Polyline coordinates={[{latitude:pickup[0],longitude:pickup[1]}, route.path[0]]} strokeColor="#f59e0b" strokeWidth={4} lineDashPattern={[3,3]}/>}
               {route && dropoff && route.snapEndMeters > 15 && <Polyline coordinates={[route.path[route.path.length-1], {latitude:dropoff[0],longitude:dropoff[1]}]} strokeColor="#f59e0b" strokeWidth={4} lineDashPattern={[3,3]}/>}
               {carPos && <Marker coordinate={{latitude:carPos[0], longitude:carPos[1]}} anchor={{x:.5,y:.5}}><Text style={{fontSize:26}}>🚕</Text></Marker>}
               {!showActive && cars.map((c,i)=> <Marker key={'car'+i} coordinate={{latitude:c.lat, longitude:c.lng}} anchor={{x:.5,y:.5}} tracksViewChanges={false}><Text style={{fontSize:20}}>🚕</Text></Marker>)}
             </MapView>
-            <View style={s.hint}><Text style={s.hintT}>{routeState==='loading'? '⏳ جاري حساب المسار...' : routeState==='error'? '⚠️ تعذر حساب المسار' : route? `🛣️ ${route.km.toFixed(1)} كم على الطريق • ${fmtMin(route.min)}${Math.max(route.snapStartMeters,route.snapEndMeters)>25 ? ` • أبعد دبوس عن الطريق: ${Math.round(Math.max(route.snapStartMeters,route.snapEndMeters))}م` : ''}` : (mode==='pick'? 'اضغط على الخريطة لتحديد الانطلاق' : 'اضغط على الخريطة لتحديد الوصول')}</Text></View>
+            <View style={[s.hint,{alignItems:'center'}]}>
+              <Text style={s.hintT}>{routeState==='loading'? '⏳ جاري حساب المسارات...' : routeState==='error'? '⚠️ تعذر حساب المسار' : route? `🛣️ الأقصر: ${route.km.toFixed(1)} كم • ${fmtMin(route.min)}${route.alternatives.length?` • من ${route.alternatives.length+1} مسارات`:' • مسار واحد متاح'}${Math.max(route.snapStartMeters,route.snapEndMeters)>25 ? ` • أبعد دبوس عن الطريق: ${Math.round(Math.max(route.snapStartMeters,route.snapEndMeters))}م` : ''}` : (mode==='pick'? 'اضغط على الخريطة لتحديد الانطلاق' : 'اضغط على الخريطة لتحديد الوصول')}</Text>
+              {!!route?.alternatives.length&&<Text style={{fontSize:9,color:'#c7d2fe',marginTop:2}}>الأغمق: الأقصر • الأفتح: بدائل</Text>}
+            </View>
           </>
         ) : (
           <View style={s.locationGate}>
@@ -338,8 +355,8 @@ const s=StyleSheet.create({
   locationGateT:{fontSize:13, lineHeight:20, fontWeight:'800', color:'#334155', textAlign:'center'},
   locationRetry:{height:42, paddingHorizontal:16, borderRadius:12, backgroundColor:'#4F46E5', alignItems:'center', justifyContent:'center'},
   locationRetryT:{color:'#fff', fontWeight:'900', fontSize:12},
-  hint:{position:'absolute', bottom:10, alignSelf:'center', backgroundColor:'rgba(15,23,42,.85)', paddingHorizontal:12, paddingVertical:6, borderRadius:999},
-  hintT:{color:'#fff', fontSize:11},
+  hint:{position:'absolute', bottom:10, alignSelf:'center', maxWidth:'94%', backgroundColor:'rgba(15,23,42,.85)', paddingHorizontal:12, paddingVertical:6, borderRadius:12},
+  hintT:{color:'#fff', fontSize:11, textAlign:'center'},
   sliderWrap:{backgroundColor:'#fff', borderTopWidth:1, borderColor:'#e2e8f0', paddingVertical:10},
   sliderTitle:{fontSize:12, fontWeight:'900', paddingHorizontal:14, marginBottom:8},
   card:{width:140, borderWidth:1.5, borderColor:'#e2e8f0', borderRadius:14, padding:10, backgroundColor:'#fff', alignItems:'center'},

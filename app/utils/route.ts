@@ -2,15 +2,16 @@ import Constants from 'expo-constants';
 
 // يجرّب OpenRouteService عند تهيئته، ثم يستخدم OSRM بديلاً عند تعذّر الطلب الأساسي.
 export type LatLng = number[];
-export type RouteResult = {
-  ok: true;
+export type RouteOption = {
   km: number;
   min: number;
   path: { latitude: number; longitude: number }[];
   // المسار المروري قد يبدأ/ينتهي عند أقرب طريق، لا عند الدبوس نفسه.
   snapStartMeters: number;
   snapEndMeters: number;
-} | { ok: false };
+};
+export type RouteResult = ({ ok: true } & RouteOption & { alternatives: RouteOption[] }) | { ok: false };
+export type RouteRequestOptions = { alternatives?: boolean; preference?: 'fastest' | 'shortest' };
 const cache: Record<string, RouteResult> = {};
 export const OSRM_URL = 'https://router.project-osrm.org';
 const ORS_URL = 'https://api.openrouteservice.org/v2';
@@ -55,37 +56,53 @@ function metersBetween(a: LatLng, b: LatLng) {
   return 6371000 * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
 }
 
-function routeResult(distance: number, duration: number, coordinates: number[][], requested: LatLng[]): RouteResult | null {
-  if (!Number.isFinite(distance) || !Number.isFinite(duration) || !coordinates?.length || requested.length < 2) return null;
-  const path = coordinates.map((coordinate: number[]) => ({ latitude: Number(coordinate[1]), longitude: Number(coordinate[0]) }));
-  if (path.length < 2 || path.some(p => !Number.isFinite(p.latitude) || !Number.isFinite(p.longitude))) return null;
-  const first = path[0];
-  const last = path[path.length - 1];
-  return {
-    ok: true,
-    km: distance / 1000,
-    min: duration / 60,
-    path,
-    snapStartMeters: metersBetween(requested[0], [first.latitude, first.longitude]),
-    snapEndMeters: metersBetween(requested[requested.length - 1], [last.latitude, last.longitude]),
-  };
+function routeResult(candidates: { distance: number; duration: number; coordinates: number[][] }[], requested: LatLng[]): RouteResult | null {
+  if (!Array.isArray(candidates) || requested.length < 2) return null;
+  const options: RouteOption[] = [];
+  for (const candidate of candidates) {
+    if (!Number.isFinite(candidate.distance) || candidate.distance < 0 || !Number.isFinite(candidate.duration) || candidate.duration < 0 || !Array.isArray(candidate.coordinates)) continue;
+    const path = candidate.coordinates.map((coordinate: number[]) => ({ latitude: Number(coordinate[1]), longitude: Number(coordinate[0]) }));
+    if (path.length < 2 || path.some(p => !Number.isFinite(p.latitude) || !Number.isFinite(p.longitude))) continue;
+    const first = path[0];
+    const last = path[path.length - 1];
+    options.push({
+      km: candidate.distance / 1000,
+      min: candidate.duration / 60,
+      path,
+      snapStartMeters: metersBetween(requested[0], [first.latitude, first.longitude]),
+      snapEndMeters: metersBetween(requested[requested.length - 1], [last.latitude, last.longitude]),
+    });
+  }
+  if (!options.length) return null;
+  // نعتمد أقصر مسافة، وعند التعادل نفضّل الأقل زمنًا.
+  options.sort((a, b) => a.km - b.km || a.min - b.min);
+  const [shortest, ...alternatives] = options.slice(0, 3);
+  return { ok: true, ...shortest, alternatives };
 }
 
-async function routeViaORS(points: LatLng[]): Promise<RouteResult | null> {
+async function routeViaORS(points: LatLng[], options: RouteRequestOptions = {}): Promise<RouteResult | null> {
   const timeout = requestSignal(10000);
   try {
+    const body: any = {
+      coordinates: points.map(p => [p[1], p[0]]),
+      instructions: false,
+    };
+    if (options.preference) body.preference = options.preference;
+    if (options.alternatives) body.alternative_routes = { target_count: 3, weight_factor: 1.4, share_factor: 0.6 };
     const response = await fetch(`${ORS_URL}/directions/driving-car/geojson`, {
       method: 'POST',
       headers: { Authorization: ORS_API_KEY, 'Content-Type': 'application/json', Accept: 'application/geo+json, application/json' },
-      body: JSON.stringify({ coordinates: points.map(p => [p[1], p[0]]), instructions: false }),
+      body: JSON.stringify(body),
       signal: timeout.signal,
     });
     const data = await response.json();
-    const feature = data.features?.[0];
-    const summary = feature?.properties?.summary;
-    const coordinates = feature?.geometry?.coordinates;
-    if (!response.ok || data.error || !summary || !Array.isArray(coordinates)) return null;
-    return routeResult(Number(summary.distance), Number(summary.duration), coordinates, points);
+    if (!response.ok || data.error || !Array.isArray(data.features)) return null;
+    const candidates = data.features.map((feature: any) => ({
+      distance: Number(feature?.properties?.summary?.distance),
+      duration: Number(feature?.properties?.summary?.duration),
+      coordinates: feature?.geometry?.coordinates || [],
+    }));
+    return routeResult(candidates, points);
   } catch {
     return null;
   } finally {
@@ -93,15 +110,20 @@ async function routeViaORS(points: LatLng[]): Promise<RouteResult | null> {
   }
 }
 
-async function routeViaOSRM(points: LatLng[]): Promise<RouteResult | null> {
+async function routeViaOSRM(points: LatLng[], withAlternatives = true): Promise<RouteResult | null> {
   const timeout = requestSignal(12000);
   try {
     const coords = points.map(p => p[1] + ',' + p[0]).join(';');
-    const response = await fetch(`${OSRM_URL}/route/v1/driving/${coords}?overview=full&geometries=geojson`, { signal: timeout.signal });
+    const alternatives = withAlternatives ? 3 : 'false';
+    const response = await fetch(`${OSRM_URL}/route/v1/driving/${coords}?alternatives=${alternatives}&overview=full&geometries=geojson`, { signal: timeout.signal });
     const data = await response.json();
-    if (!response.ok || data.code !== 'Ok' || !data.routes?.length) return null;
-    const route = data.routes[0];
-    return routeResult(Number(route.distance), Number(route.duration), route.geometry?.coordinates || [], points);
+    if (!response.ok || data.code !== 'Ok' || !Array.isArray(data.routes) || !data.routes.length) return null;
+    const candidates = data.routes.map((route: any) => ({
+      distance: Number(route.distance),
+      duration: Number(route.duration),
+      coordinates: route.geometry?.coordinates || [],
+    }));
+    return routeResult(candidates, points);
   } catch {
     return null;
   } finally {
@@ -109,16 +131,26 @@ async function routeViaOSRM(points: LatLng[]): Promise<RouteResult | null> {
   }
 }
 
-export async function getRoute(points: LatLng[]): Promise<RouteResult> {
-  const key = points.map(p => p[0].toFixed(5) + ',' + p[1].toFixed(5)).join(';');
+export async function getRoute(points: LatLng[], options: RouteRequestOptions = {}): Promise<RouteResult> {
+  const coordinatesKey = points.map(p => p[0].toFixed(5) + ',' + p[1].toFixed(5)).join(';');
+  const key = `${coordinatesKey}|${options.alternatives ? 'alternatives' : 'single'}|${options.preference || 'default'}`;
   if (cache[key]) return cache[key];
 
   if (ORS_API_KEY) {
-    const primary = await routeViaORS(points);
+    const primary = await routeViaORS(points, options);
     if (primary) { cache[key] = primary; return primary; }
+    // بدائل ORS قد لا تتوفر لبعض المسافات؛ جرّب مسارًا واحدًا بالتفضيل نفسه قبل الخدمة الاحتياطية.
+    if (options.alternatives) {
+      const single = await routeViaORS(points, { preference: options.preference });
+      if (single) { cache[key] = single; return single; }
+    }
   }
-  const fallback = await routeViaOSRM(points);
+  const fallback = await routeViaOSRM(points, options.alternatives === true);
   if (fallback) { cache[key] = fallback; return fallback; }
+  if (options.alternatives) {
+    const singleFallback = await routeViaOSRM(points, false);
+    if (singleFallback) { cache[key] = singleFallback; return singleFallback; }
+  }
   return { ok: false };
 }
 

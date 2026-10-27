@@ -107,11 +107,12 @@ function DriverMap({ wp }:{ wp:any }){
   // معاينة الطريق الذي يحتاجه السائق للوصول إلى دبوس الالتقاط، لا مسار الراكب إلى وجهته.
   const openWithRoute=async(r:any)=>{
     const driverLL=myRef.current;
-    const rt=driverLL?await getRoute([driverLL,r.fromLL]):{ok:false as const};
+    const rt=driverLL?await getRoute([driverLL,r.fromLL],{alternatives:true,preference:'shortest'}):{ok:false as const};
     setModal({
       ...r,
       driverLL:driverLL?[...driverLL]:null,
       approachPath:rt.ok?rt.path:null,
+      approachAlternatives:rt.ok?rt.alternatives:[],
       approachKm:rt.ok?rt.km:null,
       approachMin:rt.ok?rt.min:null,
       approachStartSnapMeters:rt.ok?rt.snapStartMeters:0,
@@ -147,11 +148,11 @@ function DriverMap({ wp }:{ wp:any }){
     if(targetChanged) setTripRoute(null);
     let active=true;
     setTripRouteBusy(true);
-    getRoute([origin,tripTargetLL]).then(result=>{
+    getRoute([origin,tripTargetLL],{alternatives:true,preference:'shortest'}).then(result=>{
       if(!active) return;
       if(result.ok){
         setTripRoute(result);
-        const fitted=regionForPoints([...result.path,origin,tripTargetLL]);
+        const fitted=regionForPoints([...result.path,...result.alternatives.flatMap(a=>a.path),origin,tripTargetLL]);
         if(fitted) mapRef.current?.animateToRegion?.({...fitted,latitude:fitted.latitude+fitted.latitudeDelta*0.1},700);
       }else setTripRoute(null);
     }).catch(()=>{if(active)setTripRoute(null);}).finally(()=>{if(active)setTripRouteBusy(false);});
@@ -284,13 +285,14 @@ function DriverMap({ wp }:{ wp:any }){
               <Marker coordinate={toLL(myLL)} pinColor="#4F46E5"/>
               {nearby.map(r=> <Marker key={r.id} coordinate={toLL(r.fromLL)} pinColor="green" onPress={()=> openWithRoute(r)}/>)}
               {trip&&tripRoute&&<>
+                {tripRoute.alternatives.map((alt:any,i:number)=><Polyline key={`trip-alt-${i}`} coordinates={alt.path} strokeColor="#818CF8" strokeWidth={4}/>)}
                 <Polyline coordinates={tripRoute.path} strokeColor="#4F46E5" strokeWidth={5}/>
                 {!!routeOriginRef.current&&(tripRoute.snapStartMeters>15||kmBetween(myLL,routeOriginRef.current)>0.03)&&<Polyline coordinates={[toLL(myLL),toLL(routeOriginRef.current),tripRoute.path[0]]} strokeColor="#f59e0b" strokeWidth={4} lineDashPattern={[3,3]}/>}
                 {tripRoute.snapEndMeters>15&&tripTargetLL&&<Polyline coordinates={[tripRoute.path[tripRoute.path.length-1],toLL(tripTargetLL)]} strokeColor="#f59e0b" strokeWidth={4} lineDashPattern={[3,3]}/>}
                 {!!tripTargetLL&&<Marker coordinate={toLL(tripTargetLL)} pinColor={trip.status==='in_progress'?'red':'green'}/>}
               </>}
             </MapView>
-            <View style={s.legend}>{tripRoute&&<Text style={{fontSize:10,fontWeight:'900',color:'#4F46E5'}}>🟣 المسار {trip.status==='in_progress'?'إلى الوجهة':'إلى الراكب'}</Text>}<Text style={{fontSize:10, fontWeight:'900'}}>نطاق الطلبات {RADIUS_KM} كم{status?.taxi_category? ' • '+(CAT[status.taxi_category]||'') : ''}</Text></View>
+            <View style={s.legend}>{tripRoute&&<><Text style={{fontSize:10,fontWeight:'900',color:'#4F46E5'}}>🟣 الأقصر إلى {trip.status==='in_progress'?'الوجهة':'الراكب'}</Text>{!!tripRoute.alternatives.length&&<Text style={{fontSize:9,color:'#64748b'}}>الأغمق: الأقصر • الأفتح: بدائل</Text>}</>}<Text style={{fontSize:10, fontWeight:'900'}}>نطاق الطلبات {RADIUS_KM} كم{status?.taxi_category? ' • '+(CAT[status.taxi_category]||'') : ''}</Text></View>
           </>
         ) : (
           <View style={{flex:1,alignItems:'center',justifyContent:'center',padding:20,gap:12,backgroundColor:'#f8fafc'}}>
@@ -328,7 +330,11 @@ function DriverMap({ wp }:{ wp:any }){
             <Text style={{fontWeight:'900', fontSize:16, color:'#4F46E5'}}>{Number(trip.fare_local)>0?formatLocalFare(trip.fare_local,trip.local_currency||'SYP'):formatWalletUsd(trip.fare)}</Text>
           </View>
           {(trip.status==='accepted'||trip.status==='in_progress')&&<View style={{flexDirection:'row-reverse',alignItems:'center',gap:8,marginTop:8}}>
-            <Text style={{flex:1,fontSize:11,color:'#334155',textAlign:'right'}}>{tripRoute?`🛣️ ${trip.status==='accepted'?'إلى الراكب':'إلى الوجهة'}: ${tripRoute.km.toFixed(1)} كم • ${fmtMin(tripRoute.min)}`:tripRouteBusy?'⏳ جارٍ رسم الطريق...':myLL?'⚠️ تعذر حساب الطريق الآن':'📡 بانتظار موقع السائق'}</Text>
+            <Text style={{flex:1,fontSize:11,color:'#334155',textAlign:'right'}}>
+              {tripRoute
+                ? `🛣️ الأقصر إلى ${trip.status==='accepted'?'الراكب':'الوجهة'}: ${tripRoute.km.toFixed(1)} كم • ${fmtMin(tripRoute.min)}${tripRoute.alternatives.length?` • من ${tripRoute.alternatives.length+1} مسارات`:' • مسار واحد متاح'}`
+                : tripRouteBusy?'⏳ جارٍ رسم الطريق...':myLL?'⚠️ تعذر حساب الطريق الآن':'📡 بانتظار موقع السائق'}
+            </Text>
             <Pressable onPress={openTripNavigation} style={{backgroundColor:'#4F46E5',borderRadius:10,paddingHorizontal:12,paddingVertical:9}}><Text style={{color:'#fff',fontWeight:'900',fontSize:11}}>🧭 ملاحة</Text></Pressable>
           </View>}
           {Number(trip.fare_local)>0 && <>
@@ -365,18 +371,19 @@ function DriverMap({ wp }:{ wp:any }){
               <>
                 <Text style={{fontSize:13,fontWeight:'900',textAlign:'center',marginTop:10}}>{modal.from} → {modal.to}</Text>
                 <View style={{height:130, borderRadius:12, overflow:'hidden', marginTop:10, borderWidth:1, borderColor:'#e2e8f0'}}>
-                  <MapView style={{flex:1}} initialRegion={regionForPoints(modal.approachPath?[...modal.approachPath,modal.driverLL,modal.fromLL]:[modal.driverLL,modal.fromLL])||{latitude:modal.fromLL[0],longitude:modal.fromLL[1],latitudeDelta:0.04,longitudeDelta:0.04}} scrollEnabled={false} zoomEnabled={false}>
+                  <MapView style={{flex:1}} initialRegion={regionForPoints(modal.approachPath?[...modal.approachPath,...(modal.approachAlternatives||[]).flatMap((a:any)=>a.path),modal.driverLL,modal.fromLL]:[modal.driverLL,modal.fromLL])||{latitude:modal.fromLL[0],longitude:modal.fromLL[1],latitudeDelta:0.04,longitudeDelta:0.04}} scrollEnabled={false} zoomEnabled={false}>
                     <UrlTile urlTemplate="https://a.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png" maximumZ={19} flipY={false}/>
                     {!!modal.driverLL&&<Marker coordinate={toLL(modal.driverLL)} pinColor="#4F46E5"/>}
                     <Marker coordinate={toLL(modal.fromLL)} pinColor="green"/>
+                    {modal.approachAlternatives?.map((alt:any,i:number)=><Polyline key={`approach-alt-${i}`} coordinates={alt.path} strokeColor="#818CF8" strokeWidth={3}/>)}
                     {modal.approachPath&&<Polyline coordinates={modal.approachPath} strokeColor="#4F46E5" strokeWidth={4}/>}
                     {modal.approachPath&&modal.driverLL&&modal.approachStartSnapMeters>15&&<Polyline coordinates={[toLL(modal.driverLL),modal.approachPath[0]]} strokeColor="#f59e0b" strokeWidth={3} lineDashPattern={[3,3]}/>}
                     {modal.approachPath&&modal.approachEndSnapMeters>15&&<Polyline coordinates={[modal.approachPath[modal.approachPath.length-1],toLL(modal.fromLL)]} strokeColor="#f59e0b" strokeWidth={3} lineDashPattern={[3,3]}/>}
                   </MapView>
                 </View>
-                <Text style={{fontSize:10,color:'#64748b',textAlign:'center',marginTop:4}}>{modal.driverLL?'الأزرق: موقعك • الأخضر: نقطة الراكب':'لا يتوفر موقع السائق لعرض مسار الوصول'}</Text>
+                <Text style={{fontSize:10,color:'#64748b',textAlign:'center',marginTop:4}}>{modal.driverLL?`الأزرق: موقعك • الأخضر: نقطة الراكب${modal.approachPath?(modal.approachAlternatives?.length?' • الأغمق: الأقصر • الأفتح: بدائل':' • مسار واحد متاح'):' • تعذّر حساب المسار'}`:'لا يتوفر موقع السائق لعرض مسار الوصول'}</Text>
                 <View style={{flexDirection:'row', gap:8, marginTop:10}}>
-                  <View style={s.detail}><Text style={s.detailB}>{modal.approachKm!=null?`${modal.approachKm.toFixed(1)} كم • ${fmtMin(modal.approachMin)}`:modal.dist}</Text><Text style={s.detailS}>{modal.approachKm!=null?'طريقك إلى الراكب':'مسافة الرحلة'}</Text></View>
+                  <View style={s.detail}><Text style={s.detailB}>{modal.approachKm!=null?`${modal.approachKm.toFixed(1)} كم • ${fmtMin(modal.approachMin)}`:modal.dist}</Text><Text style={s.detailS}>{modal.approachKm!=null?'أقصر طريقك إلى الراكب':'مسافة الرحلة'}</Text></View>
                   <View style={s.detail}><Text style={s.detailB}>{modal.cat}</Text><Text style={s.detailS}>الفئة</Text></View>
                   <View style={s.detail}><Text style={s.detailB}>{modal.price}</Text><Text style={s.detailS}>الأجرة</Text></View>
                 </View>
