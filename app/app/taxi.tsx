@@ -247,20 +247,26 @@ export default function TaxiScreen(){
       <View style={{flex:1, marginHorizontal:10, borderRadius:14, overflow:'hidden', borderWidth:1, borderColor:'#e2e8f0'}}>
         {pickup ? (
           <>
-            <MapView ref={mapRef} style={{flex:1}} initialRegion={{latitude:pickup[0], longitude:pickup[1], latitudeDelta:0.02, longitudeDelta:0.02}} onPress={onMapPress}>
+            <MapView ref={mapRef} style={{flex:1}} basemap="streets" initialRegion={{latitude:pickup[0], longitude:pickup[1], latitudeDelta:0.02, longitudeDelta:0.02}} onPress={onMapPress}>
               <UrlTile urlTemplate="https://a.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png" maximumZ={19} flipY={false}/>
               <Marker coordinate={{latitude:pickup[0], longitude:pickup[1]}} pinColor="green"/>
               {dropoff && <Marker coordinate={{latitude:dropoff[0], longitude:dropoff[1]}} pinColor="red"/>}
-              {route?.alternatives.map((alt,i)=><Polyline key={`taxi-alt-${i}`} coordinates={alt.path} strokeColor="#818CF8" strokeWidth={4}/>)}
-              {route && <Polyline coordinates={route.path} strokeColor="#4F46E5" strokeWidth={5}/>}
+              {route?.alternatives.map((alt,i)=><React.Fragment key={`taxi-alt-${i}`}>
+                <Polyline coordinates={alt.path} strokeColor="#fff" strokeWidth={7} strokeOpacity={0.92}/>
+                <Polyline coordinates={alt.path} strokeColor="#818CF8" strokeWidth={3} strokeOpacity={0.9}/>
+              </React.Fragment>)}
+              {route&&<>
+                <Polyline coordinates={route.path} strokeColor="#fff" strokeWidth={9} strokeOpacity={0.96}/>
+                <Polyline coordinates={route.path} strokeColor="#4F46E5" strokeWidth={5}/>
+              </>}
               {route && pickup && route.snapStartMeters > 15 && <Polyline coordinates={[{latitude:pickup[0],longitude:pickup[1]}, route.path[0]]} strokeColor="#f59e0b" strokeWidth={4} lineDashPattern={[3,3]}/>}
               {route && dropoff && route.snapEndMeters > 15 && <Polyline coordinates={[route.path[route.path.length-1], {latitude:dropoff[0],longitude:dropoff[1]}]} strokeColor="#f59e0b" strokeWidth={4} lineDashPattern={[3,3]}/>}
               {carPos && <Marker coordinate={{latitude:carPos[0], longitude:carPos[1]}} anchor={{x:.5,y:.5}}><Text style={{fontSize:26}}>🚕</Text></Marker>}
               {!showActive && cars.map((c,i)=> <Marker key={'car'+i} coordinate={{latitude:c.lat, longitude:c.lng}} anchor={{x:.5,y:.5}} tracksViewChanges={false}><Text style={{fontSize:20}}>🚕</Text></Marker>)}
             </MapView>
-            <View style={[s.hint,{alignItems:'center'}]}>
-              <Text style={s.hintT}>{routeState==='loading'? '⏳ جاري حساب المسارات...' : routeState==='error'? '⚠️ تعذر حساب المسار' : route? `🛣️ الأقصر: ${route.km.toFixed(1)} كم • ${fmtMin(route.min)}${route.alternatives.length?` • من ${route.alternatives.length+1} مسارات`:' • مسار واحد متاح'}${Math.max(route.snapStartMeters,route.snapEndMeters)>25 ? ` • أبعد دبوس عن الطريق: ${Math.round(Math.max(route.snapStartMeters,route.snapEndMeters))}م` : ''}` : (mode==='pick'? 'اضغط على الخريطة لتحديد الانطلاق' : 'اضغط على الخريطة لتحديد الوصول')}</Text>
-              {!!route?.alternatives.length&&<Text style={{fontSize:9,color:'#c7d2fe',marginTop:2}}>الأغمق: الأقصر • الأفتح: بدائل</Text>}
+            <View style={[s.hint,{alignItems:'center',position:'relative',bottom:0,alignSelf:'stretch',maxWidth:'100%'}]}>
+              <Text style={s.hintT}>{routeState==='loading'? '⏳ جاري حساب المسارات...' : routeState==='error'? '⚠️ تعذر حساب المسار' : route? `🛣️ الأقصر: ${route.km.toFixed(1)} كم • ${fmtMin(route.min)}${route.alternatives.length?` • من ${route.alternatives.length+1} مسارات`:' • مسار واحد متاح'}` : (mode==='pick'? 'اضغط على الخريطة لتحديد الانطلاق' : 'اضغط على الخريطة لتحديد الوصول')}</Text>
+              {!!route?.alternatives.length&&<Text style={{fontSize:9,color:'#64748b',marginTop:2}}>الأغمق: الأقصر • الأفتح: بدائل</Text>}
             </View>
           </>
         ) : (
@@ -313,8 +319,9 @@ export default function TaxiScreen(){
       )}
       {!showActive && distance>0 && (
         <View style={s.sliderWrap}>
-          <Text style={s.sliderTitle}>اختر الفئة • {distance.toFixed(1)} كم • مدة متوقعة {fmtMin(route?.min||0)}</Text>
+          <Text style={s.sliderTitle}>اختر الفئة • الأقصر {distance.toFixed(1)} كم • مدة متوقعة {fmtMin(route?.min||0)}</Text>
           <Text style={{fontSize:10,color:'#64748b',textAlign:'center',marginBottom:6}}>السعر بالليرة السورية الجديدة • العمولة على السائق ولا تُضاف إلى أجرتك • زمن متوقع دون انتظار</Text>
+          {!!route&&Math.max(route.snapStartMeters,route.snapEndMeters)>25&&<Text style={{fontSize:10,color:'#b45309',textAlign:'center',marginBottom:6}}>الخط المتقطع يصل الدبوس بأقرب طريق • البداية {Math.round(route.snapStartMeters)}م / الوصول {Math.round(route.snapEndMeters)}م</Text>}
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{paddingHorizontal:14, gap:10}}>
             {Object.entries(RATES).map(([k,v]:any)=> (
               <Pressable key={k} onPress={()=> pickCat(k)} style={[s.card, selected===k && hasCat(k) && s.cardActive, carsLoaded && !hasCat(k) && {opacity:.4}]}>
@@ -355,8 +362,8 @@ const s=StyleSheet.create({
   locationGateT:{fontSize:13, lineHeight:20, fontWeight:'800', color:'#334155', textAlign:'center'},
   locationRetry:{height:42, paddingHorizontal:16, borderRadius:12, backgroundColor:'#4F46E5', alignItems:'center', justifyContent:'center'},
   locationRetryT:{color:'#fff', fontWeight:'900', fontSize:12},
-  hint:{position:'absolute', bottom:10, alignSelf:'center', maxWidth:'94%', backgroundColor:'rgba(15,23,42,.85)', paddingHorizontal:12, paddingVertical:6, borderRadius:12},
-  hintT:{color:'#fff', fontSize:11, textAlign:'center'},
+  hint:{position:'relative', alignSelf:'stretch', backgroundColor:'#f8fafc', paddingHorizontal:10, paddingVertical:5, borderTopWidth:1, borderColor:'#e2e8f0'},
+  hintT:{color:'#334155', fontSize:10, textAlign:'center'},
   sliderWrap:{backgroundColor:'#fff', borderTopWidth:1, borderColor:'#e2e8f0', paddingVertical:10},
   sliderTitle:{fontSize:12, fontWeight:'900', paddingHorizontal:14, marginBottom:8},
   card:{width:140, borderWidth:1.5, borderColor:'#e2e8f0', borderRadius:14, padding:10, backgroundColor:'#fff', alignItems:'center'},

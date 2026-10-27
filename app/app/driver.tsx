@@ -279,13 +279,17 @@ function DriverMap({ wp }:{ wp:any }){
       <View style={{flex:1, margin:10, borderRadius:14, overflow:'hidden', borderWidth:1, borderColor:'#e2e8f0'}}>
         {myLL ? (
           <>
-            <MapView ref={mapRef} style={{flex:1}} initialRegion={{latitude:myLL[0], longitude:myLL[1], latitudeDelta:0.12, longitudeDelta:0.12}}>
+            <MapView ref={mapRef} style={{flex:1}} basemap="streets" initialRegion={{latitude:myLL[0], longitude:myLL[1], latitudeDelta:0.12, longitudeDelta:0.12}}>
               <UrlTile urlTemplate="https://a.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png" maximumZ={19} flipY={false}/>
               <Circle center={toLL(myLL)} radius={RADIUS_KM*1000} fillColor="rgba(79,70,229,0.08)" strokeColor="rgba(79,70,229,0.5)"/>
               <Marker coordinate={toLL(myLL)} pinColor="#4F46E5"/>
               {nearby.map(r=> <Marker key={r.id} coordinate={toLL(r.fromLL)} pinColor="green" onPress={()=> openWithRoute(r)}/>)}
               {trip&&tripRoute&&<>
-                {tripRoute.alternatives.map((alt:any,i:number)=><Polyline key={`trip-alt-${i}`} coordinates={alt.path} strokeColor="#818CF8" strokeWidth={4}/>)}
+                {tripRoute.alternatives.map((alt:any,i:number)=><React.Fragment key={`trip-alt-${i}`}>
+                  <Polyline coordinates={alt.path} strokeColor="#fff" strokeWidth={7} strokeOpacity={0.92}/>
+                  <Polyline coordinates={alt.path} strokeColor="#818CF8" strokeWidth={3} strokeOpacity={0.9}/>
+                </React.Fragment>)}
+                <Polyline coordinates={tripRoute.path} strokeColor="#fff" strokeWidth={9} strokeOpacity={0.96}/>
                 <Polyline coordinates={tripRoute.path} strokeColor="#4F46E5" strokeWidth={5}/>
                 {!!routeOriginRef.current&&(tripRoute.snapStartMeters>15||kmBetween(myLL,routeOriginRef.current)>0.03)&&<Polyline coordinates={[toLL(myLL),toLL(routeOriginRef.current),tripRoute.path[0]]} strokeColor="#f59e0b" strokeWidth={4} lineDashPattern={[3,3]}/>}
                 {tripRoute.snapEndMeters>15&&tripTargetLL&&<Polyline coordinates={[tripRoute.path[tripRoute.path.length-1],toLL(tripTargetLL)]} strokeColor="#f59e0b" strokeWidth={4} lineDashPattern={[3,3]}/>}
@@ -371,12 +375,18 @@ function DriverMap({ wp }:{ wp:any }){
               <>
                 <Text style={{fontSize:13,fontWeight:'900',textAlign:'center',marginTop:10}}>{modal.from} → {modal.to}</Text>
                 <View style={{height:130, borderRadius:12, overflow:'hidden', marginTop:10, borderWidth:1, borderColor:'#e2e8f0'}}>
-                  <MapView style={{flex:1}} initialRegion={regionForPoints(modal.approachPath?[...modal.approachPath,...(modal.approachAlternatives||[]).flatMap((a:any)=>a.path),modal.driverLL,modal.fromLL]:[modal.driverLL,modal.fromLL])||{latitude:modal.fromLL[0],longitude:modal.fromLL[1],latitudeDelta:0.04,longitudeDelta:0.04}} scrollEnabled={false} zoomEnabled={false}>
+                  <MapView style={{flex:1}} basemap="streets" initialRegion={regionForPoints(modal.approachPath?[...modal.approachPath,...(modal.approachAlternatives||[]).flatMap((a:any)=>a.path),modal.driverLL,modal.fromLL]:[modal.driverLL,modal.fromLL])||{latitude:modal.fromLL[0],longitude:modal.fromLL[1],latitudeDelta:0.04,longitudeDelta:0.04}} scrollEnabled={false} zoomEnabled={false}>
                     <UrlTile urlTemplate="https://a.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png" maximumZ={19} flipY={false}/>
                     {!!modal.driverLL&&<Marker coordinate={toLL(modal.driverLL)} pinColor="#4F46E5"/>}
                     <Marker coordinate={toLL(modal.fromLL)} pinColor="green"/>
-                    {modal.approachAlternatives?.map((alt:any,i:number)=><Polyline key={`approach-alt-${i}`} coordinates={alt.path} strokeColor="#818CF8" strokeWidth={3}/>)}
-                    {modal.approachPath&&<Polyline coordinates={modal.approachPath} strokeColor="#4F46E5" strokeWidth={4}/>}
+                    {modal.approachAlternatives?.map((alt:any,i:number)=><React.Fragment key={`approach-alt-${i}`}>
+                      <Polyline coordinates={alt.path} strokeColor="#fff" strokeWidth={6} strokeOpacity={0.92}/>
+                      <Polyline coordinates={alt.path} strokeColor="#818CF8" strokeWidth={2.5} strokeOpacity={0.9}/>
+                    </React.Fragment>)}
+                    {modal.approachPath&&<>
+                      <Polyline coordinates={modal.approachPath} strokeColor="#fff" strokeWidth={8} strokeOpacity={0.96}/>
+                      <Polyline coordinates={modal.approachPath} strokeColor="#4F46E5" strokeWidth={4}/>
+                    </>}
                     {modal.approachPath&&modal.driverLL&&modal.approachStartSnapMeters>15&&<Polyline coordinates={[toLL(modal.driverLL),modal.approachPath[0]]} strokeColor="#f59e0b" strokeWidth={3} lineDashPattern={[3,3]}/>}
                     {modal.approachPath&&modal.approachEndSnapMeters>15&&<Polyline coordinates={[modal.approachPath[modal.approachPath.length-1],toLL(modal.fromLL)]} strokeColor="#f59e0b" strokeWidth={3} lineDashPattern={[3,3]}/>}
                   </MapView>

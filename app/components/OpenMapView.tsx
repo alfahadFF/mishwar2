@@ -93,8 +93,10 @@ export const MapView = forwardRef<any, any>(function OpenMapView(props, forwarde
     children,
     scrollEnabled,
     zoomEnabled,
+    basemap = 'hybrid',
     ...nativeProps
   } = props;
+  const selectedMapStyle = basemap === 'streets' ? LATEST_STREET_STYLE_URL : ARCGIS_HYBRID_STYLE;
   const cameraRef = useRef<CameraRef>(null);
   const firstRegion: Region | undefined = region || initialRegion;
 
@@ -128,7 +130,7 @@ export const MapView = forwardRef<any, any>(function OpenMapView(props, forwarde
     <NativeMap
       {...nativeProps}
       style={style}
-      mapStyle={ARCGIS_HYBRID_STYLE}
+      mapStyle={selectedMapStyle}
       attribution
       dragPan={scrollEnabled}
       touchZoom={zoomEnabled}
@@ -197,7 +199,7 @@ export function Marker({ coordinate, pinColor = '#2563EB', title, onPress, ancho
   );
 }
 
-export function Polyline({ coordinates, strokeColor = '#4F46E5', strokeWidth = 4, lineDashPattern, onPress }: any) {
+export function Polyline({ coordinates, strokeColor = '#4F46E5', strokeWidth = 4, strokeOpacity = 1, lineDashPattern, onPress }: any) {
   const reactId = useId();
   const points: number[][] = (coordinates || []).map((point: any) => Array.isArray(point)
     ? [Number(point[1]), Number(point[0])]
@@ -212,6 +214,7 @@ export function Polyline({ coordinates, strokeColor = '#4F46E5', strokeWidth = 4
   const paint: Record<string, unknown> = {
     'line-color': strokeColor,
     'line-width': strokeWidth,
+    'line-opacity': strokeOpacity,
     ...(lineDashPattern ? { 'line-dasharray': lineDashPattern } : {}),
   };
 
@@ -224,7 +227,7 @@ export function Polyline({ coordinates, strokeColor = '#4F46E5', strokeWidth = 4
         onPress(event);
       } : undefined}
     >
-      <Layer type="line" id={`line-layer-${id}`} paint={paint as any} />
+      <Layer type="line" id={`line-layer-${id}`} layout={{ 'line-cap': 'round', 'line-join': 'round' }} paint={paint as any} />
     </GeoJSONSource>
   );
 }
