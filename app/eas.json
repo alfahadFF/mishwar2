@@ -4,6 +4,7 @@
   },
   "build": {
     "development": {
+      "environment": "development",
       "node": "22.13.1",
       "developmentClient": true,
       "distribution": "internal",
@@ -12,6 +13,7 @@
       }
     },
     "preview": {
+      "environment": "preview",
       "node": "22.13.1",
       "distribution": "internal",
       "android": {
@@ -20,6 +22,7 @@
       }
     },
     "production": {
+      "environment": "production",
       "node": "22.13.1",
       "android": {
         "buildType": "app-bundle"

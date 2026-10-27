@@ -11,9 +11,56 @@ import {
   type CameraRef,
 } from '@maplibre/maplibre-react-native';
 
-// Unversioned Liberty style: the source resolves to OpenFreeMap's latest weekly OSM tiles.
-// Its road, place, and POI labels render Latin plus name:nonlatin (Arabic when tagged in OSM).
+// Fallback for local builds or preview builds that have not yet received the ArcGIS key.
 const LATEST_STREET_STYLE_URL = 'https://tiles.openfreemap.org/styles/liberty';
+const ARCGIS_API_KEY = (process.env.EXPO_PUBLIC_ARCGIS_API_KEY || '').trim();
+const ARCGIS_TOKEN = ARCGIS_API_KEY ? encodeURIComponent(ARCGIS_API_KEY) : '';
+
+// Use explicit raster tile URLs rather than the ArcGIS style URL: ArcGIS style documents
+// can contain relative nested tile URLs that have caused problems in MapLibre Native.
+// Hybrid mode layers World Imagery beneath ArcGIS' transparent imagery-label tiles.
+const ARCGIS_HYBRID_STYLE: any = ARCGIS_API_KEY ? {
+  version: 8,
+  sources: {
+    'arcgis-world-imagery': {
+      type: 'raster',
+      tiles: [
+        `https://ibasemaps-api.arcgis.com/arcgis/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}?token=${ARCGIS_TOKEN}`,
+      ],
+      tileSize: 256,
+      minzoom: 0,
+      maxzoom: 19,
+      attribution: 'World Imagery © Esri, Maxar, Earthstar Geographics, and the GIS User Community',
+    },
+    'arcgis-imagery-labels': {
+      type: 'raster',
+      tiles: [
+        `https://static-map-tiles-api.arcgis.com/arcgis/rest/services/static-basemap-tiles-service/v1/arcgis/imagery/labels/static/tile/{z}/{y}/{x}?token=${ARCGIS_TOKEN}`,
+      ],
+      tileSize: 512,
+      minzoom: 0,
+      maxzoom: 22,
+      attribution: 'Imagery labels © Esri, TomTom, Garmin, FAO, NOAA, USGS, OpenStreetMap contributors, and the GIS User Community',
+    },
+  },
+  layers: [
+    {
+      id: 'arcgis-world-imagery',
+      type: 'raster',
+      source: 'arcgis-world-imagery',
+      minzoom: 0,
+      maxzoom: 19,
+    },
+    {
+      id: 'arcgis-imagery-labels',
+      type: 'raster',
+      source: 'arcgis-imagery-labels',
+      minzoom: 0,
+      maxzoom: 22,
+      paint: { 'raster-opacity': 1, 'raster-fade-duration': 0 },
+    },
+  ],
+} : LATEST_STREET_STYLE_URL;
 
 type Region = { latitude: number; longitude: number; latitudeDelta: number; longitudeDelta: number };
 function regionZoom(region?: Region) {
@@ -81,7 +128,7 @@ export const MapView = forwardRef<any, any>(function OpenMapView(props, forwarde
     <NativeMap
       {...nativeProps}
       style={style}
-      mapStyle={LATEST_STREET_STYLE_URL}
+      mapStyle={ARCGIS_HYBRID_STYLE}
       attribution
       dragPan={scrollEnabled}
       touchZoom={zoomEnabled}
