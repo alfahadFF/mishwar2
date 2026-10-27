@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { View, Text, Pressable, Modal, StyleSheet, Linking, Share, Platform, ScrollView } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { usePathname, useRouter } from 'expo-router';
 import { supabase } from '../utils/supabase';
 import { errMsg } from '../utils/errors';
 import { getFreshLocation, getMyLocation } from '../utils/location';
@@ -9,9 +9,13 @@ import { trackLink, waPhone } from '../utils/share';
 import { startSosTracking, stopSosTracking } from '../utils/sosTask';
 
 // زر الطوارئ 🆘 — للتطبيق كله ولكل المستخدمين، غير مرتبط بنوع الخدمة
+const SOS_BOTTOM_ROUTES = ['/notifications', '/travel', '/travel-provider', '/rental'];
+
 export default function SosButton() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const pathname = usePathname();
+  const moveFabToBottom = SOS_BOTTOM_ROUTES.includes(pathname);
   const [logged, setLogged] = useState(false);
   const [step, setStep] = useState<null | 'confirm' | 'panel' | 'end'>(null);
   const [sos, setSos] = useState<any>(null);
@@ -75,9 +79,22 @@ export default function SosButton() {
   const family: any[] = sos?.family || [];
   return (
     <>
-      <Pressable onPress={() => setStep(active ? 'panel' : 'confirm')} hitSlop={8}
-        style={[s.fab, { top: insets.top + 13 }, active && s.fabOn]}>
-        <Text style={[s.fabT, active && { color: '#fff' }]}>{active ? '🆘 نشطة' : '🆘'}</Text>
+      <Pressable
+        onPress={() => setStep(active ? 'panel' : 'confirm')}
+        hitSlop={8}
+        accessibilityRole="button"
+        accessibilityLabel={active ? 'حالة الطوارئ نشطة' : 'زر الطوارئ'}
+        style={[
+          s.fab,
+          moveFabToBottom
+            ? [s.fabBottom, { bottom: Math.max(insets.bottom, 8) + 16 }]
+            : { top: insets.top + 13 },
+          active && s.fabOn,
+        ]}
+      >
+        <Text style={[s.fabT, moveFabToBottom && s.fabBottomT, active && { color: '#fff' }]}>
+          {active && !moveFabToBottom ? '🆘 نشطة' : '🆘'}
+        </Text>
       </Pressable>
 
       <Modal visible={!!step} transparent animationType="fade" onRequestClose={() => setStep(null)}>
@@ -134,8 +151,10 @@ export default function SosButton() {
 
 const s = StyleSheet.create({
   fab: { position: 'absolute', left: 8, zIndex: 999, elevation: 12, minWidth: 38, height: 30, paddingHorizontal: 8, borderRadius: 999, backgroundColor: '#fff', borderWidth: 1.5, borderColor: '#dc2626', alignItems: 'center', justifyContent: 'center' },
+  fabBottom: { top: undefined, width: 42, minWidth: 42, height: 42, paddingHorizontal: 0, borderRadius: 21 },
   fabOn: { backgroundColor: '#dc2626' },
   fabT: { fontSize: 13, fontWeight: '900', color: '#dc2626' },
+  fabBottomT: { fontSize: 16 },
   overlay: { flex: 1, backgroundColor: 'rgba(15,23,42,.6)', justifyContent: 'center', padding: 18 },
   box: { backgroundColor: '#fff', borderRadius: 18, padding: 16, maxHeight: '85%', gap: 8 },
   title: { fontSize: 18, fontWeight: '900', textAlign: 'center' },

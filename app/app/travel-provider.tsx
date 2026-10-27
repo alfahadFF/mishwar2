@@ -132,7 +132,7 @@ export default function TravelProviderScreen() {
   </View>;
   if (!isProvider) return <View style={ui.page}>
     <Header title="خدمة السفريات" onBack={() => router.back()} />
-    <ScrollView contentContainerStyle={{ padding: 16 }}>
+    <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 108 }}>
       <View style={ui.card}>
         <Text style={s.registerTitle}>انضم إلى مقدمي خدمة السفريات</Text>
         <Text style={s.registerText}>يمكن للسائق التسجيل ببيانات المركبة، ويمكن للمكتب تفعيل الخدمة من بيانات المكتب. لا توجد تعرفة عامة؛ تحدد أجرة كل رحلة أو عرض بشكل مستقل.</Text>
@@ -152,7 +152,7 @@ export default function TravelProviderScreen() {
         { k: 'offers', label: 'عروضي', n: data.offers.length },
         { k: 'bookings', label: 'الحجوزات', n: data.bookings.length },
       ]} value={tab} onChange={setTab} />
-      {tab === 'listings' && <ScrollView contentContainerStyle={{ padding: 12 }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}>
+      {tab === 'listings' && <ScrollView contentContainerStyle={{ padding: 12, paddingBottom: 108 }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}>
         {!data.listings.length && <Empty icon="🧭" title="لم تنشر رحلات بعد" sub="انشر رحلة بوجهة وموعد وأجرة لكل راكب" />}
         {data.listings.map(x => <View key={x.id} style={ui.card}>
           <View style={ui.cardTop}><Text style={ui.h}>إلى {x.destination}</Text><Pill text={STATUS[x.status]?.[0] || x.status} tone={STATUS[x.status]?.[1] || 'mute'} /></View>
@@ -167,7 +167,7 @@ export default function TravelProviderScreen() {
           </View>}
         </View>)}
       </ScrollView>}
-      {tab === 'requests' && <ScrollView contentContainerStyle={{ padding: 12 }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}>
+      {tab === 'requests' && <ScrollView contentContainerStyle={{ padding: 12, paddingBottom: 108 }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}>
         {!data.requests.length && <Empty icon="📣" title="لا توجد طلبات مفتوحة حالياً" sub="تظهر هنا طلبات السفر المفتوحة ضمن بلدك" />}
         {data.requests.map(r => <View key={r.id} style={ui.card}>
           <View style={ui.cardTop}><Text style={ui.h}>إلى {r.destination}</Text><Pill text={`${r.passengers} ركاب`} tone="brand" /></View>
@@ -176,7 +176,7 @@ export default function TravelProviderScreen() {
           {r.my_offer_id ? <Text style={s.sent}>أرسلت عرضاً لهذا الطلب؛ ينتظر اختيار الراكب.</Text> : <Btn label="إرسال عرض خاص لهذا الطلب" onPress={() => openOffer(r)} />}
         </View>)}
       </ScrollView>}
-      {tab === 'offers' && <ScrollView contentContainerStyle={{ padding: 12 }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}>
+      {tab === 'offers' && <ScrollView contentContainerStyle={{ padding: 12, paddingBottom: 108 }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}>
         {!data.offers.length && <Empty icon="💬" title="لم ترسل عروضاً بعد" sub="يمكنك إرسال سعر خاص لكل طلب مفتوح" />}
         {data.offers.map(o => <View key={o.id} style={ui.card}>
           <View style={ui.cardTop}><Text style={ui.h}>عرض إلى {o.destination}</Text><Pill text={STATUS[o.status]?.[0] || o.status} tone={STATUS[o.status]?.[1] || 'mute'} /></View>
@@ -188,7 +188,7 @@ export default function TravelProviderScreen() {
           </View>}
         </View>)}
       </ScrollView>}
-      {tab === 'bookings' && <ScrollView contentContainerStyle={{ padding: 12 }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}>
+      {tab === 'bookings' && <ScrollView contentContainerStyle={{ padding: 12, paddingBottom: 108 }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}>
         {!data.bookings.length && <Empty icon="✅" title="لا توجد حجوزات مؤكدة بعد" />}
         {data.bookings.map(b => <View key={b.id} style={ui.card}>
           <View style={ui.cardTop}><Text style={ui.h}>رحلة إلى {b.destination}</Text><Pill text={STATUS[b.status]?.[0] || b.status} tone={STATUS[b.status]?.[1] || 'mute'} /></View>

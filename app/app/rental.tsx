@@ -124,7 +124,7 @@ export default function RentalScreen() {
       <Header title="تأجير سيارات" onBack={() => router.back()} right={<Btn small label="📣 طلب عام" onPress={() => setGen(true)} />} />
       <Tabs tabs={[{ k: 'browse', label: 'السيارات القريبة', n: cars.length }, { k: 'mine', label: 'طلباتي', n: nMine }]} value={tab} onChange={setTab} />
       {tab === 'browse' ? (
-        <ScrollView contentContainerStyle={{ padding: 12 }} refreshControl={<RefreshControl refreshing={loading} onRefresh={() => loadCars()} />}>
+        <ScrollView contentContainerStyle={{ padding: 12, paddingBottom: 108 }} refreshControl={<RefreshControl refreshing={loading} onRefresh={() => loadCars()} />}>
           <View style={[ui.chips, { marginTop: 0, marginBottom: 10 }]}>
             <Pill text="الكل" tone={unit === null ? 'brand' : 'mute'} onPress={() => { setUnit(null); loadCars(null, null); }} />
             {UNITS.map(u => <Pill key={u} text={`بال${UNIT[u].n}`} tone={unit === u ? 'brand' : 'mute'} onPress={() => { setUnit(u); loadCars(null, u); }} />)}
@@ -133,7 +133,7 @@ export default function RentalScreen() {
           {cars.map(x => <CarCard key={x.id} x={x} onPress={() => openCar(x)} />)}
         </ScrollView>
       ) : (
-        <ScrollView contentContainerStyle={{ padding: 12 }} refreshControl={<RefreshControl refreshing={false} onRefresh={loadMine} />}>
+        <ScrollView contentContainerStyle={{ padding: 12, paddingBottom: 108 }} refreshControl={<RefreshControl refreshing={false} onRefresh={loadMine} />}>
           {!mine.generals.length && !mine.requests.length && <Empty icon="🧾" title="لا توجد طلبات بعد" />}
           {mine.generals.map(g => (
             <View key={g.id} style={[ui.card, ui.cardNew]}>

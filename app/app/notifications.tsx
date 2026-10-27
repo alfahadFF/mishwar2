@@ -92,7 +92,7 @@ export default function NotificationsScreen() {
       <FlatList
         data={items}
         keyExtractor={n => n.id}
-        contentContainerStyle={{ padding: 12, paddingBottom: 40, flexGrow: 1 }}
+        contentContainerStyle={{ padding: 12, paddingBottom: 108, flexGrow: 1 }}
         refreshControl={<RefreshControl refreshing={loading} onRefresh={load} />}
         ListEmptyComponent={loaded ? (
           <View style={s.empty}>

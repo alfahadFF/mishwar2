@@ -4,27 +4,36 @@ import * as Device from 'expo-device';
 import Constants from 'expo-constants';
 import { supabase } from './supabase';
 
-// التطبيق مفتوح: الإشعارات العادية بتطلع Toast داخل التطبيق، فما منكررها.
-// بس الطلبات الجديدة لمقدمي الخدمة (ما إلها Toast) بتطلع كإشعار.
+// لا نكرر عرض كل إشعار كنافذة نظام أثناء فتح التطبيق، لكن نسمح بصوته.
+// بعض أنواع الطلبات الجديدة تحتاج نافذة نظام لأنها موجهة لمقدمي الخدمة.
 const SHOW_IN_APP = ['airport_new', 'cargo_new', 'event_new', 'contract_new', 'rental_general_new', 'booking_reminder'];
+export const DEFAULT_NOTIFICATION_CHANNEL_ID = 'mishwar_notifications_v2';
+export const TAXI_NOTIFICATION_CHANNEL_ID = 'taxi_orders_v2';
+
 Notifications.setNotificationHandler({
   handleNotification: async (n) => {
     const kind = (n.request.content.data as any)?.kind;
     const show = SHOW_IN_APP.includes(kind);
-    return { shouldShowBanner: show, shouldShowList: show, shouldPlaySound: show, shouldSetBadge: false };
+    return { shouldShowBanner: show, shouldShowList: show, shouldPlaySound: true, shouldSetBadge: false };
   },
 });
 
 let lastToken: string | null = null;
 
-async function setupChannels() {
+export async function setupNotificationChannels() {
   if (Platform.OS !== 'android') return;
-  await Notifications.setNotificationChannelAsync('default', {
-    name: 'الإشعارات', importance: Notifications.AndroidImportance.HIGH, sound: 'default',
+  // قناتا v2 تتجاوز إعداد القناة القديمة التي قد تكون حُفظت صامتة في أندرويد.
+  await Notifications.setNotificationChannelAsync(DEFAULT_NOTIFICATION_CHANNEL_ID, {
+    name: 'مشوار — الإشعارات', description: 'تنبيهات مشوار العامة',
+    importance: Notifications.AndroidImportance.HIGH, sound: 'default',
+    vibrationPattern: [0, 250, 120, 250], enableVibrate: true,
+    lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
   });
-  await Notifications.setNotificationChannelAsync('taxi_orders', {
-    name: 'طلبات التكسي الجديدة', importance: Notifications.AndroidImportance.MAX,
+  await Notifications.setNotificationChannelAsync(TAXI_NOTIFICATION_CHANNEL_ID, {
+    name: 'طلبات التكسي الجديدة', description: 'طلبات التكسي الجديدة القريبة',
+    importance: Notifications.AndroidImportance.MAX,
     sound: 'taxi_order.wav', vibrationPattern: [0, 400, 200, 400, 200, 400],
+    enableVibrate: true,
     lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
   });
 }
@@ -33,9 +42,13 @@ async function setupChannels() {
 export async function registerPush(): Promise<string | null> {
   try {
     if (Platform.OS === 'web' || !Device.isDevice) return null;
-    await setupChannels();
+    await setupNotificationChannels();
     let { status } = await Notifications.getPermissionsAsync();
-    if (status !== 'granted') status = (await Notifications.requestPermissionsAsync()).status;
+    if (status !== 'granted') {
+      status = (await Notifications.requestPermissionsAsync({
+        ios: { allowAlert: true, allowBadge: false, allowSound: true },
+      })).status;
+    }
     if (status !== 'granted') return null;
     const projectId = (Constants.expoConfig as any)?.extra?.eas?.projectId ?? (Constants as any).easConfig?.projectId;
     if (!projectId) return null;

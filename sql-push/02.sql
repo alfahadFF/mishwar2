@@ -21,7 +21,7 @@ begin
            'to', t.token, 'title', p_title, 'body', coalesce(p_body, ''),
            'data', coalesce(p_data, '{}'::jsonb) || jsonb_build_object('kind', p_kind),
            'sound', case when p_kind = 'taxi_new' then 'taxi_order.wav' else 'default' end,
-           'channelId', case when p_kind = 'taxi_new' then 'taxi_orders' else 'default' end,
+           'channelId', case when p_kind = 'taxi_new' then 'taxi_orders_v2' else 'mishwar_notifications_v2' end,
            'priority', 'high'))
     into v_msgs
     from device_push_tokens t where t.user_id = any(p_users);

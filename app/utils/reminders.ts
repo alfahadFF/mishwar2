@@ -2,6 +2,7 @@ import { Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from './supabase';
+import { DEFAULT_NOTIFICATION_CHANNEL_ID, setupNotificationChannels } from './push';
 import { bookingTabs, WorkTab } from './work';
 
 // تذكير بمواعيد «حجوزاتي» قبل 24 ساعة وقبل ساعة.
@@ -45,6 +46,7 @@ export async function syncBookingReminders(profile: any, force = false) {
     if (Platform.OS === 'web') return;
     if (!force && Date.now() - lastSync < MIN_GAP) return;
     lastSync = Date.now();
+    await setupNotificationChannels();
     const tabs = bookingTabs(profile);
     const old: string[] = JSON.parse((await AsyncStorage.getItem(KEY)) || '[]');
     await Promise.all(old.map(id => Notifications.cancelScheduledNotificationAsync(id).catch(() => {})));
@@ -57,7 +59,7 @@ export async function syncBookingReminders(profile: any, force = false) {
         if (date.getTime() <= now + 30e3) continue;
         const id = await Notifications.scheduleNotificationAsync({
           content: { title: 'تذكير بموعد', body: `${it.title} ${when}`, sound: 'default', data: { kind: 'booking_reminder', tab: it.tab } },
-          trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date, channelId: 'default' },
+          trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date, channelId: DEFAULT_NOTIFICATION_CHANNEL_ID },
         });
         ids.push(id);
       }

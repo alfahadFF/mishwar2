@@ -164,7 +164,7 @@ export default function TravelScreen() {
       </View>}
       <Tabs tabs={[{ k: 'browse', label: 'الرحلات المنشورة', n: listings.length }, { k: 'mine', label: 'طلباتي وحجوزاتي', n: totalMine }]} value={tab} onChange={setTab} />
       {tab === 'browse' ? (
-        <ScrollView contentContainerStyle={{ padding: 12 }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}>
+        <ScrollView contentContainerStyle={{ padding: 12, paddingBottom: 108 }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}>
           <View style={s.notice}><Text style={s.noticeText}>اختر رحلة منشورة، أو أرسل طلباً ليقدّم لك السائقون والمكاتب عروضاً خاصة. موقع الالتقاط يحدده الراكب، ولا يوجد مكان انطلاق ثابت.</Text></View>
           {!listings.length && !refreshing && <Empty icon="🧭" title="لا توجد رحلات متاحة حالياً" sub="يمكنك نشر طلب سفر لتصلك عروض خاصة" />}
           {listings.map(x => (
@@ -183,7 +183,7 @@ export default function TravelScreen() {
           ))}
         </ScrollView>
       ) : (
-        <ScrollView contentContainerStyle={{ padding: 12 }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}>
+        <ScrollView contentContainerStyle={{ padding: 12, paddingBottom: 108 }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}>
           {!mine.requests.length && !mine.bookings.length && <>
             <Empty icon="🧾" title={authed ? 'لا توجد طلبات أو حجوزات بعد' : 'سجّل الدخول لمتابعة طلباتك'} sub="يمكنك تصفح الرحلات أو نشر طلب سفر" />
             {!authed && <Btn label="تسجيل الدخول" onPress={() => router.push('/login' as any)} />}
