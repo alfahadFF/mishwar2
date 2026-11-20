@@ -5,7 +5,7 @@ import { errMsg } from './errors';
 
 // صفحة التتبّع (GitHub Pages) — يتغيّر الرابط من app.json › extra.trackUrl
 const extra: any = (Constants.expoConfig as any)?.extra || {};
-export const TRACK_URL: string = extra.trackUrl || 'https://alfahadff.github.io/mishwar2/track.html';
+export const TRACK_URL: string = extra.trackUrl || 'https://mishwar2.github.io/track.html';
 export const trackLink = (token: string) => `${TRACK_URL}?t=${token}`;
 
 // مشاركة الرحلة (كل الخدمات ما عدا التأجير): يعيد رسالة خطأ أو null
