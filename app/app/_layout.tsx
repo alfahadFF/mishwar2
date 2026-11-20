@@ -16,6 +16,7 @@ export default function RootLayout() {
       <Stack screenOptions={{ headerShown: false, animation: 'fade' }}>
         <Stack.Screen name="index" />
         <Stack.Screen name="taxi" />
+        <Stack.Screen name="driver" />
         <Stack.Screen name="travel" />
         <Stack.Screen name="travel-provider" />
         <Stack.Screen name="transport" />

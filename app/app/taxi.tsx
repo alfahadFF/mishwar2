@@ -1,7 +1,7 @@
 import Stars from '../components/Stars';
 import { fetchRatings, Rating } from '../utils/rating';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { View, Text, Pressable, ScrollView, StyleSheet } from 'react-native';
+import { View, Text, Pressable, ScrollView, StyleSheet, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '../utils/supabase';
 import { getMyLocation } from '../utils/location';
@@ -48,7 +48,8 @@ export default function TaxiScreen(){
   const [radius,setRadius]=useState(5);
   const [toast,setToast]=useState<string|null>(null);
   const [loading,setLoading]=useState(false);
-  // الطلب الحالي: بانتظار سائق ← مقبول ← وصل ← جارية ← انتهت (ثم الدفع)
+  const [cashBusy,setCashBusy]=useState(false);
+  // الطلب الحالي: بانتظار سائق ← مقبول ← وصل ← جارية ← انتهت (ثم اختيار طريقة الدفع)
   const [active,setActive]=useState<any>(null);
   const [drvRating,setDrvRating]=useState<Rating|undefined>(undefined);
   const [hidden,setHidden]=useState<string|null>(null);
@@ -228,6 +229,28 @@ export default function TaxiScreen(){
     }catch(e:any){ showToast(errMsg(e,'تعذر نشر الطلب'))} finally{ setLoading(false)}
   };
   const showToast=(msg:string)=>{ setToast(msg); setTimeout(()=> setToast(null),2500); };
+  const confirmCashPayment=async()=>{
+    if(!active || active.status!=='completed' || cashBusy || active.cash_paid_at) return;
+    setCashBusy(true);
+    try{
+      const { data, error }=await supabase.rpc('customer_taxi_cash_paid',{p_order:active.id});
+      if(error || !(data as any)?.paid){ showToast(errMsg(error||'تعذر تسجيل الدفع النقدي','تعذر تسجيل الدفع النقدي')); return; }
+      setActive((cur:any)=>cur?.id===active.id?{...cur,cash_paid_at:(data as any)?.cash_paid_at||new Date().toISOString(),payment_method:'cash'}:cur);
+      await loadActive();
+      showToast('تم تسجيل الدفع النقدي للسائق');
+    }catch(e:any){
+      showToast(errMsg(e,'تعذر تسجيل الدفع النقدي'));
+    }finally{
+      setCashBusy(false);
+    }
+  };
+  const payCash=()=>{
+    if(!active || active.status!=='completed' || active.cash_paid_at || cashBusy) return;
+    Alert.alert('تأكيد الدفع النقدي',`هل سلّمت أجرة الرحلة ${aFareLabel} نقداً للسائق؟ لا تؤكد إلا بعد تسليم المبلغ.`,[
+      {text:'رجوع',style:'cancel'},
+      {text:'نعم، دفعت نقداً',onPress:()=>{void confirmCashPayment();}},
+    ]);
+  };
   const showActive=!!active && active.id!==hidden;
   const moving=showActive && ['accepted','arrived','in_progress'].includes(active.status);
   const activeEtaRange=Number(active?.search_radius_km||5)>=10?'10–25 دقيقة تقريباً':'5–15 دقيقة تقريباً';
@@ -327,10 +350,25 @@ export default function TaxiScreen(){
               <View style={s.payRow}><Text style={[s.payK,{fontWeight:'900'}]}>المبلغ عند الدفع من التطبيق</Text><Text style={[s.payV,{color:'#4F46E5'}]}>{formatWalletUsd(aPayUsd)}</Text></View>
             </View>
           )}
-          <View style={{flexDirection:'row-reverse', gap:8, marginTop:10}}>
-            <Pressable onPress={payActive} disabled={active.status!=='completed'} style={[s.aBtn,{flex:2, backgroundColor: active.status==='completed'? '#22c55e' : '#e2e8f0'}]}>
-              <Text style={[s.aBtnT,{color: active.status==='completed'? '#fff' : '#64748b'}]}>{active.status==='completed'? `💳 ادفع ${formatWalletUsd(aPayUsd)} من المحفظة` : `💳 الدفع من المحفظة بعد انتهاء الرحلة${pct>0? ` • خصم ${pct}%` : ''}`}</Text>
-            </Pressable>
+          <View style={{flexDirection:'row-reverse', flexWrap:'wrap', gap:8, marginTop:10}}>
+            {active.status==='completed' ? active.cash_paid_at ? (
+              <View style={[s.aBtn,{flex:2, backgroundColor:'#ecfdf5', borderWidth:1, borderColor:'#a7f3d0'}]}>
+                <Text style={[s.aBtnT,{color:'#047857'}]}>✅ تم تسجيل الدفع نقداً للسائق</Text>
+              </View>
+            ) : (
+              <>
+                <Pressable onPress={payCash} disabled={cashBusy} style={[s.aBtn,{flex:1,backgroundColor:'#f59e0b',opacity:cashBusy?0.6:1}]}>
+                  <Text style={[s.aBtnT,{color:'#fff'}]}>{cashBusy?'جارٍ التسجيل...':`💵 دفعت نقداً • ${aFareLabel}`}</Text>
+                </Pressable>
+                <Pressable onPress={payActive} style={[s.aBtn,{flex:1,backgroundColor:'#22c55e'}]}>
+                  <Text style={[s.aBtnT,{color:'#fff'}]}>{`💳 المحفظة • ${formatWalletUsd(aPayUsd)}`}</Text>
+                </Pressable>
+              </>
+            ) : (
+              <Pressable onPress={payActive} disabled style={[s.aBtn,{flex:2,backgroundColor:'#e2e8f0'}]}>
+                <Text style={[s.aBtnT,{color:'#64748b'}]}>{`💳 الدفع من المحفظة بعد انتهاء الرحلة${pct>0? ` • خصم ${pct}%` : ''}`}</Text>
+              </Pressable>
+            )}
             {moving && <ShareTripBtn service="taxi" refId={active.id}/>}
             {['pending','searching'].includes(active.status) && <Pressable onPress={cancelActive} style={[s.aBtn,{backgroundColor:'#fff', borderWidth:1, borderColor:'#fecaca'}]}><Text style={[s.aBtnT,{color:'#991b1b'}]}>إلغاء الطلب</Text></Pressable>}
             {active.status==='completed' && <Pressable onPress={()=> setHidden(active.id)} style={[s.aBtn,{backgroundColor:'#f1f5f9'}]}><Text style={s.aBtnT}>إغلاق</Text></Pressable>}

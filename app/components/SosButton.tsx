@@ -9,7 +9,7 @@ import { trackLink, waPhone } from '../utils/share';
 import { startSosTracking, stopSosTracking } from '../utils/sosTask';
 
 // زر الطوارئ 🆘 — للتطبيق كله ولكل المستخدمين، غير مرتبط بنوع الخدمة
-const SOS_BOTTOM_ROUTES = ['/notifications', '/travel', '/travel-provider', '/rental'];
+const SOS_BOTTOM_ROUTES = ['/notifications', '/travel', '/travel-provider', '/rental', '/rental-provider'];
 
 export default function SosButton() {
   const insets = useSafeAreaInsets();

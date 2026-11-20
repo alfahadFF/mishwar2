@@ -115,7 +115,7 @@ export default function RentalPanel({ mode = 'all', embedded = false }: { mode?:
         <WorkStatusBanner />
       </>}
       {(mode === 'all' || mode === 'requests') && <Tabs tabs={[{ k: 'cars', label: 'سياراتي', n: cars.length }, { k: 'req', label: 'الطلبات', n: reqs.length }, { k: 'gen', label: 'طلبات عامة', n: gens.length }].filter(x => mode === 'all' || x.k !== 'cars')} value={tab} onChange={setTab} />}
-      <ScrollView contentContainerStyle={{ padding: 12 }} refreshControl={<RefreshControl refreshing={loading} onRefresh={load} />}>
+      <ScrollView contentContainerStyle={{ padding: 12, paddingBottom: embedded ? 12 : 104 }} refreshControl={<RefreshControl refreshing={loading} onRefresh={load} />}>
         {mode === 'requests' && <><MyRatingCard /><NewOrdersToggle /></>}
         {tab === 'cars' && <>
           {mode !== 'bookings' && <><MyRatingCard /><NewOrdersToggle /></>}

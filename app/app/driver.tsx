@@ -1,7 +1,7 @@
 import MyRatingCard from '../components/MyRatingCard';
 import NewOrdersToggle from '../components/NewOrdersToggle';
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, Pressable, StyleSheet, Linking, Modal, TextInput, Vibration, AppState } from 'react-native';
+import { View, Text, Pressable, StyleSheet, Linking, Modal, TextInput, Vibration, AppState, ActivityIndicator } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { errMsg, errMsgWithCode } from '../utils/errors';
@@ -43,19 +43,50 @@ const toReq=(r:any)=>{
 };
 // خريطة التكسي لسائقي التكسي فقط؛ غيرهم يُوجَّه إلى شاشته
 export default function DriverScreen(){
-  const wp=useWorkProfile();
+  const [profileRetry,setProfileRetry]=useState(0);
+  const wp=useWorkProfile(profileRetry);
   const router=useRouter();
-  if(wp===undefined) return <View style={{flex:1, backgroundColor:'#f8fafc'}}/>;
+  if(wp===undefined) return (
+    <View style={{flex:1, backgroundColor:'#f8fafc', alignItems:'center', justifyContent:'center', padding:24, gap:12}}>
+      <ActivityIndicator size="large" color="#4F46E5" />
+      <Text style={{fontSize:14, fontWeight:'800', color:'#334155', textAlign:'center'}}>جارٍ تحميل خريطة السائق وبيانات الحساب…</Text>
+      <View style={{flexDirection:'row-reverse',gap:8}}>
+        <Pressable onPress={()=>setProfileRetry(v=>v+1)} style={{paddingHorizontal:16,paddingVertical:10,borderRadius:12,backgroundColor:'#4F46E5'}}>
+          <Text style={{color:'#fff',fontWeight:'900'}}>إعادة المحاولة</Text>
+        </Pressable>
+        <Pressable onPress={()=> router.canGoBack()?router.back():router.replace('/bookings' as any)} style={{paddingHorizontal:16,paddingVertical:10,borderRadius:12,backgroundColor:'#eef2ff'}}>
+          <Text style={{color:'#4F46E5',fontWeight:'900'}}>حجوزاتي</Text>
+        </Pressable>
+      </View>
+    </View>
+  );
   if(!isTaxiDriver(wp)) return (
     <View style={{flex:1, backgroundColor:'#f8fafc', justifyContent:'center', padding:20, gap:12}}>
       <Text style={{fontSize:40, textAlign:'center'}}>🔒</Text>
       <Text style={{fontWeight:'900', fontSize:15, textAlign:'center'}}>هذه الشاشة لسائقي التكسي</Text>
+      <Pressable onPress={()=>setProfileRetry(v=>v+1)} style={{backgroundColor:'#eef2ff', borderRadius:12, padding:12}}>
+        <Text style={{color:'#4F46E5', fontWeight:'900', textAlign:'center'}}>إعادة التحقق من حساب العمل</Text>
+      </Pressable>
       <Pressable onPress={()=> router.replace((isWorkType(wp)? '/work' : '/') as any)} style={{backgroundColor:'#4F46E5', borderRadius:12, padding:12}}>
         <Text style={{color:'#fff', fontWeight:'900', textAlign:'center'}}>{isWorkType(wp)? 'إلى الطلبات' : 'إلى الرئيسية'}</Text>
       </Pressable>
     </View>
   );
   return <DriverMap wp={wp}/>;
+}
+
+// Keep navigation/map render errors visible instead of leaving a blank white route.
+export function ErrorBoundary({ error, retry }:{error:Error; retry:()=>void}){
+  return (
+    <View style={{flex:1, backgroundColor:'#f8fafc', alignItems:'center', justifyContent:'center', padding:24, gap:12}}>
+      <Text style={{fontSize:36}}>🗺️</Text>
+      <Text style={{fontSize:15, fontWeight:'900', color:'#0f172a', textAlign:'center'}}>تعذر فتح خريطة السائق</Text>
+      <Text style={{fontSize:12, color:'#64748b', textAlign:'center'}}>أعد المحاولة، أو ارجع إلى حجوزاتي ثم افتح الخريطة مجدداً.</Text>
+      <Pressable onPress={retry} style={{paddingHorizontal:18,paddingVertical:11,borderRadius:12,backgroundColor:'#4F46E5'}}>
+        <Text style={{color:'#fff',fontWeight:'900'}}>إعادة المحاولة</Text>
+      </Pressable>
+    </View>
+  );
 }
 
 function DriverMap({ wp }:{ wp:any }){
