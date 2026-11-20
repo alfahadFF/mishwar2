@@ -4,16 +4,19 @@ import * as Device from 'expo-device';
 import Constants from 'expo-constants';
 import { supabase } from './supabase';
 
-// لا نكرر عرض كل إشعار كنافذة نظام أثناء فتح التطبيق، لكن نسمح بصوته.
-// بعض أنواع الطلبات الجديدة تحتاج نافذة نظام لأنها موجهة لمقدمي الخدمة.
-const SHOW_IN_APP = ['airport_new', 'cargo_new', 'event_new', 'contract_new', 'rental_general_new', 'booking_reminder'];
+// إشعارات الحركة والطلبات المهمة تظهر كبانر حتى والتطبيق مفتوح، مع صوت القناة.
+const SHOW_IN_APP = new Set([
+  'airport_new', 'cargo_new', 'event_new', 'contract_new', 'rental_general_new', 'booking_reminder',
+  'taxi_new', 'taxi_accepted', 'taxi_arrived', 'taxi_completed', 'taxi_cancelled',
+  'transfer_in', 'payment_in', 'card_topup', 'wallet_negative', 'commission',
+]);
 export const DEFAULT_NOTIFICATION_CHANNEL_ID = 'mishwar_notifications_v2';
 export const TAXI_NOTIFICATION_CHANNEL_ID = 'taxi_orders_v2';
 
 Notifications.setNotificationHandler({
   handleNotification: async (n) => {
-    const kind = (n.request.content.data as any)?.kind;
-    const show = SHOW_IN_APP.includes(kind);
+    const kind = String((n.request.content.data as any)?.kind || '');
+    const show = SHOW_IN_APP.has(kind) || kind.startsWith('taxi_') || kind.startsWith('shared_');
     return { shouldShowBanner: show, shouldShowList: show, shouldPlaySound: true, shouldSetBadge: false };
   },
 });

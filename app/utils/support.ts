@@ -15,3 +15,14 @@ export function whatsAppSupport() {
     Linking.openURL(`https://wa.me/${waDigits}?text=${t}`).catch(() => {}),
   );
 }
+
+export const FACEBOOK_SUPPORT_URL = 'https://www.facebook.com/share/1FRvmwfFVd/';
+export const APP_DOWNLOAD_UPDATES_URL = 'https://t.me/mishwar_app/3';
+
+export function openFacebookSupport() {
+  Linking.openURL(FACEBOOK_SUPPORT_URL).catch(() => {});
+}
+
+export function openAppDownloadUpdates() {
+  Linking.openURL(APP_DOWNLOAD_UPDATES_URL).catch(() => {});
+}

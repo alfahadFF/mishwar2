@@ -6,6 +6,7 @@ import LivePinger from '../components/LivePinger';
 import DuesSettler from '../components/DuesSettler';
 import RatingPrompt from '../components/RatingPrompt';
 import PushRegistrar from '../components/PushRegistrar';
+import UpdateNotice from '../components/UpdateNotice';
 import GuestGate from '../components/GuestGate';
 import '../utils/sosTask';
 export default function RootLayout() {
@@ -39,6 +40,7 @@ export default function RootLayout() {
         <Stack.Screen name="register" />
         <Stack.Screen name="terms" />
       </Stack>
+      <UpdateNotice />
       <NotifyListener />
       <LivePinger />
       <DuesSettler />

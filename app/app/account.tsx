@@ -5,7 +5,7 @@ import * as Clipboard from 'expo-clipboard';
 import { supabase } from '../utils/supabase';
 import { phoneToAuthEmail, passwordOk, passwordHasNonLatin } from '../utils/phone';
 import { errMsg } from '../utils/errors';
-import { SUPPORT_PHONE, callSupport, whatsAppSupport } from '../utils/support';
+import { SUPPORT_PHONE, callSupport, whatsAppSupport, openFacebookSupport, openAppDownloadUpdates } from '../utils/support';
 import { useToast } from '../components/Toast';
 import { Header, Btn, Sheet, ui, C } from '../components/DriverUI';
 
@@ -214,6 +214,10 @@ export default function AccountScreen() {
             <View style={s.btns}>
               <View style={{ flex: 1 }}><Btn label="📞 اتصال" tone="ok" onPress={callSupport} /></View>
               <View style={{ flex: 1 }}><Btn label="💬 واتساب" onPress={whatsAppSupport} /></View>
+            </View>
+            <View style={s.btns}>
+              <View style={{ flex: 1 }}><Btn label="📘 فيسبوك الدعم" small onPress={openFacebookSupport} /></View>
+              <View style={{ flex: 1 }}><Btn label="⬇️ تنزيل/تحديث" small onPress={openAppDownloadUpdates} /></View>
             </View>
           </View>
 

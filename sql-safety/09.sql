@@ -9,4 +9,10 @@ union all select 'الدوال', (select count(distinct proname) from pg_proc wh
 union all select 'فتح الرابط بدون تسجيل', case when has_function_privilege('anon', 'public.get_live_share(text)', 'execute')
   then 'مفعّل' else 'ناقص' end
 union all select 'حماية البيانات الداخلية', case when not has_function_privilege('anon', 'public._person_json(uuid)', 'execute')
-  and not has_function_privilege('authenticated', 'public._person_json(uuid)', 'execute') then 'مفعّلة' else 'ناقصة' end;
+  and not has_function_privilege('authenticated', 'public._person_json(uuid)', 'execute') then 'مفعّلة' else 'ناقصة' end
+union all select 'حماية بيانات سائق التكسي قبل القبول', case when
+  position('case when o.status in (''accepted'',''arrived'',''in_progress'') then p.full_name end' in
+    pg_get_functiondef('public.my_taxi_active()'::regprocedure)) > 0
+  and position('case when o.status in (''accepted'',''arrived'',''in_progress'') then p.vehicle_plate end' in
+    pg_get_functiondef('public.my_taxi_active()'::regprocedure)) > 0
+  then 'مفعّلة' else 'ناقصة' end;

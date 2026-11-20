@@ -3,7 +3,8 @@ import NewOrdersToggle from '../components/NewOrdersToggle';
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, Pressable, StyleSheet, Linking, Modal, TextInput, Vibration, AppState } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
-import { errMsg } from '../utils/errors';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { errMsg, errMsgWithCode } from '../utils/errors';
 import { supabase } from '../utils/supabase';
 import WorkStatusBanner from '../components/WorkStatusBanner';
 import * as Haptics from 'expo-haptics';
@@ -59,6 +60,7 @@ export default function DriverScreen(){
 
 function DriverMap({ wp }:{ wp:any }){
   const router=useRouter();
+  const insets=useSafeAreaInsets();
   // ===== طلبات انضمام الركاب للرحلات المشتركة =====
   const [joinQueue,setJoinQueue]=useState<any[]>([]);
   const [joinReq,setJoinReq]=useState<any>(null);
@@ -72,7 +74,8 @@ function DriverMap({ wp }:{ wp:any }){
   useFocusEffect(useCallback(()=>{ loadTrip(); },[loadTrip]));
   // إلغاء السائق بعد القبول: سبب إجباري + تأكيد، والإيقاف بعد كثرة الإلغاءات
   const [status,setStatus]=useState<any>(null);
-  const loadStatus=useCallback(async()=>{ const { data }=await supabase.rpc('my_driver_status'); setStatus(data||null); },[]);
+  const [taxiPingIssue,setTaxiPingIssue]=useState<string|null>(null);
+  const loadStatus=useCallback(async()=>{ const { data,error }=await supabase.rpc('my_driver_status'); if(!error) setStatus(data||null); },[]);
   useFocusEffect(useCallback(()=>{ loadStatus(); },[loadStatus]));
   const statusRef=React.useRef<any>(null);
   useEffect(()=>{ statusRef.current=status; },[status]);
@@ -81,9 +84,12 @@ function DriverMap({ wp }:{ wp:any }){
     if(!status?.taxi_category || status?.taxi_suspended) return;
     const ping=async()=>{
       if(AppState.currentState!=='active') return;
-      const ll=await getFreshLocation(); if(!ll) return;
+      const ll=pointLL(await getFreshLocation());
+      if(!ll){ setTaxiPingIssue('تعذر تحديث موقعك؛ تأكد من إذن الموقع وتشغيل GPS.'); return; }
       myRef.current=ll; setMyLL(ll);
-      await supabase.rpc('driver_taxi_ping',{p_lat:ll[0], p_lng:ll[1]});
+      const {data,error}=await supabase.rpc('driver_taxi_ping',{p_lat:ll[0], p_lng:ll[1]});
+      if(error){ console.warn('[taxi] driver_taxi_ping failed',error); setTaxiPingIssue(errMsg(error,'تعذر تسجيل موقعك لعرضك للركاب')); return; }
+      setTaxiPingIssue((data as any)?.visible===false?'لا يظهر حسابك للركاب حالياً؛ تحقق من رصيد المحفظة وحالة استقبال الطلبات.':null);
     };
     ping(); const iv=setInterval(ping,30000);
     return ()=> clearInterval(iv);
@@ -122,6 +128,7 @@ function DriverMap({ wp }:{ wp:any }){
   // موقع السائق + الطلبات المنتظرة ضمن دائرة 5 كم
   const [myLL,setMyLL]=useState<number[]|null>(null);
   const [nearby,setNearby]=useState<any[]>([]);
+  const [orderLoadError,setOrderLoadError]=useState<string|null>(null);
   const [locationLoading,setLocationLoading]=useState(true);
   const [locationError,setLocationError]=useState(false);
   const myRef=React.useRef<number[]|null>(null);
@@ -159,21 +166,30 @@ function DriverMap({ wp }:{ wp:any }){
     return ()=>{active=false;};
   },[trip?.id,trip?.status,tripTargetLL?.[0],tripTargetLL?.[1],myLL?.[0],myLL?.[1]]);
   const loadNearby=useCallback(async()=>{
-    setLocationLoading(true); setLocationError(false);
+    setLocationLoading(true); setLocationError(false); setOrderLoadError(null);
+    const category=status?.taxi_category as string|undefined;
     try{
-      const { ll, real }=await getMyLocation();
+      const { ll: rawLL, real }=await getMyLocation();
+      const ll=pointLL(rawLL);
       if(!real || !ll){ setMyLL(null); myRef.current=null; setNearby([]); setLocationError(true); return; }
       setMyLL(ll); myRef.current=ll;
       mapRef.current?.animateToRegion?.({latitude:ll[0],longitude:ll[1],latitudeDelta:0.12,longitudeDelta:0.12});
+      if(!category){ setNearby([]); return; }
       const since=new Date(Date.now()-60*60*1000).toISOString();
-      const { data }=await supabase.from('taxi_orders').select('id,pickup_text,dropoff_text,pickup_lat,pickup_lng,dropoff_lat,dropoff_lng,distance_km,duration_min,vehicle_category,estimated_fare,fare_local,local_currency,search_radius_km,created_at')
-        .eq('status','pending').is('driver_id',null).gte('created_at',since).order('created_at',{ascending:false}).limit(50);
+      const { data,error }=await supabase.from('taxi_orders').select('id,pickup_text,dropoff_text,pickup_lat,pickup_lng,dropoff_lat,dropoff_lng,distance_km,duration_min,vehicle_category,estimated_fare,fare_local,local_currency,search_radius_km,created_at')
+        .eq('status','pending').eq('vehicle_category',category).is('driver_id',null).gte('created_at',since).order('created_at',{ascending:false}).limit(50);
+      if(error){
+        console.warn('[taxi] driver order feed failed',error);
+        setNearby([]); setOrderLoadError(errMsg(error,'تعذر تحميل طلبات فئة سيارتك'));
+        return;
+      }
       setNearby(((data||[]) as any[]).map(r=> ({...toReq(r), away:kmBetween(ll,[r.pickup_lat,r.pickup_lng])}))
         .filter(r=> r.away<=r.radius).sort((a,b)=> a.away-b.away));
-    }catch{
+    }catch(e){
+      console.warn('[taxi] driver location/feed failed',e);
       setMyLL(null); myRef.current=null; setNearby([]); setLocationError(true);
     }finally{ setLocationLoading(false); }
-  },[]);
+  },[status?.taxi_category]);
   useFocusEffect(useCallback(()=>{ loadNearby(); },[loadNearby]));
   // طلب جديد لحظياً: يظهر فقط إذا كان ضمن الدائرة
   useEffect(()=>{
@@ -231,10 +247,18 @@ function DriverMap({ wp }:{ wp:any }){
     if(!joinReq) return;
     const v=Number(extra);
     if(action==='counter' && !(v>0)){ showToast('اكتب المبلغ الإضافي أولاً'); return; }
-    const { error }=await supabase.rpc('driver_respond_join',{p_request:joinReq.id, p_action:action, p_extra: action==='counter'? v : 0});
-    if(error){ showToast(error.message.includes('TRIP_FULL')? 'الرحلة مكتملة' : 'تعذر إرسال الرد'); }
-    else showToast(action==='accept'? 'تم قبول الراكب' : action==='reject'? 'تم رفض الطلب' : 'تم إرسال المبلغ للراكب — بانتظار موافقته');
-    setJoinReq(null); setExtra('');
+    try{
+      const { error }=await supabase.rpc('driver_respond_join',{p_request:joinReq.id, p_action:action, p_extra: action==='counter'? v : 0});
+      if(error){
+        console.warn('[shared] driver_respond_join failed',{code:error.code,message:error.message,details:error.details,hint:error.hint});
+        showToast(errMsgWithCode(error,'تعذر إرسال الرد')); return;
+      }
+      showToast(action==='accept'? 'تم قبول الراكب' : action==='reject'? 'تم رفض الطلب' : 'تم إرسال المبلغ للراكب — بانتظار موافقته');
+      setJoinReq(null); setExtra('');
+    }catch(e:any){
+      console.warn('[shared] driver_respond_join threw',{code:e?.code,message:e?.message,details:e?.details,hint:e?.hint});
+      showToast(errMsgWithCode(e,'تعذر إرسال الرد'));
+    }
   };
   const openExtra=()=>{ setExtra(''); setShowExtra(true); };
   const toLL=(p:number[])=>({latitude:p[0], longitude:p[1]});
@@ -269,43 +293,39 @@ function DriverMap({ wp }:{ wp:any }){
   };
   const reject=()=>{ const m=modal; setModal(null); if(m) setNearby(p=> p.filter(x=> x.id!==m.id)); showToast('تم رفض الطلب'); };
   return (
-    <View style={s.page}>
+    <View style={[s.page,{paddingTop:insets.top}]}>
       <View style={s.header}>
         <Text style={s.h1}>🚕 لوحة السائق</Text>
         <View style={{flexDirection:'row', gap:6, alignItems:'center'}}><MyRatingCard compact /><NewOrdersToggle compact onChange={v=> showToast(v? 'إشعارات الطلبات الجديدة مفعّلة 🔔' : 'إشعارات الطلبات الجديدة متوقفة 🔕')} /><View style={s.badge}><Text style={s.badgeT}>● متاح</Text></View></View>
       </View>
       <WorkStatusBanner />
+      {!!taxiPingIssue&&<View style={{marginHorizontal:12,marginTop:6,padding:8,borderRadius:10,backgroundColor:'#fef2f2',borderWidth:1,borderColor:'#fecaca'}}><Text style={{fontSize:11,fontWeight:'800',color:'#991b1b',textAlign:'center'}}>{taxiPingIssue}</Text></View>}
       <WorkNav profile={wp} here="map" />
       <View style={{flex:1, margin:10, borderRadius:14, overflow:'hidden', borderWidth:1, borderColor:'#e2e8f0'}}>
-        {myLL ? (
-          <>
-            <MapView ref={mapRef} style={{flex:1}} initialRegion={{latitude:myLL[0], longitude:myLL[1], latitudeDelta:0.12, longitudeDelta:0.12}}>
-              <UrlTile urlTemplate="https://a.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png" maximumZ={19} flipY={false}/>
-              <Circle center={toLL(myLL)} radius={RADIUS_KM*1000} fillColor="rgba(79,70,229,0.08)" strokeColor="rgba(79,70,229,0.5)"/>
-              <Marker coordinate={toLL(myLL)} pinColor="#4F46E5"/>
-              {nearby.map(r=> <Marker key={r.id} coordinate={toLL(r.fromLL)} pinColor="green" onPress={()=> openWithRoute(r)}/>)}
-              {trip&&tripRoute&&<>
-                {tripRoute.alternatives.map((alt:any,i:number)=><React.Fragment key={`trip-alt-${i}`}>
-                  <Polyline coordinates={alt.path} strokeColor="#fff" strokeWidth={7} strokeOpacity={0.92}/>
-                  <Polyline coordinates={alt.path} strokeColor="#818CF8" strokeWidth={3} strokeOpacity={0.9}/>
-                </React.Fragment>)}
-                <Polyline coordinates={tripRoute.path} strokeColor="#fff" strokeWidth={9} strokeOpacity={0.96}/>
-                <Polyline coordinates={tripRoute.path} strokeColor="#4F46E5" strokeWidth={5}/>
-                {!!routeOriginRef.current&&(tripRoute.snapStartMeters>15||kmBetween(myLL,routeOriginRef.current)>0.03)&&<Polyline coordinates={[toLL(myLL),toLL(routeOriginRef.current),tripRoute.path[0]]} strokeColor="#f59e0b" strokeWidth={4} lineDashPattern={[3,3]}/>}
-                {tripRoute.snapEndMeters>15&&tripTargetLL&&<Polyline coordinates={[tripRoute.path[tripRoute.path.length-1],toLL(tripTargetLL)]} strokeColor="#f59e0b" strokeWidth={4} lineDashPattern={[3,3]}/>}
-                {!!tripTargetLL&&<Marker coordinate={toLL(tripTargetLL)} pinColor={trip.status==='in_progress'?'red':'green'}/>}
-              </>}
-            </MapView>
-            <View style={s.legend}>{tripRoute&&<><Text style={{fontSize:10,fontWeight:'900',color:'#4F46E5'}}>🟣 الأقصر إلى {trip.status==='in_progress'?'الوجهة':'الراكب'}</Text>{!!tripRoute.alternatives.length&&<Text style={{fontSize:9,color:'#64748b'}}>الأغمق: الأقصر • الأفتح: بدائل</Text>}</>}<Text style={{fontSize:10, fontWeight:'900'}}>نطاق الطلبات {RADIUS_KM} كم{status?.taxi_category? ' • '+(CAT[status.taxi_category]||'') : ''}</Text></View>
-          </>
-        ) : (
-          <View style={{flex:1,alignItems:'center',justifyContent:'center',padding:20,gap:12,backgroundColor:'#f8fafc'}}>
-            <Text style={{fontSize:13,lineHeight:20,fontWeight:'800',color:'#334155',textAlign:'center'}}>{locationLoading?'📡 جارٍ تحديد موقعك لعرض الطلبات القريبة':'تعذر تحديد موقعك؛ اسمح بإذن الموقع وفعّل الموقع ثم أعد المحاولة.'}</Text>
-            {!locationLoading && <Pressable onPress={loadNearby} style={{height:40,paddingHorizontal:16,borderRadius:12,backgroundColor:'#4F46E5',alignItems:'center',justifyContent:'center'}}><Text style={{color:'#fff',fontWeight:'900',fontSize:12}}>تحديد موقعي وإعادة المحاولة</Text></Pressable>}
-          </View>
-        )}
+        <MapView ref={mapRef} style={{flex:1}} initialRegion={{latitude:33.5138,longitude:36.2765,latitudeDelta:0.12,longitudeDelta:0.12}}>
+          <UrlTile urlTemplate="https://a.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png" maximumZ={19} flipY={false}/>
+          {myLL&&<Circle center={toLL(myLL)} radius={RADIUS_KM*1000} strokeColor="#4F46E5" strokeOpacity={0.5}/>}
+          {myLL&&<Marker coordinate={toLL(myLL)} pinColor="#4F46E5"/>}
+          {myLL&&nearby.map(r=> <Marker key={r.id} coordinate={toLL(r.fromLL)} pinColor="green" onPress={()=> openWithRoute(r)}/>)}
+          {myLL&&trip&&tripRoute&&<>
+            {tripRoute.alternatives.map((alt:any,i:number)=><React.Fragment key={`trip-alt-${i}`}>
+              <Polyline coordinates={alt.path} strokeColor="#fff" strokeWidth={7} strokeOpacity={0.92}/>
+              <Polyline coordinates={alt.path} strokeColor="#818CF8" strokeWidth={3} strokeOpacity={0.9}/>
+            </React.Fragment>)}
+            <Polyline coordinates={tripRoute.path} strokeColor="#fff" strokeWidth={9} strokeOpacity={0.96}/>
+            <Polyline coordinates={tripRoute.path} strokeColor="#4F46E5" strokeWidth={5}/>
+            {!!routeOriginRef.current&&(tripRoute.snapStartMeters>15||kmBetween(myLL,routeOriginRef.current)>0.03)&&<Polyline coordinates={[toLL(myLL),toLL(routeOriginRef.current),tripRoute.path[0]]} strokeColor="#f59e0b" strokeWidth={4} lineDashPattern={[3,3]}/>}
+            {tripRoute.snapEndMeters>15&&tripTargetLL&&<Polyline coordinates={[tripRoute.path[tripRoute.path.length-1],toLL(tripTargetLL)]} strokeColor="#f59e0b" strokeWidth={4} lineDashPattern={[3,3]}/>}
+            {!!tripTargetLL&&<Marker coordinate={toLL(tripTargetLL)} pinColor={trip.status==='in_progress'?'red':'green'}/>}
+          </>}
+        </MapView>
+        {myLL&&<View style={s.legend}>{tripRoute&&<><Text style={{fontSize:10,fontWeight:'900',color:'#4F46E5'}}>🟣 الأقصر إلى {trip.status==='in_progress'?'الوجهة':'الراكب'}</Text>{!!tripRoute.alternatives.length&&<Text style={{fontSize:9,color:'#64748b'}}>الأغمق: الأقصر • الأفتح: بدائل</Text>}</>}<Text style={{fontSize:10, fontWeight:'900'}}>نطاق الطلبات {RADIUS_KM} كم{status?.taxi_category? ' • '+(CAT[status.taxi_category]||'') : ''}</Text></View>}
+        {!myLL&&<View style={[StyleSheet.absoluteFill,{alignItems:'center',justifyContent:'center',padding:20,gap:12,backgroundColor:'#f8fafc',zIndex:2,elevation:2}]}>
+          <Text style={{fontSize:13,lineHeight:20,fontWeight:'800',color:'#334155',textAlign:'center'}}>{!status?'جارٍ التحقق من بيانات حساب السائق':locationLoading?'📡 جارٍ تحديد موقعك لعرض الطلبات القريبة':'تعذر تحديد موقعك؛ اسمح بإذن الموقع وفعّل الموقع ثم أعد المحاولة.'}</Text>
+          {!locationLoading && !!status && <Pressable onPress={loadNearby} style={{height:40,paddingHorizontal:16,borderRadius:12,backgroundColor:'#4F46E5',alignItems:'center',justifyContent:'center'}}><Text style={{color:'#fff',fontWeight:'900',fontSize:12}}>تحديد موقعي وإعادة المحاولة</Text></Pressable>}
+        </View>}
       </View>
-      <View style={{padding:10, gap:8, paddingBottom:80}}>
+      <View style={{padding:10, gap:8, paddingBottom:80+insets.bottom}}>
         {status?.taxi_suspended && (
           <View style={{backgroundColor:'#fef2f2', borderWidth:1, borderColor:'#fecaca', borderRadius:12, padding:10}}><Text style={{color:'#991b1b', fontWeight:'800', fontSize:12, textAlign:'center'}}>{status.message}</Text></View>
         )}
@@ -313,17 +333,19 @@ function DriverMap({ wp }:{ wp:any }){
         {!!status && !status.taxi_category && !status.taxi_suspended && (
           <View style={{backgroundColor:'#fffbeb', borderWidth:1, borderColor:'#fde68a', borderRadius:12, padding:10}}><Text style={{color:'#92400e', fontWeight:'800', fontSize:12, textAlign:'center'}}>فئة سيارتك غير محددة — تُحدد عند التسجيل، وبعدها تظهر لك طلبات فئتك فقط</Text></View>
         )}
-        {!trip?.next && !status?.taxi_suspended && !!status?.taxi_category && (nearby.length
-          ? <View style={{gap:6}}>
-              <Text style={{fontWeight:'900', fontSize:13, textAlign:'right'}}>📋 طلبات قريبة ({nearby.length}){trip? ' • يمكنك قبول طلب تالٍ واحد' : ''}</Text>
-              {nearby.slice(0,5).map(r=> (
-                <Pressable key={r.id} onPress={()=> openWithRoute(r)} style={{backgroundColor:'#fff', borderWidth:1, borderColor:'#e2e8f0', borderRadius:12, padding:10, flexDirection:'row-reverse', justifyContent:'space-between'}}>
-                  <View style={{flex:1}}><Text style={{fontWeight:'800', fontSize:12, textAlign:'right'}}>{r.from} ← {r.to}</Text><Text style={{fontSize:11, color:'#64748b', textAlign:'right'}}>{r.cat} • {r.dist}</Text></View>
-                  <Text style={{fontWeight:'900', color:'#4F46E5'}}>{r.price}</Text>
-                </Pressable>
-              ))}
-            </View>
-          : <Pressable onPress={loadNearby} style={[s.btn,{backgroundColor:'#fff', borderWidth:1, borderColor:'#e2e8f0'}]}><Text style={s.btnT}>لا توجد طلبات ضمن {RADIUS_KM} كم • تحديث</Text></Pressable>)}
+        {!trip?.next && !status?.taxi_suspended && !!status?.taxi_category && (orderLoadError
+          ? <View style={{backgroundColor:'#fef2f2',borderWidth:1,borderColor:'#fecaca',borderRadius:12,padding:10,gap:8}}><Text style={{fontSize:12,fontWeight:'800',color:'#991b1b',textAlign:'center'}}>{orderLoadError}</Text><Pressable onPress={loadNearby} style={[s.btn,{backgroundColor:'#fff'}]}><Text style={[s.btnT,{color:'#991b1b'}]}>إعادة تحميل طلبات فئتي</Text></Pressable></View>
+          : nearby.length
+            ? <View style={{gap:6}}>
+                <Text style={{fontWeight:'900', fontSize:13, textAlign:'right'}}>📋 طلبات قريبة ({nearby.length}){trip? ' • يمكنك قبول طلب تالٍ واحد' : ''}</Text>
+                {nearby.slice(0,5).map(r=> (
+                  <Pressable key={r.id} onPress={()=> openWithRoute(r)} style={{backgroundColor:'#fff', borderWidth:1, borderColor:'#e2e8f0', borderRadius:12, padding:10, flexDirection:'row-reverse', justifyContent:'space-between'}}>
+                    <View style={{flex:1}}><Text style={{fontWeight:'800', fontSize:12, textAlign:'right'}}>{r.from} ← {r.to}</Text><Text style={{fontSize:11, color:'#64748b', textAlign:'right'}}>{r.cat} • {r.dist}</Text></View>
+                    <Text style={{fontWeight:'900', color:'#4F46E5'}}>{r.price}</Text>
+                  </Pressable>
+                ))}
+              </View>
+            : <Pressable onPress={loadNearby} style={[s.btn,{backgroundColor:'#fff', borderWidth:1, borderColor:'#e2e8f0'}]}><Text style={s.btnT}>لا توجد طلبات ضمن {RADIUS_KM} كم • تحديث</Text></Pressable>)}
         <SharedTripsDriver toast={showToast}/>
         <Pressable onPress={()=> router.push('/driver-shared-publish' as any)} style={[s.btn,{backgroundColor:'#4F46E5'}]}><Text style={[s.btnT,{color:'#fff'}]}>👥 نشر رحلة راكب مشتركة</Text></Pressable>
       </View>
@@ -475,14 +497,14 @@ function DriverMap({ wp }:{ wp:any }){
       </Modal>
 
       {toast && (
-        <View style={s.toast}><Text style={s.toastT}>{toast}</Text></View>
+        <View style={[s.toast,{bottom:insets.bottom+20}]}><Text style={s.toastT}>{toast}</Text></View>
       )}
     </View>
   )
 }
 const s=StyleSheet.create({
   page:{flex:1, backgroundColor:'#f8fafc'},
-  header:{flexDirection:'row', justifyContent:'space-between', alignItems:'center', padding:10, backgroundColor:'#fff', borderBottomWidth:1, borderColor:'#e2e8f0'},
+  header:{flexDirection:'row', justifyContent:'space-between', alignItems:'center', padding:10, paddingHorizontal:54, backgroundColor:'#fff', borderBottomWidth:1, borderColor:'#e2e8f0'},
   h1:{fontSize:16, fontWeight:'900'},
   badge:{backgroundColor:'#f0fdf4', borderWidth:1, borderColor:'#a7f3d0', paddingHorizontal:8, paddingVertical:4, borderRadius:999},
   badgeT:{fontSize:11, color:'#065f46', fontWeight:'800'},

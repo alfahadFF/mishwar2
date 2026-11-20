@@ -5,7 +5,9 @@ returns jsonb language sql stable security definer set search_path = public as $
   select jsonb_build_object('id', o.id, 'status', o.status, 'fare', coalesce(o.final_fare, o.estimated_fare),
       'distance_km', o.distance_km, 'category', o.vehicle_category,
       'pickup', jsonb_build_array(o.pickup_lat, o.pickup_lng), 'dropoff', jsonb_build_array(o.dropoff_lat, o.dropoff_lng),
-      'driver_name', p.full_name, 'vehicle_model', p.vehicle_model, 'vehicle_color', p.vehicle_color,
+      'driver_name', case when o.status in ('accepted','arrived','in_progress') then p.full_name end,
+      'vehicle_model', case when o.status in ('accepted','arrived','in_progress') then p.vehicle_model end,
+      'vehicle_color', case when o.status in ('accepted','arrived','in_progress') then p.vehicle_color end,
       'discount_pct', public._wallet_discount_pct(), 'completed_at', o.completed_at)
     from taxi_orders o left join profiles p on p.id = o.driver_id
    where o.user_id = auth.uid()

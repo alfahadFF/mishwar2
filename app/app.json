@@ -4,6 +4,13 @@
     "slug": "mishwar-taxi",
     "owner": "mishwartaxis-team",
     "version": "1.0.0",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/69914c87-6d4a-4e30-b526-13b36e4258f9",
+      "checkAutomatically": "NEVER"
+    },
     "orientation": "portrait",
     "scheme": "mishwar",
     "userInterfaceStyle": "light",
@@ -86,6 +93,15 @@
             "./assets/sounds/taxi_order.wav"
           ],
           "color": "#FF6B00"
+        }
+      ],
+      "expo-updates",
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "اسمح لتطبيق مشوار باستخدام الميكروفون للإدخال الصوتي.",
+          "speechRecognitionPermission": "اسمح لتطبيق مشوار بالتعرف على الكلام للبحث عن الأماكن.",
+          "androidSpeechServicePackages": ["com.google.android.googlequicksearchbox"]
         }
       ]
     ],

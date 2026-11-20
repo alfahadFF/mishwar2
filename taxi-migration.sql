@@ -11,6 +11,7 @@ create table public.taxi_orders (
   dropoff_lat double precision not null,
   dropoff_lng double precision not null,
   distance_km numeric(8,2) not null check (distance_km >= 0),
+  route_source text,
   vehicle_category text not null check (vehicle_category in ('ordinary','economy','luxury','van_8','van_11')),
   estimated_fare numeric(10,2) not null check (estimated_fare >= 0),
   currency text default 'USD' check (currency in ('USD','SYP')),

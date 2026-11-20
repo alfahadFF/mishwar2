@@ -6,6 +6,7 @@ import * as Haptics from 'expo-haptics';
 import * as Location from 'expo-location';
 import { supabase } from '../utils/supabase';
 import { guestBlocked } from '../utils/guest';
+import { errMsgWithCode } from '../utils/errors';
 import { getRoute, fmtMin } from '../utils/route';
 import { nearestOnPath, NEAR_KM } from '../utils/geo';
 import MySharedJoins from '../components/MySharedJoins';
@@ -146,25 +147,46 @@ export default function TaxiSharedScreen(){
     } finally { setBusy(false); }
   };
   const submit=async(t:Trip, d:{km:number,min:number,path:LL[]|null,wrongDir:boolean})=>{
-    if(t.demo){ // وضع تجريبي بدون قاعدة بيانات
-      if(d.path){ setMyReqs(p=> ({...p, [t.id]:{id:'demo', trip_id:t.id, status:'pending', extra_fee:0, detour_km:d.km, detour_min:d.min, detour_path:d.path!, pickup:pickup!, dropoff:dropoff!}})); showToast('تم إرسال طلبك للسائق'); }
-      else { seatTaken(t.id); showToast('تمت إضافتك للرحلة'); }
-      return;
+    try{
+      if(t.demo){ // وضع تجريبي بدون قاعدة بيانات
+        if(d.path){ setMyReqs(p=> ({...p, [t.id]:{id:'demo', trip_id:t.id, status:'pending', extra_fee:0, detour_km:d.km, detour_min:d.min, detour_path:d.path!, pickup:pickup!, dropoff:dropoff!}})); showToast('تم إرسال طلبك للسائق'); }
+        else { seatTaken(t.id); showToast('تمت إضافتك للرحلة'); }
+        return;
+      }
+      const { data:{user} }=await supabase.auth.getUser(); if(!user){ guestBlocked(); return; }
+      const { data, error }=await supabase.rpc('request_shared_join',{
+        p_trip:t.id, p_pick_lat:pickup![0], p_pick_lng:pickup![1], p_drop_lat:dropoff![0], p_drop_lng:dropoff![1],
+        p_wrong_dir:d.wrongDir, p_detour_km:Number(d.km.toFixed(2)), p_detour_min:Math.round(d.min), p_detour_polyline:d.path,
+      });
+      if(error){
+        console.warn('[shared] request_shared_join failed',{code:error.code,message:error.message,details:error.details,hint:error.hint});
+        showToast(errMsgWithCode(error,'تعذر إرسال الطلب'),true); return;
+      }
+      if(!data || !['confirmed','pending'].includes(data.status)){
+        console.warn('[shared] request_shared_join returned an unexpected response',data);
+        showToast('تعذر إرسال الطلب (استجابة غير متوقعة)',true); return;
+      }
+      if(data.status==='confirmed'){ seatTaken(t.id); showToast('تمت إضافتك للرحلة'); }
+      else { setMyReqs(p=> ({...p, [t.id]:{id:data.id, trip_id:t.id, status:'pending', extra_fee:0, detour_km:d.km, detour_min:d.min, detour_path:d.path||undefined, pickup:pickup!, dropoff:dropoff!}})); showToast('تم إرسال طلبك للسائق'); }
+    }catch(e:any){
+      console.warn('[shared] request_shared_join threw',{code:e?.code,message:e?.message,details:e?.details,hint:e?.hint});
+      showToast(errMsgWithCode(e,'تعذر إرسال الطلب'),true);
     }
-    const { data:{user} }=await supabase.auth.getUser(); if(!user){ guestBlocked(); return; }
-    const { data, error }=await supabase.rpc('request_shared_join',{
-      p_trip:t.id, p_pick_lat:pickup![0], p_pick_lng:pickup![1], p_drop_lat:dropoff![0], p_drop_lng:dropoff![1],
-      p_wrong_dir:d.wrongDir, p_detour_km:Number(d.km.toFixed(2)), p_detour_min:Math.round(d.min), p_detour_polyline:d.path,
-    });
-    if(error){ showToast(error.message.includes('TRIP_FULL')? 'الرحلة مكتملة' : 'تعذر إرسال الطلب', true); return; }
-    if(data.status==='confirmed'){ seatTaken(t.id); showToast('تمت إضافتك للرحلة'); }
-    else { setMyReqs(p=> ({...p, [t.id]:{id:data.id, trip_id:t.id, status:'pending', extra_fee:0, detour_km:d.km, detour_min:d.min, detour_path:d.path||undefined, pickup:pickup!, dropoff:dropoff!}})); showToast('تم إرسال طلبك للسائق'); }
   };
   const answerCounter=async(ok:boolean)=>{
-    if(!counter) return; const {trip, req}=counter; setCounter(null);
-    const { error }=await supabase.rpc('passenger_answer_counter',{p_request:req.id, p_accept:ok});
-    if(error){ showToast(error.message.includes('TRIP_FULL')? 'الرحلة اكتملت' : 'تعذر إرسال الرد', true); clearReq(trip.id); return; }
-    if(ok){ seatTaken(trip.id); showToast('تمت إضافتك للرحلة'); } else { clearReq(trip.id); showToast('تم رفض المبلغ الإضافي'); }
+    if(!counter) return; const {trip, req}=counter;
+    try{
+      const { error }=await supabase.rpc('passenger_answer_counter',{p_request:req.id, p_accept:ok});
+      if(error){
+        console.warn('[shared] passenger_answer_counter failed',{code:error.code,message:error.message,details:error.details,hint:error.hint});
+        showToast(errMsgWithCode(error,'تعذر إرسال الرد'),true); return;
+      }
+      setCounter(null);
+      if(ok){ seatTaken(trip.id); showToast('تمت إضافتك للرحلة'); } else { clearReq(trip.id); showToast('تم رفض المبلغ الإضافي'); }
+    }catch(e:any){
+      console.warn('[shared] passenger_answer_counter threw',{code:e?.code,message:e?.message,details:e?.details,hint:e?.hint});
+      showToast(errMsgWithCode(e,'تعذر إرسال الرد'),true);
+    }
   };
 
   const sel=trips.find(t=> t.id===selected);

@@ -17,8 +17,9 @@
 2. `02.sql` — الحاسبة، عروض الفئات، ومشغّل حماية السعر.
 3. `03.sql` — RPC الإدارة والتنبيه اليدوي لفرق الصرف.
 4. `04.sql` — أجرة الرحلة المحلية وبيانات السائق والإكمال.
+5. `05.sql` — إضافة عمود `route_source` الذي ترسله نسخة التطبيق (`osrm_road`)؛ يمكن تشغيله بأمان على قاعدة موجودة، ثم تحقّق أن استعلامه يعيد `true`.
 
-كل ملف أقل من 100 سطر. لا تشغّل ملفات قديمة لإعادة إنشاء جداول التكسي بالتوازي مع هذه الهجرة.
+كل ملف أقل من 100 سطر. لا تشغّل ملفات قديمة لإعادة إنشاء جداول التكسي بالتوازي مع هذه الهجرة. `taxi-migration.sql` يتضمن العمود أيضاً عند إنشاء جدول جديد، لكنه يحتوي على إسقاط جدول قديم؛ لا تعِد تشغيله على قاعدة إنتاج موجودة.
 
 ## فحص ما بعد التشغيل
 شغّل هذا الاستعلام بعد الملفات الأربعة؛ يجب أن تكون جميع القيم `true`:
@@ -41,6 +42,8 @@ select
   (select count(*)=8 from information_schema.columns where table_schema='public'
     and table_name='taxi_orders' and column_name in ('duration_min','fare_local','local_currency',
       'pricing_country','pricing_exchange_rate','commission_rate','commission_local','driver_net_local')) as fare_columns,
+  exists(select 1 from information_schema.columns where table_schema='public'
+    and table_name='taxi_orders' and column_name='route_source') as route_source_column,
   exists(select 1 from pg_trigger where tgname='trg_taxi_sync_price' and not tgisinternal) as fare_trigger,
   (public._taxi_price_quote(4,10,'ordinary','SY')->>'fare_usd')::numeric=3.16 as formula_sample,
   (public._taxi_price_quote(4,10,'ordinary','SY')->>'fare_local')::numeric=420 as rounded_sample;
@@ -48,4 +51,5 @@ select
 
 ## فحوص محلية أُجريت
 - `.tools/pgtest_pricing.mjs`: 13 فحصاً محلياً على PGlite ناجحاً، بما فيها الحساب، تثبيت سعر الصرف في الرحلات السابقة، الفترة المجانية، عمولة المحفظة، وتنبيه فرق السوق. لا يتصل هذا الاختبار بـSupabase ولا ينفّذ حجزاً حياً.
-- TypeScript: `npx tsc --noEmit -p .` نجح بعد نسخ `app/` إلى مجلد مؤقت وتشغيل `npm ci` هناك؛ لم يُشغّل npm داخل `app/`.
+- `npx tsc --noEmit --pretty false` داخل `app/` نجح. ثُبّتت الحزم مع `npm ci --ignore-scripts`؛ بيئة الفحص Node 20 بينما المشروع يطلب Node 22.13+، فظهرت تحذيرات محرك.
+- `CI=1 npx expo export --platform android` نجح في تجميع حزمة JavaScript للأندرويد؛ ظهر التحذير نفسه حول Node. هذا ليس بناء APK/AAB ولا اختباراً على جهاز Android، ولم يُتحقق من نشر طلب على Supabase.

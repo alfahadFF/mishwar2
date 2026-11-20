@@ -2,8 +2,11 @@ import Stars from '../components/Stars';
 import { fetchRatings, Rating } from '../utils/rating';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { View, Text, Pressable, ScrollView, StyleSheet } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '../utils/supabase';
 import { getMyLocation } from '../utils/location';
+import { placeName } from '../utils/geocode';
+import PointPicker from '../components/PointPicker';
 import { guestBlocked } from '../utils/guest';
 import { getRoute, fmtMin, etaToPoint, type RouteOption } from '../utils/route';
 import { useRouter, useFocusEffect } from 'expo-router';
@@ -23,8 +26,20 @@ const regionForRoutePoints=(points:any[])=>{
 };
 export default function TaxiScreen(){
   const router=useRouter();
+  const insets=useSafeAreaInsets();
   const [pickup,setPickup]=useState<number[]|null>(null);
   const [dropoff,setDropoff]=useState<number[]|null>(null);
+  const [pickupLabel,setPickupLabel]=useState('');
+  const [dropoffLabel,setDropoffLabel]=useState('');
+  const [picker,setPicker]=useState<'pick'|'drop'|null>(null);
+  const labelReq=useRef({pick:0,drop:0});
+  const setPointLabel=(which:'pick'|'drop',ll:number[],known?:string)=>{
+    const token=++labelReq.current[which];
+    const setter=which==='pick'?setPickupLabel:setDropoffLabel;
+    if(known){ setter(known); return; }
+    setter('جارٍ تحديد اسم المكان...');
+    placeName(ll).then(name=>{ if(labelReq.current[which]===token) setter(name); });
+  };
   const [mode,setMode]=useState<'pick'|'drop'>('pick');
   const mapRef=useRef<any>(null);
   const [locationLoading,setLocationLoading]=useState(true);
@@ -40,10 +55,12 @@ export default function TaxiScreen(){
   const loadActive=useCallback(async()=>{
     const { data }=await supabase.rpc('my_taxi_active');
     setActive(data||null);
-    if((data as any)?.id && (data as any)?.driver_name){ const m=await fetchRatings('taxi_order',[(data as any).id]); setDrvRating(m[(data as any).id]); }
+    const accepted=!!data&&['accepted','arrived','in_progress'].includes((data as any).status);
+    if(accepted && (data as any)?.id && (data as any)?.driver_name){ const m=await fetchRatings('taxi_order',[(data as any).id]); setDrvRating(m[(data as any).id]); }
+    else setDrvRating(undefined);
     return data;
   },[]);
-  useFocusEffect(useCallback(()=>{ loadActive().then((a:any)=>{ if(a){ setPickup(a.pickup); setDropoff(a.dropoff); } }); },[loadActive]));
+  useFocusEffect(useCallback(()=>{ loadActive().then((a:any)=>{ if(a){ setPickup(a.pickup); setDropoff(a.dropoff); setPointLabel('pick',a.pickup,a.pickup_text||'نقطة الانطلاق'); setPointLabel('drop',a.dropoff,a.dropoff_text||'نقطة الوصول'); } }); },[loadActive]));
   useEffect(()=>{
     if(!active || active.status==='completed') return;
     const iv=setInterval(async()=>{
@@ -67,7 +84,7 @@ export default function TaxiScreen(){
     let alive=true;
     getMyLocation().then(({ll,real})=>{
       if(!alive) return;
-      if(real && ll){ setPickup(ll); setLocationError(false); }
+      if(real && ll){ setPickup(ll); setPointLabel('pick',ll,'موقعي'); setLocationError(false); }
       else setLocationError(true);
       setLocationLoading(false);
     }).catch(()=>{ if(alive){ setLocationError(true); setLocationLoading(false); } });
@@ -78,7 +95,7 @@ export default function TaxiScreen(){
     const {ll,real}=await getMyLocation();
     setLocationLoading(false);
     if(!real || !ll){ setLocationError(true); showToast('تعذر تحديد موقعك؛ اسمح بإذن الموقع ثم أعد المحاولة'); return; }
-    setLocationError(false); setPickup(ll); setMode('drop');
+    setLocationError(false); setPickup(ll); setPointLabel('pick',ll,'موقعي'); setMode('drop');
     mapRef.current?.animateToRegion?.({latitude:ll[0],longitude:ll[1],latitudeDelta:0.02,longitudeDelta:0.02});
   };
   const [route,setRoute]=useState<(RouteOption & {alternatives:RouteOption[]})|null>(null);
@@ -117,17 +134,30 @@ export default function TaxiScreen(){
     return ()=>{ alive=false; };
   },[route?.km,route?.min,routeState]);
   const distance = route ? route.km : 0;
-  // ===== السيارات القريبة: رموز بلا تفاصيل + مدة وصول أقرب سيارة لكل فئة =====
+  // مواقع السيارات المجهولة تُستخدم لحساب التوفر والوقت فقط؛ لا نرسم مواقع السائقين على خريطة الراكب.
+  type CategoryEta = { freeCount:number; busyCount:number; freeEta:number|null; freeIn:number|null; busyArrival:number|null };
   const [cars,setCars]=useState<any[]>([]);
-  const [eta,setEta]=useState<Record<string,number|null>>({});
+  const [eta,setEta]=useState<Record<string,CategoryEta>>({});
   const [carsLoaded,setCarsLoaded]=useState(false);
+  const [carsError,setCarsError]=useState<string|null>(null);
   const picked=React.useRef(false);
-  const etaAt=React.useRef(0);
+  const etaAt=React.useRef({at:0,pickup:'',signature:''});
   const km=(a:number[],b:number[])=>{ const k=Math.cos(a[0]*Math.PI/180); return Math.hypot((b[1]-a[1])*111.32*k,(b[0]-a[0])*110.574); };
+  const toPoint=(p:any):number[]|null=>{
+    const lat=Number(Array.isArray(p)?p[0]:p?.lat??p?.latitude);
+    const lng=Number(Array.isArray(p)?p[1]:p?.lng??p?.longitude);
+    return Number.isFinite(lat)&&Number.isFinite(lng)&&Math.abs(lat)<=90&&Math.abs(lng)<=180?[lat,lng]:null;
+  };
+  const carPoint=(c:any)=>toPoint([c?.lat,c?.lng]);
   const loadCars=useCallback(async(rad:number)=>{
     if(!pickup) return [];
-    const { data }=await supabase.rpc('nearby_taxis',{p_lat:pickup[0], p_lng:pickup[1], p_radius:rad});
-    const list=((data||[]) as any[]); setCars(list); setCarsLoaded(true); return list;
+    const { data,error }=await supabase.rpc('nearby_taxis',{p_lat:pickup[0], p_lng:pickup[1], p_radius:rad});
+    if(error){
+      console.warn('[taxi] nearby_taxis failed',error);
+      setCars([]); setCarsError(errMsg(error,'تعذر تحميل سيارات التكسي')); setCarsLoaded(true); return [];
+    }
+    const list=((data||[]) as any[]);
+    setCarsError(null); setCars(list); setCarsLoaded(true); return list;
   },[pickup?.[0],pickup?.[1]]);
   useEffect(()=>{
     if(!pickup || (active && active.id!==hidden)) return;
@@ -135,33 +165,74 @@ export default function TaxiScreen(){
     return ()=> clearInterval(iv);
   },[loadCars, radius, active?.id, hidden]);
   const hasCat=(c:string)=> cars.some(x=> x.cat===c);
-  // مدة الوصول: الأولوية للسائق الفاضي، وإذا كل سائقين الفئة مشغولين: وقت إنهاء رحلته + الطريق للراكب
+  const freeCount=(c:string)=> cars.filter(x=>x.cat===c&&!x.busy).length;
+  const busyCount=(c:string)=> cars.filter(x=>x.cat===c&&x.busy).length;
+  // نفصل «متفرغة الآن» عن «تتفرغ بعد الرحلة» وعن مدة وصولها؛ أوقات المشغولات تقديرية.
   useEffect(()=>{
-    if(!pickup || !cars.length){ setEta({}); return; }
-    if(Date.now()-etaAt.current<30000 && Object.keys(eta).length) return;
-    etaAt.current=Date.now();
+    if(!pickup || !cars.length){ setEta({}); etaAt.current={at:0,pickup:'',signature:''}; return; }
+    const pickupKey=`${pickup[0]},${pickup[1]}`;
+    const signature=cars.map(c=>[c.cat,Number(c.lat).toFixed(4),Number(c.lng).toFixed(4),!!c.busy,JSON.stringify(c.via||[])].join(':')).sort().join('|');
+    if(etaAt.current.pickup===pickupKey && etaAt.current.signature===signature && Date.now()-etaAt.current.at<30000 && Object.keys(eta).length) return;
+    etaAt.current={at:Date.now(),pickup:pickupKey,signature};
+    let alive=true;
     (async()=>{
-      const out:Record<string,number|null>={};
+      const out:Record<string,CategoryEta>={};
       const cats=Object.keys(RATES).filter(hasCat);
-      const free:any[]=[];
-      cats.forEach(c=>{ cars.filter(x=> x.cat===c && !x.busy).sort((a,b)=> km([a.lat,a.lng],pickup)-km([b.lat,b.lng],pickup)).slice(0,5).forEach(x=> free.push(x)); });
-      const mins=await etaToPoint(free.map(x=> [x.lat,x.lng]), pickup);
-      free.forEach((x,i)=>{ const m=mins[i]; if(m!=null && (out[x.cat]==null || m<out[x.cat]!)) out[x.cat]=m; });
-      await Promise.all(cats.filter(c=> !cars.some(x=> x.cat===c && !x.busy)).map(async c=>{
-        const b=cars.filter(x=> x.cat===c).sort((a,b)=> km([a.lat,a.lng],pickup)-km([b.lat,b.lng],pickup))[0];
-        const rt=await getRoute([[b.lat,b.lng], ...((b.via||[]) as number[][]), pickup]);
-        out[c]=rt.ok? rt.min : null;
+      const freeRows:any[]=[];
+      for(const c of cats){
+        const group=cars.filter(x=>x.cat===c);
+        const free=group.filter(x=>!x.busy);
+        const busy=group.filter(x=>x.busy);
+        out[c]={freeCount:free.length,busyCount:busy.length,freeEta:null,freeIn:null,busyArrival:null};
+        free.sort((a,b)=>{
+          const pa=carPoint(a),pb=carPoint(b);
+          return pa&&pb?km(pa,pickup)-km(pb,pickup):pa?-1:pb?1:0;
+        }).slice(0,5).forEach(driver=>{ const point=carPoint(driver); if(point) freeRows.push({cat:c,point}); });
+      }
+      const freeMins=await etaToPoint(freeRows.map(x=>x.point),pickup);
+      freeRows.forEach((row,i)=>{
+        const minutes=freeMins[i];
+        if(minutes!=null&&Number.isFinite(minutes)&&(out[row.cat].freeEta==null||minutes<out[row.cat].freeEta!)) out[row.cat].freeEta=minutes;
+      });
+      await Promise.all(cats.filter(c=>out[c].freeCount===0&&out[c].busyCount>0).map(async c=>{
+        const busy=cars.filter(x=>x.cat===c&&x.busy&&carPoint(x))
+          .sort((a,b)=>km(carPoint(a)!,pickup)-km(carPoint(b)!,pickup)).slice(0,3);
+        const estimates=await Promise.all(busy.map(async driver=>{
+          const origin=carPoint(driver)!;
+          const via=(Array.isArray(driver.via)?driver.via:[]).map(toPoint).filter((p:any):p is number[]=>!!p);
+          if(!via.length) return {freeIn:null as number|null,arrival:null as number|null};
+          const [finish,approach]=await Promise.all([
+            getRoute([origin,...via],{preference:'fastest'}),
+            getRoute([via[via.length-1],pickup],{preference:'fastest'}),
+          ]);
+          const available=finish.ok?finish.min:null;
+          const arrival=finish.ok&&approach.ok?finish.min+approach.min:null;
+          return {freeIn:available,arrival};
+        }));
+        const best=estimates.filter(x=>x.arrival!=null).sort((a,b)=>a.arrival!-b.arrival!)[0]
+          || estimates.filter(x=>x.freeIn!=null).sort((a,b)=>a.freeIn!-b.freeIn!)[0];
+        if(best){out[c].freeIn=best.freeIn;out[c].busyArrival=best.arrival;}
       }));
-      cats.forEach(c=>{ if(!(c in out)) out[c]=null; });
+      if(!alive) return;
       setEta(out);
-      // اختيار الفئة الأقرب تلقائياً (ما لم يختر الراكب بنفسه)
-      if(!picked.current){ const best=cats.filter(c=> out[c]!=null).sort((a,b)=> out[a]!-out[b]!)[0] || cats[0]; if(best) setSelected(best); }
+      // اختَر أقرب سيارة متفرغة الآن أولاً؛ وإن لم توجد، استخدم أقرب وصول تقديري.
+      if(!picked.current){
+        const freeBest=cats.filter(c=>out[c].freeCount>0).sort((a,b)=>{
+          const at=out[a].freeEta,bt=out[b].freeEta;
+          return at==null?(bt==null?0:1):bt==null?-1:at-bt;
+        })[0];
+        const busyByArrival=cats.filter(c=>out[c].busyArrival!=null).sort((a,b)=>out[a].busyArrival!-out[b].busyArrival!)[0];
+        const busyByAvailability=cats.filter(c=>out[c].freeCount===0&&out[c].freeIn!=null).sort((a,b)=>out[a].freeIn!-out[b].freeIn!)[0];
+        const best=freeBest||busyByArrival||busyByAvailability||cats[0];
+        if(best) setSelected(best);
+      }
     })();
-  },[cars]);
+    return ()=>{alive=false;};
+  },[cars,pickup?.[0],pickup?.[1]]);
   const pickCat=async(k:string)=>{
     if(hasCat(k)){ picked.current=true; setSelected(k); return; }
     if(radius===5){
-      setRadius(10); etaAt.current=0; showToast('جاري البحث ضمن 10 كم...');
+      setRadius(10); etaAt.current={at:0,pickup:'',signature:''}; showToast('جاري البحث ضمن 10 كم...');
       const list=await loadCars(10);
       if(list.some((x:any)=> x.cat===k)){ picked.current=true; setSelected(k); showToast(`تم التوسيع إلى 10 كم — توجد ${RATES[k].name}`); }
       else showToast(`لا توجد ${RATES[k].name} قريبة حالياً`);
@@ -173,8 +244,14 @@ export default function TaxiScreen(){
     if(showActive) return;
     const c=e.nativeEvent.coordinate;
     const ll=[c.latitude, c.longitude];
-    if(mode==='pick'){ setPickup(ll); setMode('drop'); }
-    else { setDropoff(ll); }
+    if(mode==='pick'){ setPickup(ll); setPointLabel('pick',ll); setMode('drop'); }
+    else { setDropoff(ll); setPointLabel('drop',ll); }
+  };
+  const confirmPickedPoint=(ll:number[],label?:string)=>{
+    if(picker==='pick'){ setPickup(ll); setPointLabel('pick',ll,label); setMode('drop'); }
+    if(picker==='drop'){ setDropoff(ll); setPointLabel('drop',ll,label); }
+    setPicker(null);
+    mapRef.current?.animateToRegion?.({latitude:ll[0],longitude:ll[1],latitudeDelta:0.02,longitudeDelta:0.02});
   };
   const publish=async()=>{
     if(!pickup || !dropoff) return;
@@ -188,8 +265,8 @@ export default function TaxiScreen(){
       const { data:{user} }=await supabase.auth.getUser(); if(!user){ guestBlocked(); return; }
       const payload:any={
         user_id:user.id,
-        pickup_lat: pickup[0], pickup_lng: pickup[1], pickup_text: 'نقطة مختارة على الخريطة',
-        dropoff_lat: dropoff[0], dropoff_lng: dropoff[1], dropoff_text: 'نقطة مختارة على الخريطة',
+        pickup_lat: pickup[0], pickup_lng: pickup[1], pickup_text: pickupLabel || 'نقطة الانطلاق',
+        dropoff_lat: dropoff[0], dropoff_lng: dropoff[1], dropoff_text: dropoffLabel || 'نقطة الوصول',
         distance_km: Number(distance.toFixed(2)),
         duration_min: Math.round(route!.min),
         route_source: 'osrm_road',
@@ -233,7 +310,7 @@ export default function TaxiScreen(){
   };
   const st=active? (ST[active.status]||ST.pending) : null;
   return (
-    <View style={s.page}>
+    <View style={[s.page,{paddingTop:insets.top,paddingBottom:insets.bottom}]}>
       <View style={s.header}>
         <Text style={s.h1}>🚕 طلب تكسي</Text>
         <Text style={s.sub}>اضغط على الخريطة لتحديد الانطلاق والوصول</Text>
@@ -243,6 +320,16 @@ export default function TaxiScreen(){
         <Pressable onPress={()=> setMode('pick')} style={[s.modeBtn, mode==='pick' && s.modeActive]}><Text style={[s.modeT, mode==='pick' && s.modeTActive]}>📍 الانطلاق</Text></Pressable>
         <Pressable onPress={()=> setMode('drop')} style={[s.modeBtn, mode==='drop' && s.modeActive]}><Text style={[s.modeT, mode==='drop' && s.modeTActive]}>🏁 الوصول</Text></Pressable>
         <Pressable onPress={useMyLocation} style={[s.modeBtn,{backgroundColor:'#f1f5f9'}]}><Text style={s.modeT}>📍 موقعي</Text></Pressable>
+      </View>
+      <View style={s.pointBar}>
+        <Pressable disabled={showActive} onPress={()=>{setMode('pick');setPicker('pick');}} style={[s.pointBtn,mode==='pick'&&s.pointBtnActive]} accessibilityRole="button" accessibilityLabel="اختيار نقطة الانطلاق بالخريطة أو البحث أو الصوت">
+          <View style={s.pointBtnHead}><Text style={s.pointTitle}>📍 الانطلاق</Text><Text style={s.pointWays}>🗺️ كتابة • 🎙️ صوت</Text></View>
+          <Text style={s.pointLabel} numberOfLines={1}>{pickupLabel||'اضغط لاختيار الموقع'}</Text>
+        </Pressable>
+        <Pressable disabled={showActive} onPress={()=>{setMode('drop');setPicker('drop');}} style={[s.pointBtn,mode==='drop'&&s.pointBtnActive]} accessibilityRole="button" accessibilityLabel="اختيار نقطة الوصول بالخريطة أو البحث أو الصوت">
+          <View style={s.pointBtnHead}><Text style={s.pointTitle}>🏁 الوصول</Text><Text style={s.pointWays}>🗺️ كتابة • 🎙️ صوت</Text></View>
+          <Text style={s.pointLabel} numberOfLines={1}>{dropoffLabel||'اضغط لاختيار الموقع'}</Text>
+        </Pressable>
       </View>
       <View style={{flex:1, marginHorizontal:10, borderRadius:14, overflow:'hidden', borderWidth:1, borderColor:'#e2e8f0'}}>
         {pickup ? (
@@ -262,7 +349,6 @@ export default function TaxiScreen(){
               {route && pickup && route.snapStartMeters > 15 && <Polyline coordinates={[{latitude:pickup[0],longitude:pickup[1]}, route.path[0]]} strokeColor="#f59e0b" strokeWidth={4} lineDashPattern={[3,3]}/>}
               {route && dropoff && route.snapEndMeters > 15 && <Polyline coordinates={[route.path[route.path.length-1], {latitude:dropoff[0],longitude:dropoff[1]}]} strokeColor="#f59e0b" strokeWidth={4} lineDashPattern={[3,3]}/>}
               {carPos && <Marker coordinate={{latitude:carPos[0], longitude:carPos[1]}} anchor={{x:.5,y:.5}}><Text style={{fontSize:26}}>🚕</Text></Marker>}
-              {!showActive && cars.map((c,i)=> <Marker key={'car'+i} coordinate={{latitude:c.lat, longitude:c.lng}} anchor={{x:.5,y:.5}} tracksViewChanges={false}><Text style={{fontSize:20}}>🚕</Text></Marker>)}
             </MapView>
             <View style={[s.hint,{alignItems:'center',position:'relative',bottom:0,alignSelf:'stretch',maxWidth:'100%'}]}>
               <Text style={s.hintT}>{routeState==='loading'? '⏳ جاري حساب المسارات...' : routeState==='error'? '⚠️ تعذر حساب المسار' : route? `🛣️ الأقصر: ${route.km.toFixed(1)} كم • ${fmtMin(route.min)}${route.alternatives.length?` • من ${route.alternatives.length+1} مسارات`:' • مسار واحد متاح'}` : (mode==='pick'? 'اضغط على الخريطة لتحديد الانطلاق' : 'اضغط على الخريطة لتحديد الوصول')}</Text>
@@ -289,7 +375,7 @@ export default function TaxiScreen(){
               <Text style={{fontSize:10,color:'#64748b',fontWeight:'700'}}>المحاسبة بالمحفظة: {formatWalletUsd(aFareUsd)}</Text>
             </View>
           </View>
-          {!!active.driver_name && active.status!=='completed' && (
+          {['accepted','arrived','in_progress'].includes(active.status) && !!active.driver_name && (
             <View style={s.driverBox}>
               <Text style={{fontWeight:'900', textAlign:'right'}}>👤 {active.driver_name}</Text>
               <Stars r={drvRating} small />
@@ -320,7 +406,7 @@ export default function TaxiScreen(){
       {!showActive && distance>0 && (
         <View style={s.sliderWrap}>
           <Text style={s.sliderTitle}>اختر الفئة • الأقصر {distance.toFixed(1)} كم • مدة متوقعة {fmtMin(route?.min||0)}</Text>
-          <Text style={{fontSize:10,color:'#64748b',textAlign:'center',marginBottom:6}}>السعر بالليرة السورية الجديدة • العمولة على السائق ولا تُضاف إلى أجرتك • زمن متوقع دون انتظار</Text>
+          <Text style={{fontSize:10,color:'#64748b',textAlign:'center',marginBottom:6}}>السعر بالليرة السورية الجديدة • العمولة على السائق • التفرغ منفصل عن الوصول؛ تقدير المشغولة لا يشمل انتظار الراكب</Text>
           {!!route&&Math.max(route.snapStartMeters,route.snapEndMeters)>25&&<Text style={{fontSize:10,color:'#b45309',textAlign:'center',marginBottom:6}}>الخط المتقطع يصل الدبوس بأقرب طريق • البداية {Math.round(route.snapStartMeters)}م / الوصول {Math.round(route.snapEndMeters)}م</Text>}
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{paddingHorizontal:14, gap:10}}>
             {Object.entries(RATES).map(([k,v]:any)=> (
@@ -330,27 +416,40 @@ export default function TaxiScreen(){
                 <Text style={s.cardName}>{v.name}</Text>
                 <Text style={s.price}>{fareLabel(k)}</Text>
                 <Text style={{fontSize:9,color:'#64748b',marginTop:2}}>{quote(k)?`المحفظة ${formatWalletUsd(quote(k)!.fare_usd)}`:'جاري حساب السعر'}</Text>
-                <Text style={[s.perkm, hasCat(k) && {color:'#047857', fontWeight:'900'}]}>{!carsLoaded? '...' : !hasCat(k)? 'غير متوفرة حالياً' : eta[k]!=null? `🕒 ${fmtMin(Math.max(1,eta[k]!))}` : 'متوفرة'}</Text>
+                {!carsLoaded ? <Text style={s.cardStatus}>جارٍ البحث...</Text> : carsError ? <Text style={[s.cardStatus,{color:'#b91c1c'}]}>تعذر تحميل التوفر</Text> : !hasCat(k) ? <Text style={s.cardStatus}>غير متوفرة حالياً</Text> : !eta[k] ? <Text style={s.cardStatus}>جارٍ حساب التوفر...</Text> : freeCount(k)>0 ? (
+                  <>
+                    <Text style={[s.cardStatus,{color:'#047857'}]}>🟢 متفرغة الآن ({freeCount(k)})</Text>
+                    <Text style={s.cardEta}>وصول الأقرب: {eta[k]?.freeEta!=null?fmtMin(Math.max(1,Number(eta[k]?.freeEta))):'جارٍ الحساب'}</Text>
+                  </>
+                ) : (
+                  <>
+                    <Text style={[s.cardStatus,{color:'#b45309'}]}>🟠 مشغولة ({busyCount(k)})</Text>
+                    <Text style={s.cardEta}>التفرغ المتوقع: {eta[k]?.freeIn!=null?fmtMin(Math.max(0,Number(eta[k]?.freeIn))):'غير معروف'}</Text>
+                    <Text style={s.cardEta}>الوصول بعد التفرغ: {eta[k]?.busyArrival!=null?fmtMin(Math.max(1,Number(eta[k]?.busyArrival))):'غير معروف'}</Text>
+                  </>
+                )}
               </Pressable>
             ))}
           </ScrollView>
           <Pressable onPress={publish} disabled={loading || quoteLoading || !quotes[selected] || !hasCat(selected)} style={[s.publish, (loading || quoteLoading || !quotes[selected] || !hasCat(selected)) && {backgroundColor:'#cbd5e1'}]}>
             <Text style={s.publishT}>{loading? 'جاري...' : quoteLoading? 'جاري حساب السعر...' : `📢 نشر الطلب — ${RATES[selected].name} • ${fareLabel(selected)}`}</Text>
           </Pressable>
-          <Text style={{fontSize:11,color:quoteError?'#b91c1c':'#64748b',textAlign:'center',marginTop:6}}>{quoteError||(!carsLoaded? 'جاري البحث عن سيارات قريبة...' : !cars.length? `لا توجد سيارات ضمن ${radius} كم${radius===5? ' — اضغط على فئة للتوسيع' : ''}` : radius===10? 'تم التوسيع إلى 10 كم' : `سيُرسل ضمن ${radius} كم`)}</Text>
+          <Text style={{fontSize:11,color:(quoteError||carsError)?'#b91c1c':'#64748b',textAlign:'center',marginTop:6}}>{quoteError||carsError||(!carsLoaded? 'جاري البحث عن سيارات قريبة...' : !cars.length? `لا توجد سيارات ضمن ${radius} كم${radius===5? ' — اضغط على فئة للتوسيع' : ''}` : radius===10? 'تم التوسيع إلى 10 كم' : `سيُرسل ضمن ${radius} كم`)}</Text>
+          {!!carsError&&<Pressable onPress={()=>void loadCars(radius)} style={{alignSelf:'center',marginTop:5,paddingHorizontal:14,paddingVertical:7,borderRadius:10,backgroundColor:'#fef2f2',borderWidth:1,borderColor:'#fecaca'}}><Text style={{color:'#991b1b',fontSize:11,fontWeight:'900'}}>إعادة تحميل السيارات</Text></Pressable>}
         </View>
       )}
       {toast && (
-        <View style={{position:'absolute', bottom:20, alignSelf:'center', backgroundColor:'#065f46', paddingHorizontal:20, paddingVertical:12, borderRadius:999, shadowColor:'#000', shadowOpacity:0.2, shadowRadius:8, elevation:5}}>
+        <View style={{position:'absolute', bottom:Math.max(insets.bottom,8)+12, alignSelf:'center', backgroundColor:'#065f46', paddingHorizontal:20, paddingVertical:12, borderRadius:999, shadowColor:'#000', shadowOpacity:0.2, shadowRadius:8, elevation:5}}>
           <Text style={{color:'#fff', fontWeight:'900', fontSize:13, textAlign:'center'}}>{toast}</Text>
         </View>
       )}
+      <PointPicker visible={picker!==null} title={picker==='pick'?'حدد نقطة الانطلاق':'حدد نقطة الوصول'} color={picker==='pick'?'#16a34a':'#dc2626'} initial={picker==='pick'?pickup:dropoff} onClose={()=>setPicker(null)} onConfirm={confirmPickedPoint}/>
     </View>
   )
 }
 const s=StyleSheet.create({
   page:{flex:1, backgroundColor:'#f8fafc'},
-  header:{padding:10, backgroundColor:'#fff', borderBottomWidth:1, borderColor:'#e2e8f0'},
+  header:{padding:10, paddingHorizontal:52, backgroundColor:'#fff', borderBottomWidth:1, borderColor:'#e2e8f0'},
   h1:{fontSize:16, fontWeight:'900', textAlign:'center'},
   sub:{fontSize:11, color:'#64748b', textAlign:'center'},
   modeBar:{flexDirection:'row', gap:8, padding:8, backgroundColor:'#fff', borderBottomWidth:1, borderColor:'#e2e8f0'},
@@ -358,6 +457,13 @@ const s=StyleSheet.create({
   modeActive:{backgroundColor:'#4F46E5', borderColor:'#4F46E5'},
   modeT:{fontSize:12, fontWeight:'800'},
   modeTActive:{color:'#fff'},
+  pointBar:{flexDirection:'row-reverse',gap:8,paddingHorizontal:10,paddingVertical:8,backgroundColor:'#f8fafc'},
+  pointBtn:{flex:1,minHeight:60,backgroundColor:'#fff',borderWidth:1.5,borderColor:'#cbd5e1',borderRadius:12,paddingHorizontal:10,paddingVertical:8},
+  pointBtnActive:{borderColor:'#4F46E5',backgroundColor:'#eef2ff'},
+  pointBtnHead:{flexDirection:'row-reverse',justifyContent:'space-between',alignItems:'center',gap:4},
+  pointTitle:{fontSize:12,fontWeight:'900',color:'#0f172a'},
+  pointWays:{fontSize:9,fontWeight:'800',color:'#4F46E5'},
+  pointLabel:{fontSize:11,fontWeight:'700',color:'#475569',textAlign:'right',marginTop:5},
   locationGate:{flex:1, alignItems:'center', justifyContent:'center', padding:20, gap:12, backgroundColor:'#f8fafc'},
   locationGateT:{fontSize:13, lineHeight:20, fontWeight:'800', color:'#334155', textAlign:'center'},
   locationRetry:{height:42, paddingHorizontal:16, borderRadius:12, backgroundColor:'#4F46E5', alignItems:'center', justifyContent:'center'},
@@ -366,11 +472,13 @@ const s=StyleSheet.create({
   hintT:{color:'#334155', fontSize:10, textAlign:'center'},
   sliderWrap:{backgroundColor:'#fff', borderTopWidth:1, borderColor:'#e2e8f0', paddingVertical:10},
   sliderTitle:{fontSize:12, fontWeight:'900', paddingHorizontal:14, marginBottom:8},
-  card:{width:140, borderWidth:1.5, borderColor:'#e2e8f0', borderRadius:14, padding:10, backgroundColor:'#fff', alignItems:'center'},
+  card:{width:158, minHeight:150, borderWidth:1.5, borderColor:'#e2e8f0', borderRadius:14, padding:10, backgroundColor:'#fff', alignItems:'center'},
   cardActive:{borderColor:'#4F46E5', backgroundColor:'#eef2ff'},
   badge:{position:'absolute', top:6, left:6, fontSize:9, backgroundColor:'#f1f5f9', paddingHorizontal:6, paddingVertical:2, borderRadius:999, overflow:'hidden'},
   cardName:{fontSize:12, fontWeight:'900', textAlign:'center', marginTop:4},
   price:{fontSize:16, fontWeight:'900', color:'#4F46E5', marginTop:4},
+  cardStatus:{fontSize:9, color:'#64748b', fontWeight:'900', textAlign:'center', marginTop:4},
+  cardEta:{fontSize:9, color:'#475569', fontWeight:'700', textAlign:'center', lineHeight:12, marginTop:2},
   perkm:{fontSize:10, color:'#64748b'},
   publish:{marginHorizontal:14, marginTop:10, height:46, borderRadius:14, backgroundColor:'#4F46E5', alignItems:'center', justifyContent:'center'},
   publishT:{color:'#fff', fontWeight:'900', fontSize:14},

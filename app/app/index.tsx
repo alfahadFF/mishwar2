@@ -5,6 +5,7 @@ import { useRouter, useFocusEffect } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../utils/supabase';
 import { workHomeOf } from '../utils/work';
+import { openAppDownloadUpdates } from '../utils/support';
 
 const ORANGE = '#FF6B00';
 let routedOnce = false;
@@ -107,52 +108,71 @@ export default function HomeScreen() {
             <Text style={s.sectionTitle}>اختر خدمتك</Text>
             <Text style={s.sectionCount}>7 خدمات</Text>
           </View>
+          <Pressable style={s.taxiCta} onPress={() => handleService('تكسي')} accessibilityRole="button" accessibilityLabel="اطلب تكسي الآن">
+            <View style={s.taxiCtaBadge}><Text style={s.taxiCtaBadgeText}>الأكثر طلباً</Text></View>
+            <View style={s.taxiCtaMain}>
+              <View style={s.taxiCtaIcon}><Text style={{fontSize:28}}>🚕</Text></View>
+              <View style={{flex:1}}>
+                <Text style={s.taxiCtaTitle}>اطلب تكسي الآن</Text>
+                <Text style={s.taxiCtaDesc}>توصيل فوري • اختر الانطلاق والوصول بسهولة</Text>
+              </View>
+            </View>
+            <View style={s.taxiCtaAction}><Text style={s.taxiCtaActionText}>ابدأ الطلب  ←</Text></View>
+          </Pressable>
           <View style={s.grid}>
-            {/* Taxi - Featured */}
-            <Pressable style={[s.card, s.cardTaxi]} onPress={() => handleService('تكسي')}>
-              <View style={s.cardBadgeOrange}><Text style={s.cardBadgeText}>الأكثر طلباً</Text></View>
-              <View style={[s.cardIcon, s.cardIconLight]}><Text style={s.cardEmoji}>🚕</Text></View>
-              <Text style={[s.cardTitle, s.cardTitleWhite]}>تكسي</Text>
-              <Text style={[s.cardDesc, s.cardDescWhite]} numberOfLines={2}>توصيل فوري خلال دقائق لأي مكان</Text>
-            </Pressable>
 
             <Pressable style={[s.card, { backgroundColor: '#F0FDFA', borderColor: '#99F6E4' }]} onPress={() => handleService('سفريات')}>
               <View style={[s.cardIcon, { backgroundColor: '#CCFBF1' }]}><Text style={s.cardEmoji}>🧭</Text></View>
               <Text style={s.cardTitle}>سفريات</Text>
               <Text style={s.cardDesc} numberOfLines={2}>رحلات منشورة وعروض أجرة خاصة برحلتك</Text>
+              <Text style={s.cardAction}>افتح الخدمة  ←</Text>
             </Pressable>
 
             <Pressable style={s.card} onPress={() => handleService('نقل')}>
               <View style={[s.cardIcon, { backgroundColor: '#EEF2FF' }]}><Text style={s.cardEmoji}>🚚</Text></View>
               <Text style={s.cardTitle}>نقل</Text>
               <Text style={s.cardDesc} numberOfLines={2}>نقل بضائع وعفش بأمان</Text>
+              <Text style={s.cardAction}>افتح الخدمة  ←</Text>
             </Pressable>
 
             <Pressable style={s.card} onPress={() => handleService('مناسبات')}>
               <View style={[s.cardIcon, { backgroundColor: '#FEF3C7' }]}><Text style={s.cardEmoji}>🎉</Text></View>
               <Text style={s.cardTitle}>مناسبات</Text>
               <Text style={s.cardDesc} numberOfLines={2}>حجوزات أعراس ومؤتمرات</Text>
+              <Text style={s.cardAction}>افتح الخدمة  ←</Text>
             </Pressable>
 
             <Pressable style={s.card} onPress={() => handleService('عقود')}>
               <View style={[s.cardIcon, { backgroundColor: '#ECFDF5' }]}><Text style={s.cardEmoji}>📋</Text></View>
               <Text style={s.cardTitle}>عقود</Text>
               <Text style={s.cardDesc} numberOfLines={2}>عقود شهرية للشركات</Text>
+              <Text style={s.cardAction}>افتح الخدمة  ←</Text>
             </Pressable>
 
             <Pressable style={s.card} onPress={() => handleService('مطار')}>
               <View style={[s.cardIcon, { backgroundColor: '#E0F2FE' }]}><Text style={s.cardEmoji}>✈️</Text></View>
               <Text style={s.cardTitle}>المطار</Text>
               <Text style={s.cardDesc} numberOfLines={2}>استقبال المسافرين ووداعهم</Text>
+              <Text style={s.cardAction}>افتح الخدمة  ←</Text>
             </Pressable>
 
             <Pressable style={s.card} onPress={() => handleService('تأجير')}>
               <View style={[s.cardIcon, { backgroundColor: '#EEF2FF' }]}><Text style={s.cardEmoji}>🔑</Text></View>
               <Text style={s.cardTitle}>تأجير سيارات</Text>
               <Text style={s.cardDesc} numberOfLines={2}>بالساعة واليوم والأسبوع والشهر</Text>
+              <Text style={s.cardAction}>افتح الخدمة  ←</Text>
             </Pressable>
           </View>
         </View>
+
+        <Pressable style={s.updatesLink} onPress={openAppDownloadUpdates} accessibilityRole="link" accessibilityLabel="تنزيل التطبيق والبحث عن التحديثات على تيليغرام">
+          <View style={s.updatesLinkIcon}><Text style={{fontSize:20}}>🔄</Text></View>
+          <View style={{flex:1}}>
+            <Text style={s.updatesLinkTitle}>تنزيل التطبيق والتحديثات</Text>
+            <Text style={s.updatesLinkSub}>ابحث عن أحدث نسخة على تيليغرام</Text>
+          </View>
+          <Text style={{fontSize:18,color:'#4F46E5',fontWeight:'900'}}>↗</Text>
+        </Pressable>
 
         {/* Auth Card */}
         {authed === false && <View style={s.authCard}>
@@ -219,8 +239,18 @@ const s = StyleSheet.create({
   sectionHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   sectionTitle: { fontWeight: '800', fontSize: 15, color: DARK },
   sectionCount: { color: ORANGE, fontWeight: '700', fontSize: 11 },
+  taxiCta: { minHeight: 142, backgroundColor: '#FFF7ED', borderColor: '#FDBA74', borderWidth: 1.5, borderRadius: 20, padding: 14, marginBottom: 14, overflow: 'hidden' },
+  taxiCtaBadge: { position: 'absolute', top: 0, right: 0, borderBottomLeftRadius: 12, backgroundColor: '#EA580C', paddingHorizontal: 12, paddingVertical: 6 },
+  taxiCtaBadgeText: { color: '#fff', fontSize: 10, fontWeight: '900' },
+  taxiCtaMain: { flexDirection: 'row-reverse', alignItems: 'center', gap: 12, marginTop: 22 },
+  taxiCtaIcon: { width: 52, height: 52, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFEDD5' },
+  taxiCtaTitle: { color: '#7C2D12', fontSize: 19, lineHeight: 26, fontWeight: '900', textAlign: 'right' },
+  taxiCtaDesc: { color: '#9A3412', fontSize: 11, lineHeight: 16, marginTop: 2, textAlign: 'right' },
+  taxiCtaAction: { alignSelf: 'flex-start', marginTop: 11, paddingHorizontal: 13, paddingVertical: 7, borderRadius: 10, backgroundColor: '#EA580C' },
+  taxiCtaActionText: { color: '#fff', fontSize: 11, fontWeight: '900' },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
-  card: { width: '48%', backgroundColor: '#fff', borderRadius: 16, padding: 10, borderWidth: 1, borderColor: '#E5E7EB', minHeight: 110, shadowColor: '#0F172A', shadowOpacity: 0.04, shadowRadius: 5, shadowOffset: { width: 0, height: 2 }, elevation: 1 },
+  card: { width: '48%', backgroundColor: '#fff', borderRadius: 16, padding: 10, borderWidth: 1, borderColor: '#E5E7EB', minHeight: 132, shadowColor: '#0F172A', shadowOpacity: 0.04, shadowRadius: 5, shadowOffset: { width: 0, height: 2 }, elevation: 1 },
+  cardAction: { color: '#4F46E5', fontSize: 10, fontWeight: '900', textAlign: 'left', marginTop: 8 },
   cardTaxi: { backgroundColor: ORANGE, borderColor: ORANGE },
   cardIcon: { width: 38, height: 38, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginBottom: 7 },
   cardIconLight: { backgroundColor: 'rgba(255,255,255,.18)' },
@@ -231,6 +261,10 @@ const s = StyleSheet.create({
   cardDescWhite: { color: 'rgba(255,255,255,.85)' },
   cardBadgeOrange: { position: 'absolute', top: 10, right: 10, backgroundColor: '#FF6B00', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 999 },
   cardBadgeText: { color: '#fff', fontSize: 9, fontWeight: '800' },
+  updatesLink: { marginHorizontal: 16, marginTop: 12, padding: 12, minHeight: 68, borderRadius: 14, backgroundColor: '#eef2ff', borderWidth: 1, borderColor: '#c7d2fe', flexDirection: 'row-reverse', alignItems: 'center', gap: 10 },
+  updatesLinkIcon: { width: 40, height: 40, borderRadius: 12, backgroundColor: '#e0e7ff', alignItems: 'center', justifyContent: 'center' },
+  updatesLinkTitle: { color: '#312e81', fontSize: 12, fontWeight: '900', textAlign: 'right' },
+  updatesLinkSub: { color: '#4338ca', fontSize: 10, marginTop: 3, textAlign: 'right' },
   authCard: { margin: 16, backgroundColor: '#fff', borderRadius: 18, padding: 18, borderWidth: 1, borderColor: '#E5E7EB' },
   authHead: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 14 },
   authIcon: { width: 44, height: 44, borderRadius: 12, backgroundColor: DARK, alignItems: 'center', justifyContent: 'center' },

@@ -242,20 +242,28 @@ function destinationPoint(latitude: number, longitude: number, distance: number,
   return [lon2 * 180 / Math.PI, lat2 * 180 / Math.PI];
 }
 
-export function Circle({ center, radius, fillColor = 'rgba(79,70,229,0.08)', strokeColor = 'rgba(79,70,229,0.5)' }: any) {
+export function Circle({ center, radius, strokeColor = '#4F46E5', strokeOpacity = 0.5 }: any) {
   const reactId = useId();
+  const latitude = Number(center?.latitude);
+  const longitude = Number(center?.longitude);
+  const meters = Number(radius);
+  if (!Number.isFinite(latitude) || Math.abs(latitude) > 90 || !Number.isFinite(longitude) || Math.abs(longitude) > 180 || !Number.isFinite(meters) || meters <= 0) return null;
+
   const id = cleanId(reactId);
-  const ring = Array.from({ length: 65 }, (_, index) => destinationPoint(center.latitude, center.longitude, radius, (index / 64) * Math.PI * 2));
-  const polygon = {
+  const ring = Array.from({ length: 64 }, (_, index) => destinationPoint(latitude, longitude, meters, (index / 64) * Math.PI * 2));
+  // Close the LineString with an exact copy of its first point and avoid a native
+  // Polygon/fill layer on the driver map while retaining the 5 km boundary.
+  const coordinates = [...ring, [...ring[0]]];
+  if (coordinates.some(([lng, lat]) => !Number.isFinite(lng) || !Number.isFinite(lat))) return null;
+  const feature = {
     type: 'Feature' as const,
     properties: {},
-    geometry: { type: 'Polygon' as const, coordinates: [ring] },
+    geometry: { type: 'LineString' as const, coordinates },
   };
 
   return (
-    <GeoJSONSource id={`circle-source-${id}`} data={polygon}>
-      <Layer type="fill" id={`circle-fill-${id}`} paint={{ 'fill-color': fillColor, 'fill-opacity': 0.18 }} />
-      <Layer type="line" id={`circle-line-${id}`} paint={{ 'line-color': strokeColor, 'line-width': 2 }} />
+    <GeoJSONSource id={`circle-source-${id}`} data={feature}>
+      <Layer type="line" id={`circle-line-${id}`} paint={{ 'line-color': strokeColor, 'line-width': 2, 'line-opacity': strokeOpacity }} />
     </GeoJSONSource>
   );
 }

@@ -71,6 +71,9 @@ const MAP: Record<string, string> = {
   TRAVEL_OFFER_EXISTS: 'سبق أن أرسلت عرضاً لهذا الطلب',
   TRAVEL_OFFER_NOT_FOUND: 'العرض لم يعد متاحاً',
   SHARE_INACTIVE: 'المشاركة متاحة فقط أثناء الرحلة',
+  ALREADY_HANDLED: 'تم التعامل مع هذا الطلب مسبقاً؛ حدّث الشاشة وحاول مجدداً',
+  INVALID_EXTRA: 'المبلغ الإضافي غير صالح',
+  INVALID_ACTION: 'الإجراء غير صالح؛ حدّث التطبيق',
   SOS_MAX_TWO: 'رقمين للأهل كحد أقصى',
   SOS_NO_EMERGENCY: 'اكتب رقم الطوارئ',
   ORDER_NOT_AVAILABLE: 'الطلب لم يعد متاحاً',
@@ -140,4 +143,12 @@ export function errMsg(e: any, fallback = 'حدث خطأ، حاول مرة أخ�
   if (code) return MAP[code];
   if (/network|fetch/i.test(raw)) return 'تحقق من الاتصال بالإنترنت';
   return fallback;
+}
+
+// أظهر رمز PostgREST عند الخطأ غير المعروف كي يسهل تشخيصه دون كشف تفاصيل الخادم للمستخدم.
+export function errMsgWithCode(e: any, fallback: string) {
+  const message = errMsg(e, fallback);
+  if (message !== fallback) return message;
+  const code = String(e?.code || '').trim();
+  return code ? `${fallback} (رمز الخطأ: ${code})` : fallback;
 }
