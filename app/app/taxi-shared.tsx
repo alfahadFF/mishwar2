@@ -203,7 +203,7 @@ export default function TaxiSharedScreen(){
       <View style={s.mapBox}>
         {pickup ? (
           <>
-            <MapView ref={mapRef} style={{flex:1}} initialRegion={{latitude:pickup[0], longitude:pickup[1], latitudeDelta:0.02, longitudeDelta:0.02}} onPress={onMapPress}>
+            <MapView ref={mapRef} style={{flex:1}} basemap="streets" initialRegion={{latitude:pickup[0], longitude:pickup[1], latitudeDelta:0.02, longitudeDelta:0.02}} onPress={onMapPress}>
               <UrlTile urlTemplate="https://a.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png" maximumZ={19} flipY={false}/>
               {evaluated.map(({t})=> t.path ? <Polyline key={t.id} coordinates={t.path.map(toLatLng)} strokeColor={t.id===selected?'#4F46E5':'#818cf8'} strokeWidth={t.id===selected?6:4} tappable onPress={()=> setSelected(t.id)}/> : null)}
               <Marker coordinate={toLatLng(pickup)} pinColor="green"/>
@@ -278,7 +278,7 @@ export default function TaxiSharedScreen(){
           <Text style={s.mSub}>مقابل الالتفاف إلى موقع ركوبك ونزولك</Text>
           {counter?.trip.path && counter.req.detour_path && (
             <View style={s.cMap}>
-              <MapView style={{flex:1}} scrollEnabled={false} zoomEnabled={false}
+              <MapView style={{flex:1}} basemap="streets" scrollEnabled={false} zoomEnabled={false}
                 initialRegion={{latitude:counter.req.pickup? counter.req.pickup[0]:counter.trip.fromLL[0], longitude:counter.req.pickup? counter.req.pickup[1]:counter.trip.fromLL[1], latitudeDelta:0.08, longitudeDelta:0.08}}>
                 <UrlTile urlTemplate="https://a.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png" maximumZ={19} flipY={false}/>
                 <Polyline coordinates={counter.trip.path.map(toLatLng)} strokeColor="#94a3b8" strokeWidth={5} lineDashPattern={[8,6]}/>

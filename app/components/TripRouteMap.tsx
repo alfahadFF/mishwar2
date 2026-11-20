@@ -29,7 +29,7 @@ export default function TripRouteMap({segments, markers, onResult}:{segments:Seg
   return (
     <View>
       <View style={s.map}>
-        <MapView key={sig} style={{flex:1}} initialRegion={region} scrollEnabled={false} zoomEnabled={false}>
+        <MapView key={sig} style={{flex:1}} basemap="streets" initialRegion={region} scrollEnabled={false} zoomEnabled={false}>
           <UrlTile urlTemplate="https://a.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png" maximumZ={19} flipY={false}/>
           {results?.map((r,i)=> r.ok? <Polyline key={r.key} coordinates={r.path} strokeColor={segments[i].color} strokeWidth={segments[i].ret?4:5} lineDashPattern={segments[i].ret?[8,6]:undefined}/> : null)}
           {markers.map((m,i)=> <Marker key={i} coordinate={{latitude:m.ll[0], longitude:m.ll[1]}} pinColor={m.color} title={m.txt}/>)}

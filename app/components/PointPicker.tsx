@@ -220,7 +220,7 @@ export default function PointPicker({ visible, title, color = '#4F46E5', initial
           <View style={{ flex: 1 }}>
             {center && region ? (
               <>
-                <MapView ref={mapRef} style={{ flex: 1 }} initialRegion={region}
+                <MapView ref={mapRef} style={{ flex: 1 }} basemap="streets" initialRegion={region}
                   onPress={(e: any) => { const c = e.nativeEvent.coordinate; setPoint([c.latitude, c.longitude]); }}>
                   <UrlTile urlTemplate="https://a.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png" maximumZ={19} flipY={false} />
                   {ll && <Marker coordinate={{ latitude: ll[0], longitude: ll[1] }} pinColor={color} />}
