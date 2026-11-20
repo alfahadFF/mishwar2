@@ -26,32 +26,33 @@ begin
 end; $$;
 grant execute on function public.driver_taxi_ping(double precision, double precision) to authenticated;
 
--- بدون أي هوية: الفئة + الموقع + مشغول؟ + النقاط اللي لازم يمر فيها قبل ما يفضى (لحساب مدة الوصول فقط)
+-- لا تُرسل إحداثيات السائق أو مسار رحلته إلى الراكب؛ أعد فقط توفر الفئات كتجميع.
 drop function if exists public.nearby_taxis(double precision, double precision, int);
 create or replace function public.nearby_taxis(p_lat double precision, p_lng double precision, p_radius int default 5)
 returns setof jsonb language sql stable security definer set search_path = public as $$
-  select jsonb_build_object('cat', d.category, 'lat', round(d.lat::numeric, 5), 'lng', round(d.lng::numeric, 5),
-           'busy', a.n > 0, 'via', case when a.n > 0 then c.via end)
-    from taxi_driver_positions d
-    cross join lateral (select count(*) n from taxi_orders o
-                         where o.driver_id = d.driver_id and o.status in ('accepted','arrived','in_progress')) a
-    left join lateral (
-      select case when o.status = 'in_progress'
-                  then jsonb_build_array(jsonb_build_array(o.dropoff_lat, o.dropoff_lng))
-                  else jsonb_build_array(jsonb_build_array(o.pickup_lat, o.pickup_lng),
-                                         jsonb_build_array(o.dropoff_lat, o.dropoff_lng)) end via
-        from taxi_orders o
-       where o.driver_id = d.driver_id and o.status in ('accepted','arrived','in_progress')
-       order by case o.status when 'in_progress' then 0 when 'arrived' then 1 else 2 end, o.accepted_at
-       limit 1) c on true
-   where d.updated_at > now() - interval '2 minutes'
-     and d.driver_id is distinct from auth.uid()
-     and a.n < 2
-     and d.category = public._taxi_category(d.driver_id)
-     and not public._taxi_suspended(d.driver_id)
-     and not public.wallet_blocked(d.driver_id)
-     and sqrt(power((d.lng - p_lng) * 111.32 * cos(radians(p_lat)), 2) + power((d.lat - p_lat) * 110.574, 2))
-         <= case when p_radius >= 10 then 10 else 5 end
-   limit 60;
+  with eligible as (
+    select d.category, (a.n > 0) as busy
+      from public.taxi_driver_positions d
+      cross join lateral (select count(*) as n from public.taxi_orders o
+                           where o.driver_id = d.driver_id and o.status in ('accepted','arrived','in_progress')) a
+     where d.updated_at > now() - interval '2 minutes'
+       and d.driver_id is distinct from auth.uid()
+       and a.n < 2
+       and d.category = public._taxi_category(d.driver_id)
+       and not public._taxi_suspended(d.driver_id)
+       and not public.wallet_blocked(d.driver_id)
+       and sqrt(power((d.lng - p_lng) * 111.32 * cos(radians(p_lat)), 2) + power((d.lat - p_lat) * 110.574, 2))
+           <= case when p_radius >= 10 then 10 else 5 end
+  )
+  select jsonb_build_object(
+           'cat', e.category,
+           'free_count', count(*) filter (where not e.busy),
+           'busy_count', count(*) filter (where e.busy),
+           'eta_min', case when count(*) filter (where not e.busy) > 0
+                           then case when p_radius >= 10 then 10 else 5 end else null end,
+           'eta_max', case when count(*) filter (where not e.busy) > 0
+                           then case when p_radius >= 10 then 25 else 15 end else null end)
+    from eligible e
+   group by e.category;
 $$;
 grant execute on function public.nearby_taxis(double precision, double precision, int) to authenticated;

@@ -4,4 +4,11 @@ select 'فئة السيارة' as البند, case when exists (select 1 from in
 union all select 'منع الفئة المختلفة', case when exists (select 1 from pg_trigger where tgname = 'trg_taxi_accept_match') then 'مفعّل' else 'ناقص' end
 union all select 'مواقع السائقين', case when to_regclass('public.taxi_driver_positions') is not null then 'موجود' else 'ناقص' end
 union all select 'الدوال', (select count(*) from pg_proc where pronamespace = 'public'::regnamespace and proname in
-  ('_taxi_category','my_driver_status','driver_taxi_ping','nearby_taxis','driver_accept_taxi','_taxi_driver_json','driver_taxi_active'))::text || ' من 7';
+  ('_taxi_category','my_driver_status','driver_taxi_ping','nearby_taxis','driver_accept_taxi','_taxi_driver_json','driver_taxi_active'))::text || ' من 7'
+union all select 'حجب مواقع سيارات التكسي عن الراكب', case when
+  position('''free_count''' in pg_get_functiondef('public.nearby_taxis(double precision,double precision,integer)'::regprocedure)) > 0
+  and position('''busy_count''' in pg_get_functiondef('public.nearby_taxis(double precision,double precision,integer)'::regprocedure)) > 0
+  and position('''lat''' in pg_get_functiondef('public.nearby_taxis(double precision,double precision,integer)'::regprocedure)) = 0
+  and position('''lng''' in pg_get_functiondef('public.nearby_taxis(double precision,double precision,integer)'::regprocedure)) = 0
+  and position('''via''' in pg_get_functiondef('public.nearby_taxis(double precision,double precision,integer)'::regprocedure)) = 0
+  then 'مفعّل' else 'ناقص' end;

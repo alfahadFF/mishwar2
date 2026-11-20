@@ -8,7 +8,7 @@ import { getMyLocation } from '../utils/location';
 import { placeName } from '../utils/geocode';
 import PointPicker from '../components/PointPicker';
 import { guestBlocked } from '../utils/guest';
-import { getRoute, fmtMin, etaToPoint, type RouteOption } from '../utils/route';
+import { getRoute, fmtMin, type RouteOption } from '../utils/route';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { errMsg } from '../utils/errors';
 import { TAXI_CATEGORY_META, TaxiPriceQuotes, TaxiQuote, formatLocalFare, formatWalletUsd } from '../utils/taxi-pricing';
@@ -134,29 +134,27 @@ export default function TaxiScreen(){
     return ()=>{ alive=false; };
   },[route?.km,route?.min,routeState]);
   const distance = route ? route.km : 0;
-  // مواقع السيارات المجهولة تُستخدم لحساب التوفر والوقت فقط؛ لا نرسم مواقع السائقين على خريطة الراكب.
-  type CategoryEta = { freeCount:number; busyCount:number; freeEta:number|null; freeIn:number|null; busyArrival:number|null };
-  const [cars,setCars]=useState<any[]>([]);
-  const [eta,setEta]=useState<Record<string,CategoryEta>>({});
+  // يستقبل تطبيق الراكب ملخصاً مجمّعاً فقط؛ لا تُحفظ هنا إحداثيات سيارات أو مساراتها.
+  type CategoryAvailability = { cat:string; free_count:number; busy_count:number; eta_min:number|null; eta_max:number|null };
+  const [cars,setCars]=useState<CategoryAvailability[]>([]);
   const [carsLoaded,setCarsLoaded]=useState(false);
   const [carsError,setCarsError]=useState<string|null>(null);
   const picked=React.useRef(false);
-  const etaAt=React.useRef({at:0,pickup:'',signature:''});
-  const km=(a:number[],b:number[])=>{ const k=Math.cos(a[0]*Math.PI/180); return Math.hypot((b[1]-a[1])*111.32*k,(b[0]-a[0])*110.574); };
-  const toPoint=(p:any):number[]|null=>{
-    const lat=Number(Array.isArray(p)?p[0]:p?.lat??p?.latitude);
-    const lng=Number(Array.isArray(p)?p[1]:p?.lng??p?.longitude);
-    return Number.isFinite(lat)&&Number.isFinite(lng)&&Math.abs(lat)<=90&&Math.abs(lng)<=180?[lat,lng]:null;
-  };
-  const carPoint=(c:any)=>toPoint([c?.lat,c?.lng]);
-  const loadCars=useCallback(async(rad:number)=>{
+  const loadCars=useCallback(async(rad:number):Promise<CategoryAvailability[]>=>{
     if(!pickup) return [];
     const { data,error }=await supabase.rpc('nearby_taxis',{p_lat:pickup[0], p_lng:pickup[1], p_radius:rad});
     if(error){
       console.warn('[taxi] nearby_taxis failed',error);
       setCars([]); setCarsError(errMsg(error,'تعذر تحميل سيارات التكسي')); setCarsLoaded(true); return [];
     }
-    const list=((data||[]) as any[]);
+    // Whitelist response fields so coordinates/path data can never enter passenger UI state.
+    const list=((data||[]) as any[]).map((row:any):CategoryAvailability=>({
+      cat:typeof row?.cat==='string'?row.cat.trim():'',
+      free_count:Number.isFinite(Number(row?.free_count))?Math.max(0,Math.floor(Number(row.free_count))):0,
+      busy_count:Number.isFinite(Number(row?.busy_count))?Math.max(0,Math.floor(Number(row.busy_count))):0,
+      eta_min:row?.eta_min!=null&&Number.isFinite(Number(row.eta_min))?Number(row.eta_min):null,
+      eta_max:row?.eta_max!=null&&Number.isFinite(Number(row.eta_max))?Number(row.eta_max):null,
+    })).filter(row=>!!row.cat&&(row.free_count>0||row.busy_count>0));
     setCarsError(null); setCars(list); setCarsLoaded(true); return list;
   },[pickup?.[0],pickup?.[1]]);
   useEffect(()=>{
@@ -164,77 +162,25 @@ export default function TaxiScreen(){
     loadCars(radius); const iv=setInterval(()=> loadCars(radius),10000);
     return ()=> clearInterval(iv);
   },[loadCars, radius, active?.id, hidden]);
-  const hasCat=(c:string)=> cars.some(x=> x.cat===c);
-  const freeCount=(c:string)=> cars.filter(x=>x.cat===c&&!x.busy).length;
-  const busyCount=(c:string)=> cars.filter(x=>x.cat===c&&x.busy).length;
-  // نفصل «متفرغة الآن» عن «تتفرغ بعد الرحلة» وعن مدة وصولها؛ أوقات المشغولات تقديرية.
+  const hasCat=(c:string)=> cars.some(x=>x.cat===c);
+  const freeCount=(c:string)=> Number(cars.find(x=>x.cat===c)?.free_count||0);
+  const busyCount=(c:string)=> Number(cars.find(x=>x.cat===c)?.busy_count||0);
+  const etaRange=(c:string)=>{
+    const row=cars.find(x=>x.cat===c);
+    return row?.eta_min!=null&&row?.eta_max!=null?`${row.eta_min}–${row.eta_max} دقيقة تقريباً`:null;
+  };
   useEffect(()=>{
-    if(!pickup || !cars.length){ setEta({}); etaAt.current={at:0,pickup:'',signature:''}; return; }
-    const pickupKey=`${pickup[0]},${pickup[1]}`;
-    const signature=cars.map(c=>[c.cat,Number(c.lat).toFixed(4),Number(c.lng).toFixed(4),!!c.busy,JSON.stringify(c.via||[])].join(':')).sort().join('|');
-    if(etaAt.current.pickup===pickupKey && etaAt.current.signature===signature && Date.now()-etaAt.current.at<30000 && Object.keys(eta).length) return;
-    etaAt.current={at:Date.now(),pickup:pickupKey,signature};
-    let alive=true;
-    (async()=>{
-      const out:Record<string,CategoryEta>={};
-      const cats=Object.keys(RATES).filter(hasCat);
-      const freeRows:any[]=[];
-      for(const c of cats){
-        const group=cars.filter(x=>x.cat===c);
-        const free=group.filter(x=>!x.busy);
-        const busy=group.filter(x=>x.busy);
-        out[c]={freeCount:free.length,busyCount:busy.length,freeEta:null,freeIn:null,busyArrival:null};
-        free.sort((a,b)=>{
-          const pa=carPoint(a),pb=carPoint(b);
-          return pa&&pb?km(pa,pickup)-km(pb,pickup):pa?-1:pb?1:0;
-        }).slice(0,5).forEach(driver=>{ const point=carPoint(driver); if(point) freeRows.push({cat:c,point}); });
-      }
-      const freeMins=await etaToPoint(freeRows.map(x=>x.point),pickup);
-      freeRows.forEach((row,i)=>{
-        const minutes=freeMins[i];
-        if(minutes!=null&&Number.isFinite(minutes)&&(out[row.cat].freeEta==null||minutes<out[row.cat].freeEta!)) out[row.cat].freeEta=minutes;
-      });
-      await Promise.all(cats.filter(c=>out[c].freeCount===0&&out[c].busyCount>0).map(async c=>{
-        const busy=cars.filter(x=>x.cat===c&&x.busy&&carPoint(x))
-          .sort((a,b)=>km(carPoint(a)!,pickup)-km(carPoint(b)!,pickup)).slice(0,3);
-        const estimates=await Promise.all(busy.map(async driver=>{
-          const origin=carPoint(driver)!;
-          const via=(Array.isArray(driver.via)?driver.via:[]).map(toPoint).filter((p:any):p is number[]=>!!p);
-          if(!via.length) return {freeIn:null as number|null,arrival:null as number|null};
-          const [finish,approach]=await Promise.all([
-            getRoute([origin,...via],{preference:'fastest'}),
-            getRoute([via[via.length-1],pickup],{preference:'fastest'}),
-          ]);
-          const available=finish.ok?finish.min:null;
-          const arrival=finish.ok&&approach.ok?finish.min+approach.min:null;
-          return {freeIn:available,arrival};
-        }));
-        const best=estimates.filter(x=>x.arrival!=null).sort((a,b)=>a.arrival!-b.arrival!)[0]
-          || estimates.filter(x=>x.freeIn!=null).sort((a,b)=>a.freeIn!-b.freeIn!)[0];
-        if(best){out[c].freeIn=best.freeIn;out[c].busyArrival=best.arrival;}
-      }));
-      if(!alive) return;
-      setEta(out);
-      // اختَر أقرب سيارة متفرغة الآن أولاً؛ وإن لم توجد، استخدم أقرب وصول تقديري.
-      if(!picked.current){
-        const freeBest=cats.filter(c=>out[c].freeCount>0).sort((a,b)=>{
-          const at=out[a].freeEta,bt=out[b].freeEta;
-          return at==null?(bt==null?0:1):bt==null?-1:at-bt;
-        })[0];
-        const busyByArrival=cats.filter(c=>out[c].busyArrival!=null).sort((a,b)=>out[a].busyArrival!-out[b].busyArrival!)[0];
-        const busyByAvailability=cats.filter(c=>out[c].freeCount===0&&out[c].freeIn!=null).sort((a,b)=>out[a].freeIn!-out[b].freeIn!)[0];
-        const best=freeBest||busyByArrival||busyByAvailability||cats[0];
-        if(best) setSelected(best);
-      }
-    })();
-    return ()=>{alive=false;};
-  },[cars,pickup?.[0],pickup?.[1]]);
+    if(picked.current||!cars.length) return;
+    const cats=Object.keys(RATES);
+    const best=cats.find(c=>freeCount(c)>0)||cats.find(c=>busyCount(c)>0);
+    if(best) setSelected(best);
+  },[cars]);
   const pickCat=async(k:string)=>{
     if(hasCat(k)){ picked.current=true; setSelected(k); return; }
     if(radius===5){
-      setRadius(10); etaAt.current={at:0,pickup:'',signature:''}; showToast('جاري البحث ضمن 10 كم...');
+      setRadius(10); showToast('جاري البحث ضمن 10 كم...');
       const list=await loadCars(10);
-      if(list.some((x:any)=> x.cat===k)){ picked.current=true; setSelected(k); showToast(`تم التوسيع إلى 10 كم — توجد ${RATES[k].name}`); }
+      if(list.some((x:CategoryAvailability)=> x.cat===k)){ picked.current=true; setSelected(k); showToast(`تم التوسيع إلى 10 كم — توجد ${RATES[k].name}`); }
       else showToast(`لا توجد ${RATES[k].name} قريبة حالياً`);
     } else showToast(`لا توجد ${RATES[k].name} قريبة حالياً`);
   };
@@ -283,19 +229,8 @@ export default function TaxiScreen(){
   };
   const showToast=(msg:string)=>{ setToast(msg); setTimeout(()=> setToast(null),2500); };
   const showActive=!!active && active.id!==hidden;
-  // تتبّع سيارة السائق بعد القبول: مدة وصوله قبل الانطلاق، والمدة الباقية للوجهة بعد «بدء الرحلة»
   const moving=showActive && ['accepted','arrived','in_progress'].includes(active.status);
-  const carPos:number[]|null=moving && active.driver_pos? [Number(active.driver_pos.lat), Number(active.driver_pos.lng)] : null;
-  const [trackEta,setTrackEta]=useState<number|null>(null);
-  const etaRef=React.useRef({at:0, key:''});
-  useEffect(()=>{
-    if(!carPos || active.status==='arrived'){ setTrackEta(null); return; }
-    const target=active.status==='in_progress'? active.dropoff : active.pickup;
-    const key=active.status+carPos.join(',');
-    if(etaRef.current.key===key || Date.now()-etaRef.current.at<30000 && etaRef.current.key.startsWith(active.status)) return;
-    etaRef.current={at:Date.now(), key};
-    getRoute([carPos, target]).then(rt=>{ if(rt.ok) setTrackEta(rt.min); });
-  },[carPos?.[0], carPos?.[1], active?.status]);
+  const activeEtaRange=Number(active?.search_radius_km||5)>=10?'10–25 دقيقة تقريباً':'5–15 دقيقة تقريباً';
   const pct=Number(active?.discount_pct||0), aFareUsd=Number(active?.fare||0), aFareLocal=Number(active?.fare_local||0);
   const aDiscUsd=Math.round(aFareUsd*pct)/100, aPayUsd=Math.round((aFareUsd-aDiscUsd)*100)/100;
   const aLocalCurrency=active?.local_currency||quoteCurrency;
@@ -303,9 +238,9 @@ export default function TaxiScreen(){
   const ST:Record<string,{icon:string,t:string,sub:string}>={
     pending:{icon:'⏳', t:'بانتظار قبول سائق', sub:'سيصلك إشعار عند قبول طلبك'},
     searching:{icon:'⏳', t:'بانتظار قبول سائق', sub:'سيصلك إشعار عند قبول طلبك'},
-    accepted:{icon:'🚕', t:'السائق في الطريق إليك', sub:'سيتواصل معك السائق عند الحاجة'},
+    accepted:{icon:'🚕', t:'السائق في الطريق إليك', sub:'وقت الوصول تقريبي؛ لا نعرض موقع السائق المباشر'},
     arrived:{icon:'📍', t:'وصل السائق', sub:'السائق بانتظارك عند نقطة الانطلاق'},
-    in_progress:{icon:'🛣️', t:'الرحلة جارية', sub:'الدفع بعد الوصول'},
+    in_progress:{icon:'🛣️', t:'الرحلة جارية', sub:'تُعرض حالة الرحلة دون تتبّع مباشر لموقع المركبة'},
     completed:{icon:'✅', t:'انتهت الرحلة', sub:pct>0? `ادفع نقداً أو من التطبيق ووفّر ${pct}%` : 'ادفع نقداً أو من التطبيق'},
   };
   const st=active? (ST[active.status]||ST.pending) : null;
@@ -348,7 +283,6 @@ export default function TaxiScreen(){
               </>}
               {route && pickup && route.snapStartMeters > 15 && <Polyline coordinates={[{latitude:pickup[0],longitude:pickup[1]}, route.path[0]]} strokeColor="#f59e0b" strokeWidth={4} lineDashPattern={[3,3]}/>}
               {route && dropoff && route.snapEndMeters > 15 && <Polyline coordinates={[route.path[route.path.length-1], {latitude:dropoff[0],longitude:dropoff[1]}]} strokeColor="#f59e0b" strokeWidth={4} lineDashPattern={[3,3]}/>}
-              {carPos && <Marker coordinate={{latitude:carPos[0], longitude:carPos[1]}} anchor={{x:.5,y:.5}}><Text style={{fontSize:26}}>🚕</Text></Marker>}
             </MapView>
             <View style={[s.hint,{alignItems:'center',position:'relative',bottom:0,alignSelf:'stretch',maxWidth:'100%'}]}>
               <Text style={s.hintT}>{routeState==='loading'? '⏳ جاري حساب المسارات...' : routeState==='error'? '⚠️ تعذر حساب المسار' : route? `🛣️ الأقصر: ${route.km.toFixed(1)} كم • ${fmtMin(route.min)}${route.alternatives.length?` • من ${route.alternatives.length+1} مسارات`:' • مسار واحد متاح'}` : (mode==='pick'? 'اضغط على الخريطة لتحديد الانطلاق' : 'اضغط على الخريطة لتحديد الوصول')}</Text>
@@ -381,8 +315,8 @@ export default function TaxiScreen(){
               <Stars r={drvRating} small />
               <ProviderPhotos service="taxi" refId={active.id} />
               {!!(active.vehicle_model||active.vehicle_color||active.vehicle_plate) && <Text style={s.activeS}>🚗 {[active.vehicle_model, active.vehicle_color, active.vehicle_plate].filter(Boolean).join(' • ')}</Text>}
-              {moving && trackEta!=null && active.status!=='arrived' && <Text style={[s.activeS,{color:'#047857', fontWeight:'900'}]}>🕒 {active.status==='in_progress'? 'الوصول للوجهة خلال' : 'يصل السائق خلال'} {fmtMin(Math.max(1,trackEta))}</Text>}
-              {moving && !carPos && <Text style={s.activeS}>📡 بانتظار موقع السائق...</Text>}
+              {active.status==='accepted' && <Text style={[s.activeS,{color:'#047857', fontWeight:'900'}]}>🕒 الوصول التقريبي حسب نطاق البحث: {activeEtaRange}</Text>}
+              {active.status==='in_progress' && Number(active.duration_min)>0 && <Text style={s.activeS}>🛣️ مدة المسار المقدّرة عند الطلب: نحو {fmtMin(Number(active.duration_min))}</Text>}
             </View>
           )}
           {active.status==='completed' && (
@@ -406,7 +340,7 @@ export default function TaxiScreen(){
       {!showActive && distance>0 && (
         <View style={s.sliderWrap}>
           <Text style={s.sliderTitle}>اختر الفئة • الأقصر {distance.toFixed(1)} كم • مدة متوقعة {fmtMin(route?.min||0)}</Text>
-          <Text style={{fontSize:10,color:'#64748b',textAlign:'center',marginBottom:6}}>السعر بالليرة السورية الجديدة • العمولة على السائق • التفرغ منفصل عن الوصول؛ تقدير المشغولة لا يشمل انتظار الراكب</Text>
+          <Text style={{fontSize:10,color:'#64748b',textAlign:'center',marginBottom:6}}>السعر بالليرة السورية الجديدة • العمولة على السائق • لا نعرض مواقع السائقين؛ وقت الوصول تقريبي حسب نطاق البحث</Text>
           {!!route&&Math.max(route.snapStartMeters,route.snapEndMeters)>25&&<Text style={{fontSize:10,color:'#b45309',textAlign:'center',marginBottom:6}}>الخط المتقطع يصل الدبوس بأقرب طريق • البداية {Math.round(route.snapStartMeters)}م / الوصول {Math.round(route.snapEndMeters)}م</Text>}
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{paddingHorizontal:14, gap:10}}>
             {Object.entries(RATES).map(([k,v]:any)=> (
@@ -416,16 +350,16 @@ export default function TaxiScreen(){
                 <Text style={s.cardName}>{v.name}</Text>
                 <Text style={s.price}>{fareLabel(k)}</Text>
                 <Text style={{fontSize:9,color:'#64748b',marginTop:2}}>{quote(k)?`المحفظة ${formatWalletUsd(quote(k)!.fare_usd)}`:'جاري حساب السعر'}</Text>
-                {!carsLoaded ? <Text style={s.cardStatus}>جارٍ البحث...</Text> : carsError ? <Text style={[s.cardStatus,{color:'#b91c1c'}]}>تعذر تحميل التوفر</Text> : !hasCat(k) ? <Text style={s.cardStatus}>غير متوفرة حالياً</Text> : !eta[k] ? <Text style={s.cardStatus}>جارٍ حساب التوفر...</Text> : freeCount(k)>0 ? (
+                {!carsLoaded ? <Text style={s.cardStatus}>جارٍ البحث...</Text> : carsError ? <Text style={[s.cardStatus,{color:'#b91c1c'}]}>تعذر تحميل التوفر</Text> : !hasCat(k) ? <Text style={s.cardStatus}>غير متوفرة حالياً</Text> : freeCount(k)>0 ? (
                   <>
                     <Text style={[s.cardStatus,{color:'#047857'}]}>🟢 متفرغة الآن ({freeCount(k)})</Text>
-                    <Text style={s.cardEta}>وصول الأقرب: {eta[k]?.freeEta!=null?fmtMin(Math.max(1,Number(eta[k]?.freeEta))):'جارٍ الحساب'}</Text>
+                    <Text style={s.cardEta}>وصول تقريبي: {etaRange(k)||'غير متاح'}</Text>
+                    {busyCount(k)>0 && <Text style={s.cardEta}>مشغولة أيضاً: {busyCount(k)}</Text>}
                   </>
                 ) : (
                   <>
                     <Text style={[s.cardStatus,{color:'#b45309'}]}>🟠 مشغولة ({busyCount(k)})</Text>
-                    <Text style={s.cardEta}>التفرغ المتوقع: {eta[k]?.freeIn!=null?fmtMin(Math.max(0,Number(eta[k]?.freeIn))):'غير معروف'}</Text>
-                    <Text style={s.cardEta}>الوصول بعد التفرغ: {eta[k]?.busyArrival!=null?fmtMin(Math.max(1,Number(eta[k]?.busyArrival))):'غير معروف'}</Text>
+                    <Text style={s.cardEta}>لا يتوفر تقدير وصول حتى تتفرغ سيارة.</Text>
                   </>
                 )}
               </Pressable>
