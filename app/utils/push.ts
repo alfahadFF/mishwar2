@@ -4,28 +4,25 @@ import * as Device from 'expo-device';
 import Constants from 'expo-constants';
 import { supabase } from './supabase';
 
-// إشعارات الحركة والطلبات المهمة تظهر كبانر حتى والتطبيق مفتوح، مع صوت القناة.
-const SHOW_IN_APP = new Set([
-  'airport_new', 'cargo_new', 'event_new', 'contract_new', 'rental_general_new', 'booking_reminder',
-  'taxi_new', 'taxi_accepted', 'taxi_arrived', 'taxi_completed', 'taxi_cancelled',
-  'transfer_in', 'payment_in', 'card_topup', 'wallet_negative', 'commission',
-]);
-export const DEFAULT_NOTIFICATION_CHANNEL_ID = 'mishwar_notifications_v2';
-export const TAXI_NOTIFICATION_CHANNEL_ID = 'taxi_orders_v2';
+// إشعارات قاعدة البيانات كلها تظهر كتنبيه نظامي حتى والتطبيق مفتوح، مع تشغيل صوت القناة.
+export const DEFAULT_NOTIFICATION_CHANNEL_ID = 'mishwar_notifications_v3';
+export const TAXI_NOTIFICATION_CHANNEL_ID = 'taxi_orders_v3';
 
 Notifications.setNotificationHandler({
-  handleNotification: async (n) => {
-    const kind = String((n.request.content.data as any)?.kind || '');
-    const show = SHOW_IN_APP.has(kind) || kind.startsWith('taxi_') || kind.startsWith('shared_');
-    return { shouldShowBanner: show, shouldShowList: show, shouldPlaySound: true, shouldSetBadge: false };
-  },
+  handleNotification: async () => ({
+    shouldShowBanner: true,
+    shouldShowList: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+  }),
 });
 
 let lastToken: string | null = null;
+let lastTokenUserId: string | null = null;
 
 export async function setupNotificationChannels() {
   if (Platform.OS !== 'android') return;
-  // قناتا v2 تتجاوز إعداد القناة القديمة التي قد تكون حُفظت صامتة في أندرويد.
+  // IDs جديدة تتجاوز إعدادات القنوات القديمة التي قد يكون أندرويد قد حفظها صامتة.
   await Notifications.setNotificationChannelAsync(DEFAULT_NOTIFICATION_CHANNEL_ID, {
     name: 'مشوار — الإشعارات', description: 'تنبيهات مشوار العامة',
     importance: Notifications.AndroidImportance.HIGH, sound: 'default',
@@ -41,33 +38,56 @@ export async function setupNotificationChannels() {
   });
 }
 
-// بيسجّل رمز الموبايل بـ Supabase. إذا لسا ما في مشروع Expo مربوط (projectId)، بيوقف بهدوء.
-export async function registerPush(): Promise<string | null> {
+// يسجل رمز الجهاز بعد نجاح الإذن؛ الأخطاء تُسجّل حتى لا يبدو أن التسجيل نجح بصمت.
+export async function registerPush(forceRefresh = false): Promise<string | null> {
   try {
     if (Platform.OS === 'web' || !Device.isDevice) return null;
     await setupNotificationChannels();
-    let { status } = await Notifications.getPermissionsAsync();
-    if (status !== 'granted') {
-      status = (await Notifications.requestPermissionsAsync({
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    if (sessionError) throw sessionError;
+    if (!session?.user) return null;
+
+    let permission = await Notifications.getPermissionsAsync();
+    if (!permission.granted && permission.canAskAgain) {
+      permission = await Notifications.requestPermissionsAsync({
         ios: { allowAlert: true, allowBadge: false, allowSound: true },
-      })).status;
+      });
     }
-    if (status !== 'granted') return null;
+    if (!permission.granted) {
+      console.warn('[push] notification permission is not granted');
+      return null;
+    }
+    if (!forceRefresh && lastToken && lastTokenUserId === session.user.id) return lastToken;
+
     const projectId = (Constants.expoConfig as any)?.extra?.eas?.projectId ?? (Constants as any).easConfig?.projectId;
-    if (!projectId) return null;
+    if (!projectId) throw new Error('Expo EAS projectId is missing');
     const token = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
-    await supabase.rpc('register_push_token', { p_token: token, p_platform: Platform.OS });
+    if (lastToken && lastToken !== token && lastTokenUserId === session.user.id) {
+      const { error } = await supabase.rpc('unregister_push_token', { p_token: lastToken });
+      if (error) console.warn('[push] old token cleanup failed', error);
+    }
+    const { error } = await supabase.rpc('register_push_token', { p_token: token, p_platform: Platform.OS });
+    if (error) throw error;
     lastToken = token;
+    lastTokenUserId = session.user.id;
     return token;
-  } catch {
+  } catch (error) {
+    console.warn('[push] registration failed', error);
     return null;
   }
 }
 
 export async function unregisterPush() {
-  if (!lastToken) return;
-  try { await supabase.rpc('unregister_push_token', { p_token: lastToken }); } catch {}
+  const token = lastToken;
   lastToken = null;
+  lastTokenUserId = null;
+  if (!token) return;
+  try {
+    const { error } = await supabase.rpc('unregister_push_token', { p_token: token });
+    if (error) console.warn('[push] token removal failed', error);
+  } catch (error) {
+    console.warn('[push] token removal failed', error);
+  }
 }
 
 // وين بياخدك الضغط على الإشعار

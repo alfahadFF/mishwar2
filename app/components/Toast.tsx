@@ -1,11 +1,17 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Animated, Text, StyleSheet } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { usePathname } from 'expo-router';
 
 export type ToastKind = 'ok' | 'err' | 'info';
 type T = { msg: string; kind: ToastKind; id: number } | null;
 
 // إشعار سفلي موحّد لكل الشاشات
 export function useToast() {
+  const insets = useSafeAreaInsets();
+  const pathname = usePathname();
+  const sosAtBottom = ['/notifications', '/travel', '/travel-provider', '/rental', '/rental-provider'].includes(pathname);
+  const bottomOffset = Math.max(insets.bottom, 8) + (pathname === '/' ? 76 : sosAtBottom ? 72 : 16);
   const [t, setT] = useState<T>(null);
   const op = useRef(new Animated.Value(0)).current;
   const timer = useRef<any>(null);
@@ -23,7 +29,7 @@ export function useToast() {
     return () => clearTimeout(timer.current);
   }, [t?.id]);
   const node = t ? (
-    <Animated.View pointerEvents="none" style={[s.box, s[t.kind], { opacity: op, transform: [{ translateY: op.interpolate({ inputRange: [0, 1], outputRange: [16, 0] }) }] }]}>
+    <Animated.View pointerEvents="none" style={[s.box, s[t.kind], { bottom: bottomOffset, opacity: op, transform: [{ translateY: op.interpolate({ inputRange: [0, 1], outputRange: [16, 0] }) }] }]}>
       <Text style={s.txt}>{t.msg}</Text>
     </Animated.View>
   ) : null;

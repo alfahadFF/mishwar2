@@ -1,5 +1,6 @@
 import React, { useCallback, useState } from 'react';
-import { View, Text, Pressable, ScrollView, Image, StyleSheet, RefreshControl, Modal, SafeAreaView, TextInput } from 'react-native';
+import { View, Text, Pressable, ScrollView, Image, StyleSheet, RefreshControl, Modal, TextInput } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { supabase } from '../../utils/supabase';
@@ -199,8 +200,8 @@ export default function RentalPanel({ mode = 'all', embedded = false }: { mode?:
 
       {/* إضافة / تعديل سيارة */}
       <Modal visible={!!form} animationType="slide" onRequestClose={() => setForm(null)}>
-        <SafeAreaView style={ui.page}>
-          <Header title={form?.id ? 'تعديل السيارة' : 'سيارة جديدة للإيجار'} onBack={() => setForm(null)} />
+        <SafeAreaView style={ui.page} edges={['top','bottom']}>
+          <Header title={form?.id ? 'تعديل السيارة' : 'سيارة جديدة للإيجار'} onBack={() => setForm(null)} safeArea={false} />
           {!!form && (
             <ScrollView contentContainerStyle={{ padding: 12, paddingBottom: 40 }} keyboardShouldPersistTaps="handled">
               <Text style={ui.label}>الصور (صورة واحدة على الأقل، وحتى 3)</Text>

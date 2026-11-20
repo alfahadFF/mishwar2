@@ -8,6 +8,7 @@ import { errMsg } from '../utils/errors';
 import { SUPPORT_PHONE, callSupport, whatsAppSupport, openFacebookSupport, openAppDownloadUpdates } from '../utils/support';
 import { useToast } from '../components/Toast';
 import { Header, Btn, Sheet, ui, C } from '../components/DriverUI';
+import { unregisterPush } from '../utils/push';
 
 type Acc = { phone: string | null; wallet_id: string | null; full_name: string | null; type: string; country: string | null; work?: boolean; verified?: boolean };
 
@@ -96,6 +97,7 @@ export default function AccountScreen() {
 
   const logout = async () => {
     setBusy(true);
+    await unregisterPush();
     await supabase.auth.signOut({ scope: 'local' });
     setBusy(false);
     close();
@@ -108,6 +110,7 @@ export default function AccountScreen() {
     if (!(await checkPass(delP))) { setBusy(false); return toast.show('كلمة المرور غير صحيحة', 'err'); }
     const { error } = await supabase.rpc('delete_my_account');
     if (error) { setBusy(false); return toast.show(errMsg(error, 'تعذر حذف الحساب، حاول مرة أخرى'), 'err'); }
+    await unregisterPush();
     await supabase.auth.signOut({ scope: 'local' });
     setBusy(false);
     close();

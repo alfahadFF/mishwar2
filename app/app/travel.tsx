@@ -1,11 +1,13 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { View, Text, TextInput, Pressable, ScrollView, RefreshControl, Modal, StyleSheet } from 'react-native';
+import { View, Text, TextInput, Pressable, ScrollView, RefreshControl, Modal, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { supabase, hasSession } from '../utils/supabase';
 import { errMsg } from '../utils/errors';
 import { useToast } from '../components/Toast';
 import { Header, Tabs, Pill, Empty, Row, Btn, CallBtn, ui, C } from '../components/DriverUI';
 import PointPicker from '../components/PointPicker';
+import PlaceTextInput from '../components/PlaceTextInput';
 
 type Point = { ll: number[]; label: string } | null;
 type RequestForm = { point: Point; destination: string; passengers: number; bags: number; hasLuggage: boolean; notes: string };
@@ -52,6 +54,7 @@ function Toggle({ label, value, onChange }: { label: string; value: boolean; onC
 }
 
 export default function TravelScreen() {
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const { tab: tabParam } = useLocalSearchParams<{ tab?: string }>();
   const toast = useToast();
@@ -229,23 +232,26 @@ export default function TravelScreen() {
       <Modal visible={requestOpen} animationType="slide" onRequestClose={() => setRequestOpen(false)}>
         <View style={ui.page}>
           <Header title="طلب سفر" onBack={() => setRequestOpen(false)} />
-          <ScrollView contentContainerStyle={s.form} keyboardShouldPersistTaps="handled">
+          <KeyboardAvoidingView style={{flex:1}} behavior={Platform.OS==='ios'?'padding':undefined}>
+          <ScrollView contentContainerStyle={[s.form,{paddingBottom:42+insets.bottom}]} keyboardShouldPersistTaps="handled">
             <Text style={s.formIntro}>انشر طلبك ليتمكّن مقدمو السفر من إرسال أجرة خاصة لهذه الرحلة.</Text>
             <Field label="موقع الالتقاط"><Pressable style={s.pickButton} onPress={() => setPointTarget('request')}><Text style={s.pickText}>{request.point?.label || 'حدد موقعك على الخريطة'}</Text><Text>📍</Text></Pressable></Field>
-            <Field label="الوجهة"><TextInput value={request.destination} onChangeText={v => setRequest(x => ({ ...x, destination: v }))} placeholder="اكتب المدينة أو المنطقة المقصودة" placeholderTextColor="#94a3b8" style={s.input} /></Field>
+            <Field label="الوجهة"><PlaceTextInput value={request.destination} onChangeText={v => setRequest(x => ({ ...x, destination: v }))} placeholder="اكتب المدينة أو المنطقة المقصودة" inputStyle={s.input} accessibilityLabel="الوجهة" /></Field>
             <Counter label="عدد الركاب" value={request.passengers} min={1} max={50} onChange={n => setRequest(x => ({ ...x, passengers: n }))} />
             <Counter label="عدد الحقائب" value={request.bags} min={0} max={50} onChange={n => setRequest(x => ({ ...x, bags: n }))} />
             <Toggle label="هل معك عفش؟" value={request.hasLuggage} onChange={v => setRequest(x => ({ ...x, hasLuggage: v }))} />
             <Field label="ملاحظات (اختياري)"><TextInput value={request.notes} onChangeText={v => setRequest(x => ({ ...x, notes: v }))} multiline placeholder="أي تفاصيل تساعد مقدم الخدمة" placeholderTextColor="#94a3b8" style={[s.input, s.multiline]} /></Field>
             <Btn label="نشر طلب السفر" loading={busy} onPress={postRequest} />
           </ScrollView>
+          </KeyboardAvoidingView>
         </View>
       </Modal>
 
       <Modal visible={!!selected} animationType="slide" onRequestClose={() => setSelected(null)}>
         <View style={ui.page}>
           <Header title="حجز رحلة" onBack={() => setSelected(null)} />
-          <ScrollView contentContainerStyle={s.form} keyboardShouldPersistTaps="handled">
+          <KeyboardAvoidingView style={{flex:1}} behavior={Platform.OS==='ios'?'padding':undefined}>
+          <ScrollView contentContainerStyle={[s.form,{paddingBottom:42+insets.bottom}]} keyboardShouldPersistTaps="handled">
             <View style={s.notice}><Text style={s.noticeText}>إلى {selected?.destination} • {when(selected?.departure_at)} • {money(selected?.fare_per_passenger)} لكل راكب</Text></View>
             <Text style={s.formIntro}>حدّد موقع الالتقاط المرن. تظهر بيانات التواصل بعد تأكيد الحجز.</Text>
             <Field label="موقع الالتقاط"><Pressable style={s.pickButton} onPress={() => setPointTarget('booking')}><Text style={s.pickText}>{booking.point?.label || 'حدد موقعك على الخريطة'}</Text><Text>📍</Text></Pressable></Field>
@@ -257,6 +263,7 @@ export default function TravelScreen() {
             <Row k="المجموع التقديري" v={money(Number(selected?.fare_per_passenger || 0) * booking.passengers)} strong />
             <Btn label="تأكيد الحجز" loading={busy} onPress={bookListing} />
           </ScrollView>
+          </KeyboardAvoidingView>
         </View>
       </Modal>
 

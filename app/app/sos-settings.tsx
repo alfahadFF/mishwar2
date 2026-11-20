@@ -1,6 +1,7 @@
 import React, { useCallback, useState } from 'react';
 import { View, Text, TextInput, Pressable, ScrollView, StyleSheet } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '../utils/supabase';
 import { errMsg } from '../utils/errors';
 import { useToast } from '../components/Toast';
@@ -8,6 +9,7 @@ import { useToast } from '../components/Toast';
 // إعدادات زر الطوارئ: رقمين للأهل (أولوية أولى) + رقم ثانوي للطوارئ
 export default function SosSettings() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const toast = useToast();
   const [f1, setF1] = useState({ name: '', phone: '' });
   const [f2, setF2] = useState({ name: '', phone: '' });
@@ -37,12 +39,12 @@ export default function SosSettings() {
   );
   return (
     <View style={{ flex: 1, backgroundColor: '#f8fafc' }}>
-      <View style={s.header}>
+      <View style={[s.header, { paddingTop: insets.top + 8, paddingLeft: insets.left + 78, paddingRight: insets.right + 12 }]}>
         <Pressable onPress={() => router.back()}><Text style={{ fontSize: 18 }}>→</Text></Pressable>
         <Text style={s.h1}>🆘 إعدادات الطوارئ</Text>
         <View style={{ width: 18 }} />
       </View>
-      <ScrollView contentContainerStyle={{ padding: 14, gap: 12 }}>
+      <ScrollView contentContainerStyle={{ padding: 14, paddingBottom: 24 + insets.bottom, gap: 12 }} keyboardShouldPersistTaps="handled">
         <View style={s.card}>
           <Text style={s.h2}>👨‍👩‍👦 أرقام الأهل — الأولوية الأولى</Text>
           <Text style={s.note}>يصلهم رابط موقعك المباشر وبيانات الرحلة عند الضغط على زر الطوارئ</Text>
@@ -63,7 +65,7 @@ export default function SosSettings() {
   );
 }
 const s = StyleSheet.create({
-  header: { flexDirection: 'row-reverse', justifyContent: 'space-between', alignItems: 'center', padding: 12, paddingTop: 44, backgroundColor: '#fff', borderBottomWidth: 1, borderColor: '#e2e8f0' },
+  header: { flexDirection: 'row-reverse', justifyContent: 'space-between', alignItems: 'center', padding: 12, paddingTop: 12, backgroundColor: '#fff', borderBottomWidth: 1, borderColor: '#e2e8f0' },
   h1: { fontSize: 16, fontWeight: '900' },
   card: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 14, padding: 12, gap: 8 },
   h2: { fontSize: 14, fontWeight: '900', textAlign: 'right' },

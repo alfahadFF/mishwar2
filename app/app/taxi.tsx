@@ -269,7 +269,7 @@ export default function TaxiScreen(){
   const st=active? (ST[active.status]||ST.pending) : null;
   return (
     <View style={[s.page,{paddingTop:insets.top,paddingBottom:insets.bottom}]}>
-      <View style={s.header}>
+      <View style={[s.header,{paddingLeft:insets.left+78,paddingRight:insets.right+12}]}>
         <Text style={s.h1}>🚕 طلب تكسي</Text>
         <Text style={s.sub}>اضغط على الخريطة لتحديد الانطلاق والوصول</Text>
       </View>
@@ -411,7 +411,7 @@ export default function TaxiScreen(){
         </View>
       )}
       {toast && (
-        <View style={{position:'absolute', bottom:Math.max(insets.bottom,8)+12, alignSelf:'center', backgroundColor:'#065f46', paddingHorizontal:20, paddingVertical:12, borderRadius:999, shadowColor:'#000', shadowOpacity:0.2, shadowRadius:8, elevation:5}}>
+        <View style={{position:'absolute', bottom:Math.max(insets.bottom,8)+((showActive || distance>0)?360:12), alignSelf:'center', backgroundColor:'#065f46', paddingHorizontal:20, paddingVertical:12, borderRadius:999, shadowColor:'#000', shadowOpacity:0.2, shadowRadius:8, elevation:5}}>
           <Text style={{color:'#fff', fontWeight:'900', fontSize:13, textAlign:'center'}}>{toast}</Text>
         </View>
       )}
@@ -421,7 +421,7 @@ export default function TaxiScreen(){
 }
 const s=StyleSheet.create({
   page:{flex:1, backgroundColor:'#f8fafc'},
-  header:{padding:10, paddingHorizontal:52, backgroundColor:'#fff', borderBottomWidth:1, borderColor:'#e2e8f0'},
+  header:{padding:10, paddingLeft:78, paddingRight:12, backgroundColor:'#fff', borderBottomWidth:1, borderColor:'#e2e8f0'},
   h1:{fontSize:16, fontWeight:'900', textAlign:'center'},
   sub:{fontSize:11, color:'#64748b', textAlign:'center'},
   modeBar:{flexDirection:'row', gap:8, padding:8, backgroundColor:'#fff', borderBottomWidth:1, borderColor:'#e2e8f0'},

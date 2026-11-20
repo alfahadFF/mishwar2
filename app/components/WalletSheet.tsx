@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Modal, View, Text, Pressable, ScrollView, StyleSheet, ActivityIndicator } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { supabase } from '../utils/supabase';
 import { Wallet, money, txLabel } from '../utils/wallet';
@@ -7,6 +8,7 @@ import { fmtDateTime } from '../utils/events';
 
 
 export default function WalletSheet({ visible, wallet, onClose }: { visible: boolean; wallet: Wallet | null; onClose: () => void }) {
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const [tx, setTx] = useState<any[] | null>(null);
   useEffect(() => {
@@ -18,7 +20,7 @@ export default function WalletSheet({ visible, wallet, onClose }: { visible: boo
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <Pressable style={s.back} onPress={onClose} />
-      <View style={s.sheet}>
+      <ScrollView style={s.sheet} contentContainerStyle={{ padding: 16, paddingBottom: Math.max(26, insets.bottom + 16) }} keyboardShouldPersistTaps="handled" nestedScrollEnabled>
         <View style={s.grab} />
         <Text style={s.h}>المحفظة</Text>
         <View style={[s.bal, (Number(wallet?.balance) < 0) ? s.balNeg : null]}>
@@ -34,7 +36,7 @@ export default function WalletSheet({ visible, wallet, onClose }: { visible: boo
         )}
         <Text style={s.sub}>الحركات</Text>
         {!tx ? <ActivityIndicator style={{ marginTop: 20 }} /> : (
-          <ScrollView style={{ maxHeight: 320 }}>
+          <View>
             {tx.length === 0 && <Text style={s.empty}>لا توجد حركات بعد</Text>}
             {tx.map(t => (
               <View key={t.id} style={s.row}>
@@ -45,20 +47,20 @@ export default function WalletSheet({ visible, wallet, onClose }: { visible: boo
                 <Text style={[s.amt, { color: Number(t.amount) < 0 ? '#b91c1c' : '#047857' }]}>{Number(t.amount) > 0 ? '+' : ''}{money(t.amount)}</Text>
               </View>
             ))}
-          </ScrollView>
+          </View>
         )}
         <View style={{ flexDirection: 'row-reverse', gap: 8 }}>
           <Pressable onPress={() => { onClose(); router.push('/wallet' as any); }} style={[s.close, { flex: 1, backgroundColor: '#4F46E5' }]}><Text style={[s.closeT, { color: '#fff' }]}>إضافة رصيد وتحويل</Text></Pressable>
           <Pressable onPress={onClose} style={[s.close, { flex: 1 }]}><Text style={s.closeT}>إغلاق</Text></Pressable>
         </View>
-      </View>
+      </ScrollView>
     </Modal>
   );
 }
 
 const s = StyleSheet.create({
   back: { flex: 1, backgroundColor: 'rgba(15,23,42,.45)' },
-  sheet: { backgroundColor: '#fff', borderTopLeftRadius: 22, borderTopRightRadius: 22, padding: 16, paddingBottom: 26 },
+  sheet: { backgroundColor: '#fff', borderTopLeftRadius: 22, borderTopRightRadius: 22, maxHeight: '90%', flexGrow: 0, flexShrink: 1, overflow: 'hidden' },
   grab: { width: 42, height: 5, borderRadius: 3, backgroundColor: '#e2e8f0', alignSelf: 'center', marginBottom: 10 },
   h: { fontSize: 17, fontWeight: '900', textAlign: 'center', marginBottom: 10 },
   bal: { backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 16, padding: 14, alignItems: 'center' },

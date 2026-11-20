@@ -63,7 +63,7 @@ export default function HomeScreen() {
   return (
     <View style={s.container}>
       {/* Top Bar */}
-      <View style={[s.topbar, { height: 56 + insets.top, paddingTop: insets.top, paddingLeft: 70 + insets.left, paddingRight: 16 + insets.right }]}>
+      <View style={[s.topbar, { height: 56 + insets.top, paddingTop: insets.top, paddingLeft: 88 + insets.left, paddingRight: 16 + insets.right }]}>
         <View style={s.logoRow}>
           <Image source={require('../assets/icon.png')} style={s.logoIcon} />
           <Text style={s.logoTitle}>مشوار</Text>

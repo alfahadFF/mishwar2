@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { View, Text, Pressable, ScrollView, Image, StyleSheet, RefreshControl, Linking, Modal, SafeAreaView } from 'react-native';
+import { View, Text, Pressable, ScrollView, Image, StyleSheet, RefreshControl, Linking, Modal } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { supabase } from '../utils/supabase';
 import { errMsg } from '../utils/errors';
@@ -178,8 +179,8 @@ export default function RentalScreen() {
 
       {/* تفاصيل السيارة + الطلب */}
       <Modal visible={!!open} animationType="slide" onRequestClose={() => setOpen(null)}>
-        <SafeAreaView style={ui.page}>
-          <Header title={open?.brand_model || ''} onBack={() => setOpen(null)} />
+        <SafeAreaView style={ui.page} edges={['top','bottom']}>
+          <Header title={open?.brand_model || ''} onBack={() => setOpen(null)} safeArea={false} />
           {!!open && (
             <ScrollView contentContainerStyle={{ padding: 12, paddingBottom: 40 }} keyboardShouldPersistTaps="handled">
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 10 }}>

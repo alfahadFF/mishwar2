@@ -4,6 +4,7 @@ import PointRow from '../components/PointRow';
 import TripRouteMap, { Segment, TripMarker } from '../components/TripRouteMap';
 import { View, Text, Pressable, TextInput, ScrollView, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '../utils/supabase';
 import { guestBlocked } from '../utils/guest';
 import { useToast } from '../components/Toast';
@@ -28,7 +29,7 @@ export default function ContractsScreen(){
   const [startDate,setStartDate]=useState<string>('');
   const [shiftType,setShiftType]=useState('morning'); const [needSup,setNeedSup]=useState(false);
   const [counts,setCounts]=useState<Record<string,number>>({}); const [notes,setNotes]=useState('');
-  const toast=useToast(); const router=useRouter();
+  const toast=useToast(); const router=useRouter(); const insets=useSafeAreaInsets();
   const [loading,setLoading]=useState(false);
   const isEdu=cat && ['school','kindergarten','university'].includes(cat); const isWork=cat && ['factory','company','workers'].includes(cat);
   const vehList = isWork ? VEH_L : (eduRole==='institution' ? VEH_L : VEH_S);
@@ -72,8 +73,8 @@ export default function ContractsScreen(){
   ];
   const openPick=(title:string,color:string,initial:number[]|null,apply:(ll:number[],label:string)=>void)=> setPicker({title,color,initial,apply});
   return (
-    <View style={{flex:1}}>
-    <ScrollView style={s.page} contentContainerStyle={{padding:12,paddingBottom:100}}>
+    <View style={{flex:1,paddingTop:insets.top}}>
+    <ScrollView style={s.page} contentContainerStyle={{padding:12,paddingBottom:100+insets.bottom}} keyboardShouldPersistTaps="handled">
       <Text style={s.h1}>📄 عقد نقل جديد</Text>
       <Text style={s.sub}>مدارس • روضة • جامعات • مصانع • شركات • عمال</Text>
       <View style={s.card}>

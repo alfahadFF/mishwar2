@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { View, Text, TextInput, Pressable, ScrollView, RefreshControl, Modal, StyleSheet } from 'react-native';
+import { View, Text, TextInput, Pressable, ScrollView, RefreshControl, Modal, StyleSheet, KeyboardAvoidingView, Platform, useWindowDimensions } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { supabase } from '../utils/supabase';
 import { errMsg } from '../utils/errors';
@@ -7,6 +8,7 @@ import { useToast } from '../components/Toast';
 import { Header, Tabs, Pill, Empty, Row, Btn, CallBtn, ui, C } from '../components/DriverUI';
 import DatePicker, { ymd } from '../components/DatePicker';
 import TimePicker from '../components/TimePicker';
+import PlaceTextInput from '../components/PlaceTextInput';
 
 type ListingForm = { destination: string; date: string; time: string; seats: number; fare: string; bags: string; notes: string; security: boolean };
 const tomorrow = () => { const d = new Date(); d.setDate(d.getDate() + 1); return ymd(d); };
@@ -46,6 +48,8 @@ function Toggle({ label, value, onChange }: { label: string; value: boolean; onC
 }
 
 export default function TravelProviderScreen() {
+  const insets = useSafeAreaInsets();
+  const { height } = useWindowDimensions();
   const router = useRouter();
   const { tab: tabParam } = useLocalSearchParams<{ tab?: string }>();
   const toast = useToast();
@@ -202,9 +206,10 @@ export default function TravelProviderScreen() {
       <Modal visible={newOpen} animationType="slide" onRequestClose={() => setNewOpen(false)}>
         <View style={ui.page}>
           <Header title="نشر رحلة سفريات" onBack={() => setNewOpen(false)} />
-          <ScrollView contentContainerStyle={s.form} keyboardShouldPersistTaps="handled">
+          <KeyboardAvoidingView style={{flex:1}} behavior={Platform.OS==='ios'?'padding':undefined}>
+          <ScrollView contentContainerStyle={[s.form,{paddingBottom:42+insets.bottom}]} keyboardShouldPersistTaps="handled">
             <View style={s.notice}><Text style={s.noticeText}>حدد وجهة الرحلة وموعدها. لا نطلب مكان انطلاق ثابتاً؛ يحدد كل راكب موقع الالتقاط عند الحجز.</Text></View>
-            <Field label="الوجهة"><TextInput value={listing.destination} onChangeText={v => setListing(x => ({ ...x, destination: v }))} placeholder="المدينة أو المنطقة المقصودة" placeholderTextColor="#94a3b8" style={s.input} /></Field>
+            <Field label="الوجهة"><PlaceTextInput value={listing.destination} onChangeText={v => setListing(x => ({ ...x, destination: v }))} placeholder="المدينة أو المنطقة المقصودة" inputStyle={s.input} accessibilityLabel="وجهة الرحلة" /></Field>
             <Field label="تاريخ الانطلاق"><Pressable style={s.picker} onPress={() => setDateOpen(true)}><Text style={s.pickerText}>{listing.date}</Text><Text>📅</Text></Pressable></Field>
             <Field label="ساعة الانطلاق"><Pressable style={s.picker} onPress={() => setTimeOpen(true)}><Text style={s.pickerText}>{listing.time}</Text><Text>🕒</Text></Pressable></Field>
             <Counter label="عدد المقاعد" value={listing.seats} min={1} max={50} onChange={n => setListing(x => ({ ...x, seats: n }))} />
@@ -214,20 +219,24 @@ export default function TravelProviderScreen() {
             <Field label="ملاحظات (اختياري)"><TextInput value={listing.notes} onChangeText={v => setListing(x => ({ ...x, notes: v }))} multiline placeholder="أي تفاصيل عن الرحلة أو الالتقاط" placeholderTextColor="#94a3b8" style={[s.input, s.multiline]} /></Field>
             <Btn label="نشر الرحلة" loading={busy} onPress={createListing} />
           </ScrollView>
+          </KeyboardAvoidingView>
         </View>
       </Modal>
       <DatePicker visible={dateOpen} title="تاريخ الانطلاق" value={listing.date} minDate={new Date()} onClose={() => setDateOpen(false)} onPick={v => setListing(x => ({ ...x, date: v }))} />
       <TimePicker visible={timeOpen} title="ساعة الانطلاق" value={listing.time} onClose={() => setTimeOpen(false)} onPick={v => setListing(x => ({ ...x, time: v }))} />
 
       <Modal visible={!!offerRequest} animationType="slide" transparent onRequestClose={() => setOfferRequest(null)}>
-        <View style={s.shade}><View style={s.offerModal}>
+        <KeyboardAvoidingView style={{flex:1}} behavior={Platform.OS==='ios'?'padding':undefined}>
+        <View style={[s.shade,{paddingTop:insets.top+16,paddingBottom:insets.bottom+16,paddingLeft:Math.max(16,insets.left+16),paddingRight:Math.max(16,insets.right+16)}]}>
+        <ScrollView style={[s.offerModal,{maxHeight:height-insets.top-insets.bottom-32}]} contentContainerStyle={{padding:16,gap:12}} keyboardShouldPersistTaps="handled">
           <Text style={s.modalTitle}>إرسال عرض خاص</Text>
           <Text style={s.formIntro}>الوجهة: {offerRequest?.destination} • {offerRequest?.passengers} ركاب</Text>
           <Field label="الأجرة لكل راكب"><TextInput value={offerFare} onChangeText={v => setOfferFare(v.replace(/[^0-9.]/g, ''))} keyboardType="decimal-pad" placeholder="حدد سعر هذه الرحلة" placeholderTextColor="#94a3b8" style={s.input} /></Field>
           <Field label="ملاحظات (اختياري)"><TextInput value={offerNotes} onChangeText={setOfferNotes} multiline placeholder="تفاصيل العرض" placeholderTextColor="#94a3b8" style={[s.input, s.multiline]} /></Field>
           <Btn label="إرسال العرض" loading={busy} onPress={sendOffer} />
           <Btn tone="ghost" label="رجوع" onPress={() => setOfferRequest(null)} />
-        </View></View>
+        </ScrollView></View>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );
@@ -264,6 +273,6 @@ const s = StyleSheet.create({
   toggleText: { color: C.txt, fontWeight: '800', fontSize: 12 },
   toggleTextOn: { color: '#fff' },
   shade: { flex: 1, justifyContent: 'center', backgroundColor: 'rgba(15,23,42,.45)', padding: 16 },
-  offerModal: { backgroundColor: '#fff', borderRadius: 20, padding: 16, gap: 12 },
+  offerModal: { backgroundColor: '#fff', borderRadius: 20, overflow: 'hidden' },
   modalTitle: { textAlign: 'center', color: C.txt, fontSize: 16, fontWeight: '900' },
 });

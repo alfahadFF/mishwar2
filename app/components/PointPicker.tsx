@@ -26,6 +26,7 @@ export default function PointPicker({ visible, title, color = '#4F46E5', initial
   const mapRef = useRef<any>(null);
   const req = useRef(0);
   const centerReq = useRef(0);
+  const searchReq = useRef(0);
   const speechListeners = useRef<any[]>([]);
   const lastSearchAt = useRef(0);
 
@@ -81,35 +82,52 @@ export default function PointPicker({ visible, title, color = '#4F46E5', initial
   };
 
   const runSearch = async (raw = search) => {
+    const my = ++searchReq.current;
     const q = raw.trim();
-    if (q.length < 3) { setSearchError('اكتب 3 أحرف على الأقل للبحث'); setResults([]); return; }
+    if (q.length < 3) {
+      setSearchError('اكتب 3 أحرف على الأقل للبحث');
+      setResults([]);
+      setSearching(false);
+      return;
+    }
     const wait = Math.max(0, 1100 - (Date.now() - lastSearchAt.current));
     if (wait) await new Promise(resolveWait => setTimeout(resolveWait, wait));
+    if (my !== searchReq.current) return;
     lastSearchAt.current = Date.now();
     setSearching(true);
     setSearchError('');
     try {
       const found = await searchPlaces(q, center || initial || null);
+      if (my !== searchReq.current) return;
       setResults(found);
       if (!found.length) setSearchError('لم نعثر على مكان مطابق؛ جرّب كتابة اسم المدينة أو الحي');
     } catch {
-      setResults([]);
-      setSearchError('تعذر البحث الآن؛ تحقق من الإنترنت وحاول مرة أخرى');
+      if (my === searchReq.current) {
+        setResults([]);
+        setSearchError('تعذر البحث الآن؛ تحقق من الإنترنت وحاول مرة أخرى');
+      }
     } finally {
-      setSearching(false);
+      if (my === searchReq.current) setSearching(false);
     }
   };
 
   const chooseResult = (item: PlaceSearchResult) => {
+    centerReq.current++;
+    searchReq.current++;
     setCenter(item.ll);
     setPoint(item.ll, item.label);
     setSearch(item.label);
     setResults([]);
+    setSearching(false);
     setSearchError('');
     animateTo(item.ll, 0.012);
   };
 
   const startVoice = async () => {
+    searchReq.current++;
+    setSearching(false);
+    setResults([]);
+    setSearchError('');
     setSpeechError('');
     const module = getSpeechRecognitionModule();
     if (!module) {
@@ -127,6 +145,10 @@ export default function PointPicker({ visible, title, color = '#4F46E5', initial
         module.addListener('result', (event: any) => {
           const transcript = String(event?.results?.[0]?.transcript || '').trim();
           if (!transcript) return;
+          searchReq.current++;
+          setSearching(false);
+          setResults([]);
+          setSearchError('');
           setSearch(transcript);
           if (event?.isFinal) {
             setRecognizing(false);
@@ -152,10 +174,14 @@ export default function PointPicker({ visible, title, color = '#4F46E5', initial
     if (!visible) {
       centerReq.current++;
       req.current++;
+      searchReq.current++;
+      setSearching(false);
       cleanupSpeech();
       setRecognizing(false);
       return;
     }
+    searchReq.current++;
+    setSearching(false);
     setLl(initial || null);
     setLabel('');
     setLocationError(false);
@@ -172,7 +198,7 @@ export default function PointPicker({ visible, title, color = '#4F46E5', initial
       setLoading(false);
       void locate(false);
     }
-    return () => { centerReq.current++; req.current++; };
+    return () => { centerReq.current++; req.current++; searchReq.current++; };
   }, [visible, initial?.[0], initial?.[1]]);
 
   const region = center ? { latitude: center[0], longitude: center[1], latitudeDelta: initial ? 0.01 : 0.02, longitudeDelta: initial ? 0.01 : 0.02 } : undefined;
@@ -188,7 +214,7 @@ export default function PointPicker({ visible, title, color = '#4F46E5', initial
             <View style={s.searchRow}>
               <TextInput
                 value={search}
-                onChangeText={value => { setSearch(value); setSearchError(''); setResults([]); setSpeechError(''); }}
+                onChangeText={value => { searchReq.current++; setSearching(false); setSearch(value); setSearchError(''); setResults([]); setSpeechError(''); }}
                 onSubmitEditing={() => void runSearch()}
                 returnKeyType="search"
                 placeholder="اكتب اسم المكان أو العنوان"
@@ -221,7 +247,7 @@ export default function PointPicker({ visible, title, color = '#4F46E5', initial
             {center && region ? (
               <>
                 <MapView ref={mapRef} style={{ flex: 1 }} basemap="hybrid" initialRegion={region}
-                  onPress={(e: any) => { const c = e.nativeEvent.coordinate; setPoint([c.latitude, c.longitude]); }}>
+                  onPress={(e: any) => { const c = e.nativeEvent.coordinate; const p = [c.latitude, c.longitude]; centerReq.current++; setCenter(p); setPoint(p); }}>
                   <UrlTile urlTemplate="https://a.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png" maximumZ={19} flipY={false} />
                   {ll && <Marker coordinate={{ latitude: ll[0], longitude: ll[1] }} pinColor={color} />}
                 </MapView>

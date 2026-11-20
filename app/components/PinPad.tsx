@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import { Modal, View, Text, Pressable, StyleSheet, ActivityIndicator } from 'react-native';
+import { Modal, View, Text, Pressable, ScrollView, StyleSheet, ActivityIndicator } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', '⌫'];
 
 // لوحة إدخال الرمز السري (4 أرقام) بدون لوحة مفاتيح النظام
 export default function PinPad({ visible, title, sub, error, busy, onClose, onDone }:
   { visible: boolean; title: string; sub?: string; error?: string | null; busy?: boolean; onClose: () => void; onDone: (pin: string) => void }) {
+  const insets = useSafeAreaInsets();
   const [pin, setPin] = useState('');
   useEffect(() => { if (visible) setPin(''); }, [visible, title]);
   useEffect(() => { if (error) setPin(''); }, [error]);
@@ -20,7 +22,7 @@ export default function PinPad({ visible, title, sub, error, busy, onClose, onDo
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <Pressable style={s.shade} onPress={onClose} />
-      <View style={s.sheet}>
+      <ScrollView style={s.sheet} contentContainerStyle={{ padding: 16, paddingBottom: Math.max(24, insets.bottom + 16) }} keyboardShouldPersistTaps="handled">
         <View style={s.grab} />
         <Text style={s.title}>{title}</Text>
         {!!sub && <Text style={s.sub}>{sub}</Text>}
@@ -38,14 +40,14 @@ export default function PinPad({ visible, title, sub, error, busy, onClose, onDo
           ))}
         </View>
         <Pressable onPress={onClose} style={s.cancel}><Text style={s.cancelT}>إلغاء</Text></Pressable>
-      </View>
+      </ScrollView>
     </Modal>
   );
 }
 
 const s = StyleSheet.create({
   shade: { flex: 1, backgroundColor: 'rgba(15,23,42,.45)' },
-  sheet: { backgroundColor: '#fff', borderTopLeftRadius: 22, borderTopRightRadius: 22, padding: 16, paddingBottom: 24 },
+  sheet: { backgroundColor: '#fff', borderTopLeftRadius: 22, borderTopRightRadius: 22, maxHeight: '90%', flexGrow: 0, flexShrink: 1, overflow: 'hidden' },
   grab: { width: 42, height: 5, borderRadius: 3, backgroundColor: '#e2e8f0', alignSelf: 'center', marginBottom: 10 },
   title: { fontSize: 17, fontWeight: '900', textAlign: 'center', color: '#0f172a' },
   sub: { fontSize: 12, color: '#64748b', textAlign: 'center', marginTop: 4 },

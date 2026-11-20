@@ -1,7 +1,8 @@
-import { View, Text, Pressable, ScrollView, StyleSheet, TextInput } from 'react-native';
+import { View, Text, Pressable, ScrollView, StyleSheet, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
 import { VGROUPS, VCLASS, vehicleFits, VehicleClass } from '../utils/vehicles';
 import { useState } from 'react';
 import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '../utils/supabase';
 import { guestBlocked } from '../utils/guest';
 import PointPicker from '../components/PointPicker';
@@ -10,6 +11,7 @@ import TripRouteMap from '../components/TripRouteMap';
 
 export default function TransportScreen(){
   const router=useRouter();
+  const insets=useSafeAreaInsets();
   const [cargoType,setCargoType]=useState('');
   const [vehicle,setVehicle]=useState<VehicleClass|null>(null);
   const [toast,setToast]=useState<string|null>(null);
@@ -94,12 +96,13 @@ export default function TransportScreen(){
   const showToast=(msg:string)=>{ setToast(msg); setTimeout(()=> setToast(null),2500); };
   return (
     <View style={s.container}>
-      <View style={s.topbar}>
+      <View style={[s.topbar,{height:52+insets.top,paddingTop:insets.top,paddingLeft:78+insets.left,paddingRight:14+insets.right}]}>
         <Pressable onPress={()=>router.back()} style={s.back}><Text>→</Text></Pressable>
         <View><Text style={s.title}>طلب نقل جديد</Text><Text style={s.sub}>خدمة نقل احترافية</Text></View>
         <View style={s.badge}><Text style={s.badgeText}>🚚 نقل</Text></View>
       </View>
-      <ScrollView contentContainerStyle={{padding:12,gap:12}}>
+      <KeyboardAvoidingView style={{flex:1}} behavior={Platform.OS==='ios'?'padding':undefined}>
+      <ScrollView contentContainerStyle={{padding:12,gap:12,paddingBottom:16+insets.bottom}} keyboardShouldPersistTaps="handled">
         <View style={s.card}>
           <Text style={s.cardTitle}>📦 نوع الحمولة</Text>
           <View style={s.chips}>
@@ -217,20 +220,15 @@ export default function TransportScreen(){
           )}
         </View>
 
-        <View style={{height:80}} />
-      
-      <PointPicker visible={!!picker} title={picker?.title||''} color={picker?.color} initial={picker?.initial}
-        onClose={()=> setPicker(null)} onConfirm={(ll,label)=>{ picker?.apply(ll,label); setPicker(null); }}/>
-      {toast && (
-        <View style={{position:'absolute', bottom:20, alignSelf:'center', backgroundColor:'#065f46', paddingHorizontal:20, paddingVertical:12, borderRadius:999, shadowColor:'#000', shadowOpacity:0.2, shadowRadius:8, elevation:5}}>
-          <Text style={{color:'#fff', fontWeight:'900', fontSize:13, textAlign:'center'}}>{toast}</Text>
-        </View>
-      )}
     </ScrollView>
-      <View style={s.cta}>
+      <View style={[s.cta,{paddingBottom:12+insets.bottom}]}>
         <Pressable onPress={handlePublish} disabled={!canPublish || submitting} style={[s.publishBtn, (!canPublish||submitting)&&{opacity:0.4}]}><Text style={s.publishText}>{budgetType==='fixed' ? '📢 نشر الطلب' : '📩 طلب عروض أسعار'}</Text></Pressable>
         <Text style={s.note}>التسجيل مطلوب لنشر الطلب</Text>
       </View>
+      </KeyboardAvoidingView>
+      <PointPicker visible={!!picker} title={picker?.title||''} color={picker?.color} initial={picker?.initial}
+        onClose={()=> setPicker(null)} onConfirm={(ll,label)=>{ picker?.apply(ll,label); setPicker(null); }}/>
+      {toast && <View style={[s.toast,{bottom:insets.bottom+102}]}><Text style={s.toastText}>{toast}</Text></View>}
     </View>
   );
 }
@@ -278,5 +276,7 @@ const s=StyleSheet.create({
   cta:{backgroundColor:'#fff',padding:12,borderTopWidth:1,borderTopColor:'#E5E7EB'},
   publishBtn:{height:54,borderRadius:14,backgroundColor:'#4F46E5',alignItems:'center',justifyContent:'center'},
   publishText:{color:'#fff',fontWeight:'900',fontSize:15},
-  note:{fontSize:10,color:'#6B7280',textAlign:'center',marginTop:6}
+  note:{fontSize:10,color:'#6B7280',textAlign:'center',marginTop:6},
+  toast:{position:'absolute',alignSelf:'center',maxWidth:'90%',backgroundColor:'#065f46',paddingHorizontal:20,paddingVertical:12,borderRadius:999,shadowColor:'#000',shadowOpacity:0.2,shadowRadius:8,elevation:5,zIndex:100},
+  toastText:{color:'#fff',fontWeight:'900',fontSize:13,textAlign:'center'}
 });

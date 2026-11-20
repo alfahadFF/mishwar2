@@ -1,7 +1,7 @@
 import MyRatingCard from '../components/MyRatingCard';
 import NewOrdersToggle from '../components/NewOrdersToggle';
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, Pressable, StyleSheet, Linking, Modal, TextInput, Vibration, AppState, ActivityIndicator } from 'react-native';
+import { View, Text, Pressable, ScrollView, StyleSheet, Linking, Modal, TextInput, Vibration, AppState, ActivityIndicator } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { errMsg, errMsgWithCode } from '../utils/errors';
@@ -325,7 +325,7 @@ function DriverMap({ wp }:{ wp:any }){
   const reject=()=>{ const m=modal; setModal(null); if(m) setNearby(p=> p.filter(x=> x.id!==m.id)); showToast('تم رفض الطلب'); };
   return (
     <View style={[s.page,{paddingTop:insets.top}]}>
-      <View style={s.header}>
+      <View style={[s.header,{paddingLeft:insets.left+78,paddingRight:insets.right+12}]}>
         <Text style={s.h1}>🚕 لوحة السائق</Text>
         <View style={{flexDirection:'row', gap:6, alignItems:'center'}}><MyRatingCard compact /><NewOrdersToggle compact onChange={v=> showToast(v? 'إشعارات الطلبات الجديدة مفعّلة 🔔' : 'إشعارات الطلبات الجديدة متوقفة 🔕')} /><View style={s.badge}><Text style={s.badgeT}>● متاح</Text></View></View>
       </View>
@@ -356,7 +356,7 @@ function DriverMap({ wp }:{ wp:any }){
           {!locationLoading && !!status && <Pressable onPress={loadNearby} style={{height:40,paddingHorizontal:16,borderRadius:12,backgroundColor:'#4F46E5',alignItems:'center',justifyContent:'center'}}><Text style={{color:'#fff',fontWeight:'900',fontSize:12}}>تحديد موقعي وإعادة المحاولة</Text></Pressable>}
         </View>}
       </View>
-      <View style={{padding:10, gap:8, paddingBottom:80+insets.bottom}}>
+      <ScrollView style={{maxHeight:trip?'52%':'42%',flexGrow:0,flexShrink:1}} contentContainerStyle={{padding:10,gap:8,paddingBottom:(trip?380:24)+insets.bottom}} keyboardShouldPersistTaps="handled">
         {status?.taxi_suspended && (
           <View style={{backgroundColor:'#fef2f2', borderWidth:1, borderColor:'#fecaca', borderRadius:12, padding:10}}><Text style={{color:'#991b1b', fontWeight:'800', fontSize:12, textAlign:'center'}}>{status.message}</Text></View>
         )}
@@ -379,9 +379,9 @@ function DriverMap({ wp }:{ wp:any }){
             : <Pressable onPress={loadNearby} style={[s.btn,{backgroundColor:'#fff', borderWidth:1, borderColor:'#e2e8f0'}]}><Text style={s.btnT}>لا توجد طلبات ضمن {RADIUS_KM} كم • تحديث</Text></Pressable>)}
         <SharedTripsDriver toast={showToast}/>
         <Pressable onPress={()=> router.push('/driver-shared-publish' as any)} style={[s.btn,{backgroundColor:'#4F46E5'}]}><Text style={[s.btnT,{color:'#fff'}]}>👥 نشر رحلة راكب مشتركة</Text></Pressable>
-      </View>
+      </ScrollView>
       {trip && (
-        <View style={s.tripCard}>
+        <View style={[s.tripCard,{left:insets.left+10,right:insets.right+10,bottom:insets.bottom+10}]}>
           <View style={{flexDirection:'row-reverse', justifyContent:'space-between', alignItems:'center'}}>
             <Text style={{fontWeight:'900', fontSize:14}}>{trip.status==='accepted'? '🚕 في الطريق إلى الراكب' : trip.status==='arrived'? '📍 بانتظار الراكب' : '🛣️ الرحلة جارية'}</Text>
             <Text style={{fontWeight:'900', fontSize:16, color:'#4F46E5'}}>{Number(trip.fare_local)>0?formatLocalFare(trip.fare_local,trip.local_currency||'SYP'):formatWalletUsd(trip.fare)}</Text>
@@ -421,7 +421,7 @@ function DriverMap({ wp }:{ wp:any }){
 
       <Modal visible={!!modal} transparent animationType="fade" onRequestClose={()=> setModal(null)}>
         <View style={s.overlay}>
-          <View style={s.modal}>
+          <ScrollView style={s.modal} contentContainerStyle={{padding:16}} keyboardShouldPersistTaps="handled" nestedScrollEnabled>
             <Text style={s.modalTitle}>🔔 طلب تكسي جديد ضمن نطاقك</Text>
             <Text style={{fontSize:11,color:'#64748b',textAlign:'center'}}>اضغط قبول خلال 15 ثانية</Text>
             {modal && (
@@ -458,13 +458,13 @@ function DriverMap({ wp }:{ wp:any }){
               <Pressable onPress={reject} style={[s.modalBtn,{backgroundColor:'#fff', borderWidth:1, borderColor:'#fecaca'}]}><Text style={{color:'#991b1b', fontWeight:'900'}}>رفض</Text></Pressable>
               <Pressable onPress={accept} style={[s.modalBtn,{backgroundColor:'#22c55e'}]}><Text style={{color:'#fff', fontWeight:'900'}}>✅ قبول</Text></Pressable>
             </View>
-          </View>
+          </ScrollView>
         </View>
       </Modal>
 
       <Modal visible={!!joinReq} transparent animationType="fade" onRequestClose={()=>{}}>
         <View style={s.overlay}>
-          <View style={s.modal}>
+          <ScrollView style={s.modal} contentContainerStyle={{padding:16}} keyboardShouldPersistTaps="handled" nestedScrollEnabled>
             <Text style={s.modalTitle}>👤 طلب انضمام راكب</Text>
             {joinReq && (
               <>
@@ -505,13 +505,13 @@ function DriverMap({ wp }:{ wp:any }){
                 <Pressable onPress={()=> respondJoin('accept')} style={[s.modalBtn,{backgroundColor:'#22c55e'}]}><Text style={{color:'#fff', fontWeight:'900'}}>قبول</Text></Pressable>
               </View>
             )}
-          </View>
+          </ScrollView>
         </View>
       </Modal>
 
       <Modal visible={cancelOpen} transparent animationType="fade" onRequestClose={()=> setCancelOpen(false)}>
         <View style={s.overlay}>
-          <View style={s.modal}>
+          <ScrollView style={s.modal} contentContainerStyle={{padding:16}} keyboardShouldPersistTaps="handled" nestedScrollEnabled>
             <Text style={s.modalTitle}>سبب الإلغاء</Text>
             <View style={{gap:8, marginTop:12}}>
               {REASONS.map(r=> (
@@ -523,19 +523,19 @@ function DriverMap({ wp }:{ wp:any }){
               <Pressable onPress={doCancel} disabled={!cancelReason} style={[s.modalBtn,{backgroundColor:'#dc2626', opacity: cancelReason? 1 : .4}]}><Text style={[s.btnT,{color:'#fff'}]}>تأكيد الإلغاء</Text></Pressable>
               <Pressable onPress={()=> setCancelOpen(false)} style={[s.modalBtn,{backgroundColor:'#f1f5f9'}]}><Text style={s.btnT}>رجوع</Text></Pressable>
             </View>
-          </View>
+          </ScrollView>
         </View>
       </Modal>
 
       {toast && (
-        <View style={[s.toast,{bottom:insets.bottom+20}]}><Text style={s.toastT}>{toast}</Text></View>
+        <View style={[s.toast,{bottom:insets.bottom+(trip?320:20)}]}><Text style={s.toastT}>{toast}</Text></View>
       )}
     </View>
   )
 }
 const s=StyleSheet.create({
   page:{flex:1, backgroundColor:'#f8fafc'},
-  header:{flexDirection:'row', justifyContent:'space-between', alignItems:'center', padding:10, paddingHorizontal:54, backgroundColor:'#fff', borderBottomWidth:1, borderColor:'#e2e8f0'},
+  header:{flexDirection:'row', justifyContent:'space-between', alignItems:'center', padding:10, paddingLeft:78, paddingRight:12, backgroundColor:'#fff', borderBottomWidth:1, borderColor:'#e2e8f0'},
   h1:{fontSize:16, fontWeight:'900'},
   badge:{backgroundColor:'#f0fdf4', borderWidth:1, borderColor:'#a7f3d0', paddingHorizontal:8, paddingVertical:4, borderRadius:999},
   badgeT:{fontSize:11, color:'#065f46', fontWeight:'800'},
@@ -543,7 +543,7 @@ const s=StyleSheet.create({
   btn:{height:44, borderRadius:12, alignItems:'center', justifyContent:'center'},
   btnT:{fontWeight:'900', fontSize:13},
   overlay:{flex:1, backgroundColor:'rgba(15,23,42,0.5)', alignItems:'center', justifyContent:'center', padding:16},
-  modal:{backgroundColor:'#fff', borderRadius:20, padding:16, width:'100%', maxWidth:420},
+  modal:{backgroundColor:'#fff', borderRadius:20, width:'100%', maxWidth:420, maxHeight:'88%', flexGrow:0, flexShrink:1, overflow:'hidden'},
   modalTitle:{fontSize:15, fontWeight:'900', textAlign:'center'},
   detail:{flex:1, backgroundColor:'#f8fafc', borderWidth:1, borderColor:'#e2e8f0', borderRadius:12, padding:8, alignItems:'center'},
   detailB:{fontSize:13, fontWeight:'900'},

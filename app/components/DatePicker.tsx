@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Modal, View, Text, Pressable, StyleSheet } from 'react-native';
+import { Modal, View, Text, Pressable, ScrollView, StyleSheet, useWindowDimensions } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const MONTHS = ['كانون الثاني', 'شباط', 'آذار', 'نيسان', 'أيار', 'حزيران', 'تموز', 'آب', 'أيلول', 'تشرين الأول', 'تشرين الثاني', 'كانون الأول'];
 const WD = ['أحد', 'إثن', 'ثلا', 'أرب', 'خميس', 'جمعة', 'سبت'];
@@ -9,6 +10,8 @@ export const parseYmd = (s?: string | null) => { if (!s) return null; const [y, 
 // تقويم لاختيار تاريخ (بدون كتابة)
 export default function DatePicker({ visible, value, minDate, title, onClose, onPick }:
   { visible: boolean; value?: string | null; minDate?: Date; title?: string; onClose: () => void; onPick: (v: string) => void }) {
+  const insets = useSafeAreaInsets();
+  const { height } = useWindowDimensions();
   const init = parseYmd(value) || new Date();
   const [view, setView] = useState(new Date(init.getFullYear(), init.getMonth(), 1));
   useEffect(() => { if (visible) { const d = parseYmd(value) || new Date(); setView(new Date(d.getFullYear(), d.getMonth(), 1)); } }, [visible]);
@@ -21,7 +24,7 @@ export default function DatePicker({ visible, value, minDate, title, onClose, on
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <Pressable style={s.shade} onPress={onClose} />
-      <View style={s.box}>
+      <ScrollView style={[s.box, { top: insets.top + 12, maxHeight: height - insets.top - insets.bottom - 24 }]} contentContainerStyle={{ padding: 14 }} keyboardShouldPersistTaps="handled">
         {!!title && <Text style={s.title}>{title}</Text>}
         <View style={s.nav}>
           <Pressable disabled={!canPrev} onPress={() => setView(new Date(view.getFullYear(), view.getMonth() - 1, 1))} style={[s.navBtn, !canPrev && { opacity: 0.3 }]}><Text style={s.navT}>›</Text></Pressable>
@@ -43,14 +46,14 @@ export default function DatePicker({ visible, value, minDate, title, onClose, on
           })}
         </View>
         <Pressable onPress={onClose} style={s.close}><Text style={{ fontWeight: '900' }}>إغلاق</Text></Pressable>
-      </View>
+      </ScrollView>
     </Modal>
   );
 }
 
 const s = StyleSheet.create({
   shade: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(15,23,42,.45)' },
-  box: { position: 'absolute', left: 16, right: 16, top: '18%', backgroundColor: '#fff', borderRadius: 20, padding: 14 },
+  box: { position: 'absolute', left: 16, right: 16, backgroundColor: '#fff', borderRadius: 20, overflow: 'hidden' },
   title: { fontWeight: '900', fontSize: 15, textAlign: 'center', marginBottom: 8 },
   nav: { flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
   navBtn: { width: 38, height: 38, borderRadius: 12, backgroundColor: '#f1f5f9', alignItems: 'center', justifyContent: 'center' },

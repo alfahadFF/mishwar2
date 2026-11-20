@@ -86,6 +86,7 @@ export default function SosButton() {
         accessibilityLabel={active ? 'حالة الطوارئ نشطة' : 'زر الطوارئ'}
         style={[
           s.fab,
+          { left: insets.left + 8 },
           moveFabToBottom
             ? [s.fabBottom, { bottom: Math.max(insets.bottom, 8) + 16 }]
             : { top: insets.top + 13 },

@@ -1,6 +1,5 @@
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import NotifyListener from '../components/NotifyListener';
 import SosButton from '../components/SosButton';
 import LivePinger from '../components/LivePinger';
 import DuesSettler from '../components/DuesSettler';
@@ -42,7 +41,6 @@ export default function RootLayout() {
         <Stack.Screen name="terms" />
       </Stack>
       <UpdateNotice />
-      <NotifyListener />
       <LivePinger />
       <DuesSettler />
       <RatingPrompt />

@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Btn } from './DriverUI';
 
 type Props = {
@@ -10,6 +11,7 @@ type Props = {
 };
 
 export default function WalletQRScanner({ visible, onClose, onScanned }: Props) {
+  const insets = useSafeAreaInsets();
   const [permission, requestPermission] = useCameraPermissions();
   const [scanned, setScanned] = useState(false);
   const scannedRef = useRef(false);
@@ -31,7 +33,7 @@ export default function WalletQRScanner({ visible, onClose, onScanned }: Props) 
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
       <View style={s.page}>
-        <View style={s.header}>
+        <View style={[s.header,{paddingTop:insets.top+8,paddingBottom:8}]}>
           <Pressable onPress={onClose} hitSlop={10} style={s.close}>
             <Text style={s.closeText}>إغلاق</Text>
           </Pressable>
@@ -74,6 +76,7 @@ export default function WalletQRScanner({ visible, onClose, onScanned }: Props) 
 const s = StyleSheet.create({
   page: { flex: 1, backgroundColor: '#0f172a' },
   header: { minHeight: 58, paddingHorizontal: 16, flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#0f172a' },
+
   close: { minWidth: 54, paddingVertical: 10 },
   closeText: { color: '#fff', fontWeight: '800', textAlign: 'left' },
   title: { color: '#fff', fontSize: 16, fontWeight: '900', textAlign: 'center' },

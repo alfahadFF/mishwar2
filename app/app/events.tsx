@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, Pressable, TextInput, ScrollView, StyleSheet, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '../utils/supabase';
 import { guestBlocked } from '../utils/guest';
 import { useToast } from '../components/Toast';
@@ -53,6 +54,7 @@ export default function EventsScreen(){
   const [peopleTxt, setPeopleTxt] = useState('20');
   const toast=useToast();
   const router=useRouter();
+  const insets=useSafeAreaInsets();
   const [loading, setLoading] = useState(false);
 
   const eventForm=eventType?EVENT_FORM[eventType]:null;
@@ -118,8 +120,8 @@ export default function EventsScreen(){
   };
 
   return (
-    <View style={{flex:1}}>
-    <ScrollView style={s.page} contentContainerStyle={{padding:12, paddingBottom:100}}>
+    <View style={{flex:1, paddingTop:insets.top}}>
+    <ScrollView style={s.page} contentContainerStyle={{padding:12, paddingBottom:100+insets.bottom}} keyboardShouldPersistTaps="handled">
       <Text style={s.h1}>✨ طلب مناسبة جديد</Text>
       <Text style={s.sub}>زفاف • رحلة عائلية • سياحية • أخرى</Text>
 

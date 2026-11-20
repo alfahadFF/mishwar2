@@ -11,21 +11,22 @@ import {
   type CameraRef,
 } from '@maplibre/maplibre-react-native';
 
-// Fallback for local builds or preview builds that have not yet received the ArcGIS key.
+// Vector street style used when a screen explicitly requests streets.
 const LATEST_STREET_STYLE_URL = 'https://tiles.openfreemap.org/styles/liberty';
 const ARCGIS_API_KEY = (process.env.EXPO_PUBLIC_ARCGIS_API_KEY || '').trim();
 const ARCGIS_TOKEN = ARCGIS_API_KEY ? encodeURIComponent(ARCGIS_API_KEY) : '';
+const ARCGIS_IMAGERY_TILES = ARCGIS_TOKEN
+  ? `https://ibasemaps-api.arcgis.com/arcgis/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}?token=${ARCGIS_TOKEN}`
+  : 'https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
 
-// Compose satellite imagery with ArcGIS' transparent reference overlays. The overlays
-// provide place names and road labels above the photos without hiding the imagery.
-const ARCGIS_HYBRID_STYLE: any = ARCGIS_API_KEY ? {
+// Always show satellite imagery and transparent place/road-name overlays, even when
+// no ArcGIS API key is present. ArcGIS requires attribution for all three services.
+const ARCGIS_HYBRID_STYLE: any = {
   version: 8,
   sources: {
     'arcgis-world-imagery': {
       type: 'raster',
-      tiles: [
-        `https://ibasemaps-api.arcgis.com/arcgis/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}?token=${ARCGIS_TOKEN}`,
-      ],
+      tiles: [ARCGIS_IMAGERY_TILES],
       tileSize: 256,
       minzoom: 0,
       maxzoom: 19,
@@ -77,7 +78,7 @@ const ARCGIS_HYBRID_STYLE: any = ARCGIS_API_KEY ? {
       paint: { 'raster-opacity': 1, 'raster-fade-duration': 0 },
     },
   ],
-} : LATEST_STREET_STYLE_URL;
+};
 
 type Region = { latitude: number; longitude: number; latitudeDelta: number; longitudeDelta: number };
 function regionZoom(region?: Region) {

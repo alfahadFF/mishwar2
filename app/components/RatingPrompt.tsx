@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Modal, View, Text, Pressable, StyleSheet, AppState, ActivityIndicator } from 'react-native';
+import { Modal, View, Text, Pressable, ScrollView, StyleSheet, AppState, ActivityIndicator, useWindowDimensions } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '../utils/supabase';
 import { TAGS, SERVICE_TAGS, SERVICE_LABEL } from '../utils/rating';
 
@@ -7,6 +8,8 @@ const periodLabel = (it: any) => it.service !== 'contracts' ? '' : Number(it.per
 
 // نافذة التقييم: تطلع تلقائياً بعد انتهاء الخدمة (وعند فتح التطبيق خلال 24 ساعة)
 export default function RatingPrompt() {
+  const insets = useSafeAreaInsets();
+  const { height } = useWindowDimensions();
   const [items, setItems] = useState<any[]>([]);
   const [stars, setStars] = useState<number | null>(null);
   const [tags, setTags] = useState<string[]>([]);
@@ -61,8 +64,8 @@ export default function RatingPrompt() {
 
   return (
     <Modal visible transparent animationType="fade" onRequestClose={skip}>
-      <View style={s.shade}>
-        <View style={s.box}>
+      <View style={[s.shade,{paddingTop:insets.top+12,paddingBottom:insets.bottom+12,paddingLeft:Math.max(20,insets.left+16),paddingRight:Math.max(20,insets.right+16)}]}>
+        <ScrollView style={[s.box,{maxHeight:height-insets.top-insets.bottom-48}]} contentContainerStyle={{padding:18}} keyboardShouldPersistTaps="handled">
           <Text style={s.title}>كيف كانت {SERVICE_LABEL[cur.service] || 'الخدمة'}؟</Text>
           <Text style={s.sub}>{cur.provider_name ? `مع ${cur.provider_name}` : ''}{periodLabel(cur)}</Text>
           <View style={s.stars}>
@@ -83,7 +86,7 @@ export default function RatingPrompt() {
             {busy ? <ActivityIndicator color="#fff" /> : <Text style={s.btnT}>إرسال</Text>}
           </Pressable>
           <Pressable onPress={skip} style={s.skip}><Text style={s.skipT}>تخطّي</Text></Pressable>
-        </View>
+        </ScrollView>
       </View>
     </Modal>
   );
@@ -91,7 +94,7 @@ export default function RatingPrompt() {
 
 const s = StyleSheet.create({
   shade: { flex: 1, backgroundColor: 'rgba(15,23,42,.55)', justifyContent: 'center', padding: 20 },
-  box: { backgroundColor: '#fff', borderRadius: 22, padding: 18 },
+  box: { backgroundColor: '#fff', borderRadius: 22, overflow: 'hidden' },
   title: { fontSize: 18, fontWeight: '900', textAlign: 'center', color: '#0f172a' },
   sub: { fontSize: 13, color: '#64748b', textAlign: 'center', marginTop: 4 },
   stars: { flexDirection: 'row', justifyContent: 'center', gap: 6, marginVertical: 14 },

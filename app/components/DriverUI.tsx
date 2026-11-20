@@ -1,11 +1,15 @@
 import React from 'react';
 import { View, Text, Pressable, StyleSheet, Modal, ActivityIndicator, Linking } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export const C = { brand: '#4F46E5', ok: '#047857', okBg: '#ecfdf5', warn: '#b45309', warnBg: '#fffbeb', err: '#b91c1c', errBg: '#fef2f2', txt: '#0f172a', mute: '#64748b', line: '#e2e8f0', bg: '#f8fafc' };
 
-export function Header({ title, onBack, right }: { title: string; onBack: () => void; right?: React.ReactNode }) {
+export function Header({ title, onBack, right, safeArea = true }: { title: string; onBack: () => void; right?: React.ReactNode; safeArea?: boolean }) {
+  const insets = useSafeAreaInsets();
   return (
-    <View style={s.head}>
+    <View style={[s.head, safeArea
+      ? { paddingTop: insets.top + 8, paddingLeft: insets.left + 78, paddingRight: insets.right + 12 }
+      : { paddingTop: 12, paddingHorizontal: 12 }]}>
       <Pressable onPress={onBack} style={s.back} hitSlop={8}><Text style={{ fontSize: 18 }}>→</Text></Pressable>
       <Text style={s.title} numberOfLines={1}>{title}</Text>
       <View style={{ flexDirection: 'row-reverse', gap: 6 }}>{right}</View>
@@ -66,10 +70,11 @@ export function CallBtn({ phone }: { phone?: string | null }) {
 }
 
 export function Sheet({ visible, onClose, title, children }: { visible: boolean; onClose: () => void; title?: string; children: React.ReactNode }) {
+  const insets = useSafeAreaInsets();
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <Pressable style={s.shade} onPress={onClose} />
-      <View style={s.sheet}>
+      <View style={[s.sheet, { paddingBottom: Math.max(26, insets.bottom + 16) }]}>
         <View style={s.grab} />
         {!!title && <Text style={s.sheetH}>{title}</Text>}
         {children}
@@ -98,7 +103,7 @@ export const ui = StyleSheet.create({
 });
 
 const s = StyleSheet.create({
-  head: { flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 12, paddingTop: 44, paddingBottom: 10, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: C.line, gap: 8 },
+  head: { flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 12, paddingTop: 12, paddingBottom: 10, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: C.line, gap: 8 },
   back: { width: 36, height: 36, borderRadius: 12, backgroundColor: '#f1f5f9', alignItems: 'center', justifyContent: 'center' },
   title: { flex: 1, fontSize: 16, fontWeight: '900', textAlign: 'right', color: C.txt },
   pill: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, borderWidth: 1, maxWidth: 220 },

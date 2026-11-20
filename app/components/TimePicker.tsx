@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Modal, View, Text, Pressable, StyleSheet } from 'react-native';
+import { Modal, View, Text, Pressable, ScrollView, StyleSheet, useWindowDimensions } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 const MINS = [0, 15, 30, 45];
@@ -15,6 +16,8 @@ export const timeLabel = (v?: string | null) => {
 // اختيار الساعة والدقيقة بالنقر (بدون كتابة)
 export default function TimePicker({ visible, value, title, onClose, onPick }:
   { visible: boolean; value?: string | null; title?: string; onClose: () => void; onPick: (v: string) => void }) {
+  const insets = useSafeAreaInsets();
+  const { height } = useWindowDimensions();
   const [h, setH] = useState<number | null>(null);
   const [m, setM] = useState(0);
   useEffect(() => {
@@ -26,7 +29,7 @@ export default function TimePicker({ visible, value, title, onClose, onPick }:
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <Pressable style={s.shade} onPress={onClose} />
-      <View style={s.box}>
+      <ScrollView style={[s.box, { top: insets.top + 12, maxHeight: height - insets.top - insets.bottom - 24 }]} contentContainerStyle={{ padding: 16 }} keyboardShouldPersistTaps="handled">
         {!!title && <Text style={s.title}>{title}</Text>}
         <Text style={s.lbl}>الساعة</Text>
         <View style={s.grid}>
@@ -49,14 +52,14 @@ export default function TimePicker({ visible, value, title, onClose, onPick }:
           style={[s.ok, h === null && { opacity: 0.4 }]}>
           <Text style={s.okT}>{h === null ? 'اختر الساعة' : `تأكيد ${timeLabel(`${p2(h)}:${p2(m)}`)}`}</Text>
         </Pressable>
-      </View>
+      </ScrollView>
     </Modal>
   );
 }
 
 const s = StyleSheet.create({
   shade: { flex: 1, backgroundColor: 'rgba(15,23,42,.45)' },
-  box: { position: 'absolute', left: 16, right: 16, top: '18%', backgroundColor: '#fff', borderRadius: 20, padding: 16 },
+  box: { position: 'absolute', left: 16, right: 16, backgroundColor: '#fff', borderRadius: 20, overflow: 'hidden' },
   title: { fontSize: 16, fontWeight: '900', textAlign: 'center', marginBottom: 6 },
   lbl: { fontSize: 12, fontWeight: '800', textAlign: 'right', marginTop: 10, marginBottom: 6, color: '#334155' },
   grid: { flexDirection: 'row-reverse', flexWrap: 'wrap', gap: 6 },

@@ -1,7 +1,7 @@
 import Stars from '../components/Stars';
 import { fetchRatings, Rating } from '../utils/rating';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { View, Text, Pressable, ScrollView, StyleSheet, Modal, Vibration } from 'react-native';
+import { View, Text, Pressable, ScrollView, StyleSheet, Modal, Vibration, useWindowDimensions } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import * as Location from 'expo-location';
 import { supabase } from '../utils/supabase';
@@ -11,18 +11,34 @@ import { getRoute, fmtMin } from '../utils/route';
 import { nearestOnPath, NEAR_KM } from '../utils/geo';
 import MySharedJoins from '../components/MySharedJoins';
 import { MapView, UrlTile, Marker, Polyline } from '../components/OpenMapView';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import PointPicker from '../components/PointPicker';
+import { placeName } from '../utils/geocode';
 
 type LL=number[];
 type Trip={rating?:Rating, id:string, from:string, to:string, fromLL:LL, toLL:LL, time:string, total:number, left:number, price:number, path?:LL[], km?:number, min?:number, routeFailed?:boolean, demo?:boolean, car?:LL};
 type Req={id:string, trip_id:string, status:string, extra_fee:number, detour_km?:number, detour_min?:number, detour_path?:LL[], pickup?:LL, dropoff?:LL};
 
 const toLatLng=(p:LL)=>({latitude:p[0], longitude:p[1]});
+const regionForPoints=(points:LL[])=>{
+  const lats=points.map(p=>p[0]), lngs=points.map(p=>p[1]);
+  return {latitude:(Math.min(...lats)+Math.max(...lats))/2,longitude:(Math.min(...lngs)+Math.max(...lngs))/2,
+    latitudeDelta:Math.max(0.018,(Math.max(...lats)-Math.min(...lats))*1.5+0.01),
+    longitudeDelta:Math.max(0.018,(Math.max(...lngs)-Math.min(...lngs))*1.5+0.01)};
+};
 
 export default function TaxiSharedScreen(){
+  const insets=useSafeAreaInsets();
+  const {height:windowHeight}=useWindowDimensions();
   const [trips,setTrips]=useState<Trip[]>([]);
   const [pickup,setPickup]=useState<LL|null>(null);
   const [dropoff,setDropoff]=useState<LL|null>(null);
+  const [pickupLabel,setPickupLabel]=useState('');
+  const [dropoffLabel,setDropoffLabel]=useState('');
+  const [pointPicker,setPointPicker]=useState<'pick'|'drop'|null>(null);
   const [mode,setMode]=useState<'pick'|'drop'>('pick');
+  const pointLabelReq=useRef({pick:0,drop:0});
+  const manualPickupRef=useRef(false);
   const mapRef=useRef<any>(null);
   const [selected,setSelected]=useState<string|null>(null);
   const [myReqs,setMyReqs]=useState<Record<string,Req>>({});
@@ -36,6 +52,16 @@ export default function TaxiSharedScreen(){
   // تنبيه صوتي/اهتزاز عند وصول رد السائق
   const notify=(type:'success'|'warning'|'error'='warning')=>{ Haptics.notificationAsync(type==='success'? Haptics.NotificationFeedbackType.Success : type==='error'? Haptics.NotificationFeedbackType.Error : Haptics.NotificationFeedbackType.Warning); Vibration.vibrate([0,200,100,200]); };
   const showToast=(m:string, err=false)=>{ setToast({m,err}); clearTimeout(toastTimer.current); toastTimer.current=setTimeout(()=> setToast(null),2800); };
+  const setSharedPoint=(which:'pick'|'drop', ll:LL, knownLabel?:string, manual=true)=>{
+    if(which==='pick' && manual) manualPickupRef.current=true;
+    const setCoordinates=which==='pick'?setPickup:setDropoff;
+    const setText=which==='pick'?setPickupLabel:setDropoffLabel;
+    const req=++pointLabelReq.current[which];
+    setCoordinates(ll);
+    if(knownLabel){ setText(knownLabel); return; }
+    setText('جارٍ تحديد اسم المكان...');
+    placeName(ll).then(name=>{ if(pointLabelReq.current[which]===req) setText(name); });
+  };
   const locatePickup=async()=>{
     let found=false;
     setLocating(true); setLocationError(false);
@@ -43,18 +69,23 @@ export default function TaxiSharedScreen(){
       const { status }=await Location.requestForegroundPermissionsAsync();
       if(status!=='granted') throw new Error('LOCATION_PERMISSION');
       const last=await Location.getLastKnownPositionAsync({maxAge:60_000,requiredAccuracy:1500}).catch(()=>null);
-      if(last){
+      if(last && !manualPickupRef.current){
         const p=[last.coords.latitude,last.coords.longitude];
-        setPickup(p); setMode('drop'); found=true;
+        setSharedPoint('pick',p,'موقعي',false); setMode('drop'); found=true;
       }
       const loc=await Location.getCurrentPositionAsync({accuracy:Location.Accuracy.Balanced});
+      if(manualPickupRef.current) return;
       const p=[loc.coords.latitude,loc.coords.longitude];
-      setPickup(p); setMode('drop'); found=true;
+      setSharedPoint('pick',p,'موقعي',false); setMode('drop'); found=true;
       mapRef.current?.animateToRegion?.({latitude:p[0],longitude:p[1],latitudeDelta:0.02,longitudeDelta:0.02});
     }catch{
       if(!found) setLocationError(true);
     }finally{ setLocating(false); }
   };
+  useEffect(()=>{
+    const points=[pickup,dropoff].filter((p):p is LL=>!!p);
+    if(points.length) mapRef.current?.animateToRegion?.(regionForPoints(points),600);
+  },[pickup?.[0],pickup?.[1],dropoff?.[0],dropoff?.[1]]);
 
   // تحميل الرحلات + حساب مساراتها الحقيقية
   useEffect(()=>{
@@ -132,7 +163,15 @@ export default function TaxiSharedScreen(){
 
   const onMapPress=(e:any)=>{
     const c=e.nativeEvent.coordinate; const ll=[c.latitude,c.longitude];
-    if(mode==='pick'){ setPickup(ll); if(!dropoff) setMode('drop'); } else setDropoff(ll);
+    setSharedPoint(mode,ll);
+    if(mode==='pick' && !dropoff) setMode('drop');
+  };
+  const confirmPoint=(ll:number[],label:string)=>{
+    if(!pointPicker) return;
+    const target=pointPicker;
+    setSharedPoint(target,ll,label);
+    setMode(target==='pick' && !dropoff?'drop':target);
+    setPointPicker(null);
   };
 
   const join=async(t:Trip, fit:any)=>{
@@ -191,16 +230,22 @@ export default function TaxiSharedScreen(){
 
   const sel=trips.find(t=> t.id===selected);
   return (
-    <View style={s.page}>
-      <View style={s.header}>
+    <View style={[s.page,{paddingTop:insets.top,paddingBottom:insets.bottom}]}>
+      <View style={[s.header,{paddingLeft:insets.left+78,paddingRight:insets.right+12}]}>
         <Text style={s.h1}>👥 تكسي راكب — رحلات مشتركة</Text>
         <Text style={s.sub}>حدد موقع ركوبك ونزولك واختر رحلة مناسبة</Text>
       </View>
-      <View style={s.modeBar}>
-        <Pressable onPress={()=> setMode('pick')} style={[s.modeBtn, pickup && s.modeDone, mode==='pick' && s.modeActive]}><Text style={[s.modeT, mode==='pick' && {color:'#fff'}]}>📍 موقع ركوبي</Text></Pressable>
-        <Pressable onPress={()=> setMode('drop')} style={[s.modeBtn, dropoff && s.modeDone, mode==='drop' && s.modeActive]}><Text style={[s.modeT, mode==='drop' && {color:'#fff'}]}>🏁 موقع نزولي</Text></Pressable>
+      <View style={s.pointBar}>
+        <Pressable onPress={()=>{setMode('pick');setPointPicker('pick');}} style={[s.pointCard,mode==='pick'&&s.pointCardActive]} accessibilityRole="button" accessibilityLabel="اختيار الانطلاق بالكتابة أو الصوت أو الخريطة">
+          <Text style={s.pointTitle}>📍 الانطلاق</Text>
+          <Text style={s.pointLabel} numberOfLines={1}>{pickupLabel||'اكتب أو قل اسم المكان'}</Text>
+        </Pressable>
+        <Pressable onPress={()=>{setMode('drop');setPointPicker('drop');}} style={[s.pointCard,mode==='drop'&&s.pointCardActive]} accessibilityRole="button" accessibilityLabel="اختيار الوصول بالكتابة أو الصوت أو الخريطة">
+          <Text style={s.pointTitle}>🏁 الوصول</Text>
+          <Text style={s.pointLabel} numberOfLines={1}>{dropoffLabel||'اكتب أو قل اسم المكان'}</Text>
+        </Pressable>
       </View>
-      <View style={s.mapBox}>
+      <View style={[s.mapBox,{height:Math.max(300,Math.min(410,windowHeight*0.43))}]}>
         {pickup ? (
           <>
             <MapView ref={mapRef} style={{flex:1}} basemap="hybrid" initialRegion={{latitude:pickup[0], longitude:pickup[1], latitudeDelta:0.02, longitudeDelta:0.02}} onPress={onMapPress}>
@@ -220,7 +265,7 @@ export default function TaxiSharedScreen(){
           </View>
         )}
       </View>
-      <ScrollView contentContainerStyle={{padding:10, gap:10, paddingBottom:40}}>
+      <ScrollView style={{flex:1}} contentContainerStyle={{padding:10, gap:10, paddingBottom:100+insets.bottom}} keyboardShouldPersistTaps="handled">
         <MySharedJoins/>
         {evaluated.length===0 && <Text style={s.empty}>لا توجد رحلات متاحة حالياً</Text>}
         {evaluated.map(({t,fit})=>{
@@ -253,7 +298,7 @@ export default function TaxiSharedScreen(){
 
       {/* تأكيد إرسال طلب (بعيد عن المسار) */}
       <Modal visible={!!confirm} transparent animationType="fade" onRequestClose={()=> setConfirm(null)}>
-        <View style={s.overlay}><View style={s.modal}>
+        <View style={s.overlay}><ScrollView style={s.modal} contentContainerStyle={{padding:18}} keyboardShouldPersistTaps="handled">
           <Text style={s.mH}>📨 موقعك بعيد عن مسار الرحلة</Text>
           <Text style={s.mSub}>{confirm?.trip.from} ← {confirm?.trip.to} • {confirm?.trip.time}</Text>
           <View style={s.stats}>
@@ -266,12 +311,12 @@ export default function TaxiSharedScreen(){
             <Pressable onPress={()=> setConfirm(null)} style={[s.mBtn, s.btnNo]}><Text style={s.btnNoT}>إلغاء</Text></Pressable>
             <Pressable onPress={async()=>{ const c=confirm!; setConfirm(null); await submit(c.trip,{km:c.km,min:c.min,path:c.path,wrongDir:c.wrongDir}); }} style={[s.mBtn,{backgroundColor:'#4F46E5'}]}><Text style={s.btnYesT}>إرسال الطلب للسائق</Text></Pressable>
           </View>
-        </View></View>
+        </ScrollView></View>
       </Modal>
 
       {/* رد السائق بمبلغ إضافي */}
       <Modal visible={!!counter} transparent animationType="fade" onRequestClose={()=> setCounter(null)}>
-        <View style={s.overlay}><View style={s.modal}>
+        <View style={s.overlay}><ScrollView style={s.modal} contentContainerStyle={{padding:18}} keyboardShouldPersistTaps="handled">
           <Text style={s.mH}>💬 السائق وافق بمبلغ إضافي</Text>
           <Text style={s.mSub}>{counter?.trip.from} ← {counter?.trip.to} • {counter?.trip.time}</Text>
           <Text style={s.big}>+${counter?.req.extra_fee.toFixed(2)}</Text>
@@ -299,10 +344,11 @@ export default function TaxiSharedScreen(){
             <Pressable onPress={()=> answerCounter(false)} style={[s.mBtn, s.btnNo]}><Text style={s.btnNoT}>رفض</Text></Pressable>
             <Pressable onPress={()=> answerCounter(true)} style={[s.mBtn,{backgroundColor:'#22c55e'}]}><Text style={s.btnYesT}>موافق</Text></Pressable>
           </View>
-        </View></View>
+        </ScrollView></View>
       </Modal>
 
-      {toast && <View style={[s.toast, toast.err && {backgroundColor:'#991b1b'}]}><Text style={s.toastT}>{toast.m}</Text></View>}
+      <PointPicker visible={pointPicker!==null} title={pointPicker==='pick'?'حدد نقطة الانطلاق':'حدد نقطة الوصول'} color={pointPicker==='pick'?'#16a34a':'#dc2626'} initial={pointPicker==='pick'?pickup:dropoff} onClose={()=> setPointPicker(null)} onConfirm={confirmPoint}/>
+      {toast && <View style={[s.toast,{bottom:Math.max(insets.bottom,8)+16}, toast.err && {backgroundColor:'#991b1b'}]}><Text style={s.toastT}>{toast.m}</Text></View>}
     </View>
   );
 }
@@ -311,12 +357,12 @@ const s=StyleSheet.create({
   header:{backgroundColor:'#fff', borderBottomWidth:1, borderColor:'#e2e8f0', padding:12},
   h1:{fontSize:16, fontWeight:'900', textAlign:'right'},
   sub:{fontSize:11, color:'#64748b', textAlign:'right', marginTop:2},
-  modeBar:{flexDirection:'row-reverse', gap:8, margin:10, marginBottom:8},
-  modeBtn:{flex:1, height:40, borderRadius:12, borderWidth:1.5, borderColor:'#e2e8f0', backgroundColor:'#fff', alignItems:'center', justifyContent:'center'},
-  modeDone:{borderColor:'#22c55e', backgroundColor:'#f0fdf4'},
-  modeActive:{backgroundColor:'#4F46E5', borderColor:'#4F46E5'},
-  modeT:{fontSize:12, fontWeight:'800', color:'#0f172a'},
-  mapBox:{height:250, marginHorizontal:10, borderRadius:14, overflow:'hidden', borderWidth:1, borderColor:'#e2e8f0'},
+  pointBar:{flexDirection:'row-reverse', gap:8, marginHorizontal:10, marginTop:10, marginBottom:8},
+  pointCard:{flex:1, minHeight:60, borderRadius:12, borderWidth:1.5, borderColor:'#e2e8f0', backgroundColor:'#fff', justifyContent:'center', paddingHorizontal:10, gap:4},
+  pointCardActive:{borderColor:'#4F46E5', backgroundColor:'#eef2ff'},
+  pointTitle:{fontSize:12, fontWeight:'900', color:'#0f172a', textAlign:'right'},
+  pointLabel:{fontSize:10, fontWeight:'700', color:'#64748b', textAlign:'right'},
+  mapBox:{marginHorizontal:10, borderRadius:14, overflow:'hidden', borderWidth:1, borderColor:'#e2e8f0'},
   locationGate:{flex:1, alignItems:'center', justifyContent:'center', padding:20, gap:12, backgroundColor:'#f8fafc'},
   locationGateT:{fontSize:13, lineHeight:20, fontWeight:'800', color:'#334155', textAlign:'center'},
   locationRetry:{height:42, paddingHorizontal:16, borderRadius:12, backgroundColor:'#4F46E5', alignItems:'center', justifyContent:'center'},
@@ -347,7 +393,7 @@ const s=StyleSheet.create({
   cMap:{height:170, borderRadius:12, overflow:'hidden', borderWidth:1, borderColor:'#e2e8f0', marginTop:10},
   legend:{fontSize:10, color:'#64748b', textAlign:'center', marginTop:4},
   overlay:{flex:1, backgroundColor:'rgba(15,23,42,.55)', alignItems:'center', justifyContent:'center', padding:16},
-  modal:{backgroundColor:'#fff', borderRadius:24, padding:18, width:'100%', maxWidth:420},
+  modal:{backgroundColor:'#fff', borderRadius:24, width:'100%', maxWidth:420, maxHeight:'90%', overflow:'hidden'},
   mH:{fontSize:16, fontWeight:'900', textAlign:'center'},
   mSub:{fontSize:12, color:'#64748b', textAlign:'center', marginTop:4},
   stats:{flexDirection:'row-reverse', gap:8, marginTop:12},
