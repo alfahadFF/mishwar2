@@ -16,9 +16,8 @@ const LATEST_STREET_STYLE_URL = 'https://tiles.openfreemap.org/styles/liberty';
 const ARCGIS_API_KEY = (process.env.EXPO_PUBLIC_ARCGIS_API_KEY || '').trim();
 const ARCGIS_TOKEN = ARCGIS_API_KEY ? encodeURIComponent(ARCGIS_API_KEY) : '';
 
-// Use explicit raster tile URLs rather than the ArcGIS style URL: ArcGIS style documents
-// can contain relative nested tile URLs that have caused problems in MapLibre Native.
-// Hybrid mode layers World Imagery beneath ArcGIS' transparent imagery-label tiles.
+// Compose satellite imagery with ArcGIS' transparent reference overlays. The overlays
+// provide place names and road labels above the photos without hiding the imagery.
 const ARCGIS_HYBRID_STYLE: any = ARCGIS_API_KEY ? {
   version: 8,
   sources: {
@@ -32,15 +31,25 @@ const ARCGIS_HYBRID_STYLE: any = ARCGIS_API_KEY ? {
       maxzoom: 19,
       attribution: 'World Imagery © Esri, Maxar, Earthstar Geographics, and the GIS User Community',
     },
-    'arcgis-imagery-labels': {
+    'arcgis-world-boundaries-places': {
       type: 'raster',
       tiles: [
-        `https://static-map-tiles-api.arcgis.com/arcgis/rest/services/static-basemap-tiles-service/v1/arcgis/imagery/labels/static/tile/{z}/{y}/{x}?token=${ARCGIS_TOKEN}`,
+        'https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',
       ],
-      tileSize: 512,
+      tileSize: 256,
       minzoom: 0,
-      maxzoom: 22,
-      attribution: 'Imagery labels © Esri, TomTom, Garmin, FAO, NOAA, USGS, OpenStreetMap contributors, and the GIS User Community',
+      maxzoom: 19,
+      attribution: 'Place labels © Esri, HERE, Garmin, OpenStreetMap contributors, and the GIS User Community',
+    },
+    'arcgis-world-transportation': {
+      type: 'raster',
+      tiles: [
+        'https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}',
+      ],
+      tileSize: 256,
+      minzoom: 0,
+      maxzoom: 19,
+      attribution: 'Transportation labels © Esri, HERE, Garmin, OpenStreetMap contributors',
     },
   },
   layers: [
@@ -52,11 +61,19 @@ const ARCGIS_HYBRID_STYLE: any = ARCGIS_API_KEY ? {
       maxzoom: 19,
     },
     {
-      id: 'arcgis-imagery-labels',
+      id: 'arcgis-world-transportation',
       type: 'raster',
-      source: 'arcgis-imagery-labels',
+      source: 'arcgis-world-transportation',
       minzoom: 0,
-      maxzoom: 22,
+      maxzoom: 19,
+      paint: { 'raster-opacity': 1, 'raster-fade-duration': 0 },
+    },
+    {
+      id: 'arcgis-world-boundaries-places',
+      type: 'raster',
+      source: 'arcgis-world-boundaries-places',
+      minzoom: 0,
+      maxzoom: 19,
       paint: { 'raster-opacity': 1, 'raster-fade-duration': 0 },
     },
   ],

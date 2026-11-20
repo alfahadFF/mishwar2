@@ -302,7 +302,7 @@ function DriverMap({ wp }:{ wp:any }){
       {!!taxiPingIssue&&<View style={{marginHorizontal:12,marginTop:6,padding:8,borderRadius:10,backgroundColor:'#fef2f2',borderWidth:1,borderColor:'#fecaca'}}><Text style={{fontSize:11,fontWeight:'800',color:'#991b1b',textAlign:'center'}}>{taxiPingIssue}</Text></View>}
       <WorkNav profile={wp} here="map" />
       <View style={{flex:1, margin:10, borderRadius:14, overflow:'hidden', borderWidth:1, borderColor:'#e2e8f0'}}>
-        <MapView ref={mapRef} style={{flex:1}} basemap="streets" initialRegion={{latitude:33.5138,longitude:36.2765,latitudeDelta:0.12,longitudeDelta:0.12}}>
+        <MapView ref={mapRef} style={{flex:1}} basemap="hybrid" initialRegion={{latitude:33.5138,longitude:36.2765,latitudeDelta:0.12,longitudeDelta:0.12}}>
           <UrlTile urlTemplate="https://a.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png" maximumZ={19} flipY={false}/>
           {myLL&&<Circle center={toLL(myLL)} radius={RADIUS_KM*1000} strokeColor="#4F46E5" strokeOpacity={0.5}/>}
           {myLL&&<Marker coordinate={toLL(myLL)} pinColor="#4F46E5"/>}
@@ -397,7 +397,7 @@ function DriverMap({ wp }:{ wp:any }){
               <>
                 <Text style={{fontSize:13,fontWeight:'900',textAlign:'center',marginTop:10}}>{modal.from} → {modal.to}</Text>
                 <View style={{height:130, borderRadius:12, overflow:'hidden', marginTop:10, borderWidth:1, borderColor:'#e2e8f0'}}>
-                  <MapView style={{flex:1}} basemap="streets" initialRegion={regionForPoints(modal.approachPath?[...modal.approachPath,...(modal.approachAlternatives||[]).flatMap((a:any)=>a.path),modal.driverLL,modal.fromLL]:[modal.driverLL,modal.fromLL])||{latitude:modal.fromLL[0],longitude:modal.fromLL[1],latitudeDelta:0.04,longitudeDelta:0.04}} scrollEnabled={false} zoomEnabled={false}>
+                  <MapView style={{flex:1}} basemap="hybrid" initialRegion={regionForPoints(modal.approachPath?[...modal.approachPath,...(modal.approachAlternatives||[]).flatMap((a:any)=>a.path),modal.driverLL,modal.fromLL]:[modal.driverLL,modal.fromLL])||{latitude:modal.fromLL[0],longitude:modal.fromLL[1],latitudeDelta:0.04,longitudeDelta:0.04}} scrollEnabled={false} zoomEnabled={false}>
                     <UrlTile urlTemplate="https://a.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png" maximumZ={19} flipY={false}/>
                     {!!modal.driverLL&&<Marker coordinate={toLL(modal.driverLL)} pinColor="#4F46E5"/>}
                     <Marker coordinate={toLL(modal.fromLL)} pinColor="green"/>
@@ -440,7 +440,7 @@ function DriverMap({ wp }:{ wp:any }){
                 <Text style={{fontSize:12,color:'#64748b',textAlign:'center',marginTop:4}}>رحلتك: {joinReq.trip.pickup_text} ← {joinReq.trip.dropoff_text}</Text>
                 {joinReq.wrong_dir && <View style={{marginTop:8, backgroundColor:'#fef2f2', borderWidth:1, borderColor:'#fecaca', borderRadius:10, padding:6}}><Text style={{color:'#991b1b', fontSize:11, fontWeight:'800', textAlign:'center'}}>↩️ نزول الراكب قبل موقع ركوبه على اتجاه رحلتك</Text></View>}
                 <View style={{height:180, borderRadius:12, overflow:'hidden', marginTop:10, borderWidth:1, borderColor:'#e2e8f0'}}>
-                  <MapView style={{flex:1}} basemap="streets" initialRegion={{latitude:joinReq.pickup_lat, longitude:joinReq.pickup_lng, latitudeDelta:0.08, longitudeDelta:0.08}} scrollEnabled={false} zoomEnabled={false}>
+                  <MapView style={{flex:1}} basemap="hybrid" initialRegion={{latitude:joinReq.pickup_lat, longitude:joinReq.pickup_lng, latitudeDelta:0.08, longitudeDelta:0.08}} scrollEnabled={false} zoomEnabled={false}>
                     <UrlTile urlTemplate="https://a.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png" maximumZ={19} flipY={false}/>
                     {joinReq.trip.route_polyline && <Polyline coordinates={joinReq.trip.route_polyline.map(toLL)} strokeColor="#94a3b8" strokeWidth={5} lineDashPattern={[8,6]}/>}
                     {joinReq.detour_polyline && <Polyline coordinates={joinReq.detour_polyline.map(toLL)} strokeColor="#f59e0b" strokeWidth={4}/>}
