@@ -5,6 +5,10 @@ returns jsonb language sql stable security definer set search_path = public as $
   select jsonb_build_object(
       'id', o.id, 'status', o.status,
       'fare', coalesce(o.final_fare, o.estimated_fare),
+      'fare_local', o.fare_local, 'local_currency', o.local_currency,
+      'pricing_exchange_rate', o.pricing_exchange_rate,
+      'commission_rate', o.commission_rate, 'commission_local', o.commission_local,
+      'driver_net_local', o.driver_net_local,
       'distance_km', o.distance_km, 'category', o.vehicle_category,
       'pickup', jsonb_build_array(o.pickup_lat, o.pickup_lng),
       'dropoff', jsonb_build_array(o.dropoff_lat, o.dropoff_lng),
