@@ -2,6 +2,8 @@ import { supabase } from './supabase';
 import { DRIVER_KINDS, CAR_CATS, FUELS } from './work';
 import { vName } from './vehicles';
 
+export const ADMIN_TEST_USER_ID = '3aee4648-fb01-474a-91fe-cac055b91a13';
+
 export const TYPE_NAME: Record<string, string> = {
   personal: 'شخصي', driver: 'سائق', transporter: 'ناقل', business: 'مكتب تأجير', special_driver: 'سائق', admin: 'إدارة',
 };

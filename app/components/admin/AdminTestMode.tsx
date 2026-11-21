@@ -3,7 +3,7 @@ import { Alert, ScrollView, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { supabase } from '../../utils/supabase';
 import { errMsg } from '../../utils/errors';
-import { TYPE_NAME } from '../../utils/admin';
+import { ADMIN_TEST_USER_ID, TYPE_NAME } from '../../utils/admin';
 import { isTaxiDriver } from '../../utils/work';
 import { Btn, C, ui } from '../DriverUI';
 
@@ -16,6 +16,7 @@ const TYPES = [
 
 export default function AdminTestMode() {
   const router = useRouter();
+  const [testAllowed, setTestAllowed] = useState<boolean | null>(null);
   const [accountType, setAccountType] = useState<string | null>(null);
   const [workProfile, setWorkProfile] = useState<any>(null);
   const [travel, setTravel] = useState(false);
@@ -26,7 +27,14 @@ export default function AdminTestMode() {
 
   const load = useCallback(async () => {
     setLoading(true);
+    setMessage('');
     try {
+      const { data: userData, error: userError } = await supabase.auth.getUser();
+      if (userError) throw userError;
+      const allowed = userData.user?.id === ADMIN_TEST_USER_ID;
+      setTestAllowed(allowed);
+      if (!allowed) return;
+
       const [accountResult, workResult] = await Promise.all([
         supabase.rpc('my_account'),
         supabase.rpc('my_work_profile'),
@@ -37,7 +45,8 @@ export default function AdminTestMode() {
       setWorkProfile(profile);
       setTravel(!!(profile as any)?.travel);
     } catch (error) {
-      setMessage(errMsg(error, 'تعذر تحميل نوع الحساب'));
+      setTestAllowed(false);
+      setMessage(errMsg(error, 'تعذر التحقق من صلاحية أدوات الاختبار'));
     } finally {
       setLoading(false);
     }
@@ -93,6 +102,16 @@ export default function AdminTestMode() {
       setBusyTravel(false);
     }
   };
+
+  if (testAllowed !== true) return (
+    <View style={{ padding: 12 }}>
+      <View style={ui.card}>
+        <Text style={{ color: testAllowed === null ? C.mute : C.err, textAlign: 'right', fontWeight: '800' }}>
+          {testAllowed === null ? 'جارٍ التحقق من صلاحية أدوات الاختبار…' : message || 'هذه الأدوات مخصصة لحساب الاختبار المحدد فقط.'}
+        </Text>
+      </View>
+    </View>
+  );
 
   return (
     <ScrollView contentContainerStyle={{ padding: 12, paddingBottom: 60 }}>

@@ -5,6 +5,7 @@ import * as Clipboard from 'expo-clipboard';
 import { supabase } from '../utils/supabase';
 import { phoneToAuthEmail, passwordOk, passwordHasNonLatin } from '../utils/phone';
 import { errMsg } from '../utils/errors';
+import { ADMIN_TEST_USER_ID } from '../utils/admin';
 import { SUPPORT_PHONE, callSupport, whatsAppSupport, openFacebookSupport, openAppDownloadUpdates } from '../utils/support';
 import { useToast } from '../components/Toast';
 import { Header, Btn, Sheet, ui, C } from '../components/DriverUI';
@@ -38,19 +39,21 @@ export default function AccountScreen() {
   const [busy, setBusy] = useState(false);
   const [accountLoading, setAccountLoading] = useState(true);
   const [accountError, setAccountError] = useState('');
-  const [admin, setAdmin] = useState<{ on: boolean; unread: number }>({ on: false, unread: 0 });
+  const [admin, setAdmin] = useState<{ on: boolean; unread: number; testAllowed: boolean }>({ on: false, unread: 0, testAllowed: false });
 
   const load = useCallback(async () => {
     setAccountLoading(true);
     setAccountError('');
     try {
-      const [accountResult, adminResult] = await Promise.all([
+      const [accountResult, adminResult, userResult] = await Promise.all([
         supabase.rpc('my_account'),
         supabase.rpc('admin_home'),
+        supabase.auth.getUser(),
       ]);
       setAdmin({
         on: !adminResult.error,
         unread: Number((adminResult.data as any)?.unread || 0),
+        testAllowed: !userResult.error && userResult.data.user?.id === ADMIN_TEST_USER_ID,
       });
       if (accountResult.error) throw accountResult.error;
       if (!accountResult.data) { router.replace('/' as any); return; }
@@ -222,14 +225,14 @@ export default function AccountScreen() {
                 {admin.unread > 0 && <View style={{ backgroundColor: '#dc2626', borderRadius: 12, minWidth: 24, paddingHorizontal: 6, paddingVertical: 2, alignItems: 'center' }}><Text style={{ color: '#fff', fontWeight: '900', fontSize: 12 }}>{admin.unread}</Text></View>}
                 <Text style={{ color: C.mute }}>←</Text>
               </Pressable>
-              <Pressable style={[ui.card, s.rentCard, { borderColor: '#c7d2fe', backgroundColor: '#eef2ff' }]} onPress={() => router.push('/admin?tab=test' as any)}>
+              {admin.testAllowed && <Pressable style={[ui.card, s.rentCard, { borderColor: '#c7d2fe', backgroundColor: '#eef2ff' }]} onPress={() => router.push('/admin?tab=test' as any)}>
                 <Text style={{ fontSize: 26 }}>🧪</Text>
                 <View style={{ flex: 1 }}>
                   <Text style={s.rentT}>أدوات اختبار الحساب</Text>
                   <Text style={s.hint}>تبديل نوع حساب الأدمن الحالي للاختبار</Text>
                 </View>
                 <Text style={{ color: C.mute }}>←</Text>
-              </Pressable>
+              </Pressable>}
             </>
           )}
 
