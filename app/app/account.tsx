@@ -97,11 +97,17 @@ export default function AccountScreen() {
 
   const logout = async () => {
     setBusy(true);
-    await unregisterPush();
-    await supabase.auth.signOut({ scope: 'local' });
-    setBusy(false);
-    close();
-    router.replace('/' as any);
+    try {
+      await unregisterPush();
+      const { error } = await supabase.auth.signOut({ scope: 'local' });
+      if (error) throw error;
+      close();
+      router.replace('/' as any);
+    } catch (error) {
+      toast.show(errMsg(error, 'تعذر تسجيل الخروج، حاول مرة أخرى'), 'err');
+    } finally {
+      setBusy(false);
+    }
   };
 
   const deleteAcc = async () => {

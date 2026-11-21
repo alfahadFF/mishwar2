@@ -9,6 +9,7 @@ import { Header, Tabs, Pill, Empty, Row, Btn, CallBtn, ui, C } from '../componen
 import DatePicker, { ymd } from '../components/DatePicker';
 import TimePicker from '../components/TimePicker';
 import PlaceTextInput from '../components/PlaceTextInput';
+import WorkNav from '../components/WorkNav';
 
 type ListingForm = { destination: string; date: string; time: string; seats: number; fare: string; bags: string; notes: string; security: boolean };
 const tomorrow = () => { const d = new Date(); d.setDate(d.getDate() + 1); return ymd(d); };
@@ -127,15 +128,16 @@ export default function TravelProviderScreen() {
   };
   const openOffer = (r: any) => { setOfferRequest(r); setOfferFare(''); setOfferNotes(''); };
   const isProvider = !!profile?.travel && ['driver', 'business'].includes(profile?.type);
+  const goBack = () => (router.canGoBack() ? router.back() : router.replace('/' as any));
   const goRegister = () => router.push((profile?.type === 'business' ? '/office-register' : '/work-register?role=travel') as any);
 
-  if (!profileLoaded) return <View style={ui.page}><Header title="خدمة السفريات" onBack={() => router.back()} /><View style={{ padding: 16 }}><Empty icon="🧭" title="جارٍ تحميل بيانات الخدمة" /></View></View>;
+  if (!profileLoaded) return <View style={ui.page}><Header title="خدمة السفريات" onBack={goBack} /><View style={{ padding: 16 }}><Empty icon="🧭" title="جارٍ تحميل بيانات الخدمة" /></View></View>;
   if (!profile) return <View style={ui.page}>
-    <Header title="خدمة السفريات" onBack={() => router.back()} />
+    <Header title="خدمة السفريات" onBack={goBack} />
     <View style={{ padding: 16, gap: 12 }}><Empty icon="🔐" title="سجّل الدخول للمتابعة" /><Btn label="تسجيل الدخول" onPress={() => router.push('/login' as any)} /><Btn tone="ghost" label="تصفح الرحلات" onPress={() => router.replace('/travel' as any)} /></View>
   </View>;
   if (!isProvider) return <View style={ui.page}>
-    <Header title="خدمة السفريات" onBack={() => router.back()} />
+    <Header title="خدمة السفريات" onBack={goBack} />
     <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 108 }}>
       <View style={ui.card}>
         <Text style={s.registerTitle}>انضم إلى مقدمي خدمة السفريات</Text>
@@ -148,8 +150,12 @@ export default function TravelProviderScreen() {
 
   return (
     <View style={ui.page}>
-      <Header title="سفرياتي" onBack={() => router.back()} right={<Btn small label="＋ نشر رحلة" onPress={() => { setListing(emptyListing()); setNewOpen(true); }} />} />
-      <View style={s.passengerLink}><Btn small tone="ghost" label="عرض الرحلات وطلبات السفر" onPress={() => router.push('/travel' as any)} /></View>
+      <Header title="سفرياتي" onBack={goBack} right={<Btn small label="＋ نشر رحلة" onPress={() => { setListing(emptyListing()); setNewOpen(true); }} />} />
+      <View style={s.passengerLink}>
+        <Btn small tone="ghost" label="عرض الرحلات وطلبات السفر" onPress={() => router.push('/travel' as any)} />
+        <Btn small tone="ghost" label="⌂ الرئيسية" onPress={() => router.replace('/' as any)} />
+      </View>
+      <WorkNav profile={profile} here="travel" />
       <Tabs tabs={[
         { k: 'listings', label: 'رحلاتي', n: data.listings.length },
         { k: 'requests', label: 'طلبات الركاب', n: data.requests.length },
@@ -226,16 +232,28 @@ export default function TravelProviderScreen() {
       <TimePicker visible={timeOpen} title="ساعة الانطلاق" value={listing.time} onClose={() => setTimeOpen(false)} onPick={v => setListing(x => ({ ...x, time: v }))} />
 
       <Modal visible={!!offerRequest} animationType="slide" transparent onRequestClose={() => setOfferRequest(null)}>
-        <KeyboardAvoidingView style={{flex:1}} behavior={Platform.OS==='ios'?'padding':undefined}>
-        <View style={[s.shade,{paddingTop:insets.top+16,paddingBottom:insets.bottom+16,paddingLeft:Math.max(16,insets.left+16),paddingRight:Math.max(16,insets.right+16)}]}>
-        <ScrollView style={[s.offerModal,{maxHeight:height-insets.top-insets.bottom-32}]} contentContainerStyle={{padding:16,gap:12}} keyboardShouldPersistTaps="handled">
-          <Text style={s.modalTitle}>إرسال عرض خاص</Text>
-          <Text style={s.formIntro}>الوجهة: {offerRequest?.destination} • {offerRequest?.passengers} ركاب</Text>
-          <Field label="الأجرة لكل راكب"><TextInput value={offerFare} onChangeText={v => setOfferFare(v.replace(/[^0-9.]/g, ''))} keyboardType="decimal-pad" placeholder="حدد سعر هذه الرحلة" placeholderTextColor="#94a3b8" style={s.input} /></Field>
-          <Field label="ملاحظات (اختياري)"><TextInput value={offerNotes} onChangeText={setOfferNotes} multiline placeholder="تفاصيل العرض" placeholderTextColor="#94a3b8" style={[s.input, s.multiline]} /></Field>
-          <Btn label="إرسال العرض" loading={busy} onPress={sendOffer} />
-          <Btn tone="ghost" label="رجوع" onPress={() => setOfferRequest(null)} />
-        </ScrollView></View>
+        <KeyboardAvoidingView style={[s.offerRoot, {
+          paddingTop: insets.top + 12,
+          paddingBottom: insets.bottom + 12,
+          paddingHorizontal: Math.max(16, insets.left + 16),
+        }]} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+          <Pressable style={[StyleSheet.absoluteFill, s.offerBackdrop]} onPress={() => setOfferRequest(null)} accessibilityRole="button" accessibilityLabel="إغلاق العرض" />
+          <View style={[s.offerPanel, {
+            height: Math.min(480, Math.max(220, height - insets.top - insets.bottom - 32)),
+          }]}>
+            <View style={s.offerHeader}>
+              <Text style={s.modalTitle}>إرسال عرض خاص</Text>
+              <Text style={s.formIntro} numberOfLines={2}>الوجهة: {offerRequest?.destination} • {offerRequest?.passengers} ركاب</Text>
+            </View>
+            <ScrollView style={s.offerFields} contentContainerStyle={s.offerFieldsContent} keyboardShouldPersistTaps="handled" nestedScrollEnabled>
+              <Field label="الأجرة لكل راكب"><TextInput value={offerFare} onChangeText={v => setOfferFare(v.replace(/[^0-9.]/g, ''))} keyboardType="decimal-pad" placeholder="حدد سعر هذه الرحلة" placeholderTextColor="#94a3b8" style={s.input} /></Field>
+              <Field label="ملاحظات (اختياري)"><TextInput value={offerNotes} onChangeText={setOfferNotes} multiline placeholder="تفاصيل العرض" placeholderTextColor="#94a3b8" style={[s.input, s.multiline]} /></Field>
+            </ScrollView>
+            <View style={s.offerActions}>
+              <Btn label="إرسال العرض" loading={busy} onPress={sendOffer} />
+              <Btn tone="ghost" label="رجوع" disabled={busy} onPress={() => setOfferRequest(null)} />
+            </View>
+          </View>
         </KeyboardAvoidingView>
       </Modal>
     </View>
@@ -243,7 +261,7 @@ export default function TravelProviderScreen() {
 }
 
 const s = StyleSheet.create({
-  passengerLink: { paddingHorizontal: 12, paddingTop: 4, alignItems: 'flex-start' },
+  passengerLink: { paddingHorizontal: 12, paddingTop: 4, flexDirection: 'row-reverse', justifyContent: 'space-between', alignItems: 'center', gap: 6 },
   notice: { backgroundColor: '#F0FDFA', borderColor: '#99F6E4', borderWidth: 1, padding: 11, borderRadius: 13, marginBottom: 10 },
   noticeText: { color: '#115E59', fontSize: 12, fontWeight: '700', textAlign: 'right', lineHeight: 18 },
   formIntro: { color: C.mute, textAlign: 'right', lineHeight: 20, fontSize: 12, fontWeight: '700' },
@@ -272,7 +290,12 @@ const s = StyleSheet.create({
   toggleOn: { backgroundColor: '#0F766E' },
   toggleText: { color: C.txt, fontWeight: '800', fontSize: 12 },
   toggleTextOn: { color: '#fff' },
-  shade: { flex: 1, justifyContent: 'center', backgroundColor: 'rgba(15,23,42,.45)', padding: 16 },
-  offerModal: { backgroundColor: '#fff', borderRadius: 20, overflow: 'hidden' },
+  offerRoot: { flex: 1, justifyContent: 'center' },
+  offerBackdrop: { backgroundColor: 'rgba(15,23,42,.45)' },
+  offerPanel: { alignSelf: 'center', width: '100%', maxWidth: 520, flexShrink: 1, backgroundColor: '#fff', borderRadius: 20, overflow: 'hidden' },
+  offerHeader: { padding: 16, paddingBottom: 10, gap: 8 },
+  offerFields: { flex: 1, flexShrink: 1 },
+  offerFieldsContent: { paddingHorizontal: 16, paddingBottom: 12, gap: 12 },
+  offerActions: { flexDirection: 'row-reverse', gap: 8, padding: 14, borderTopWidth: 1, borderColor: C.line },
   modalTitle: { textAlign: 'center', color: C.txt, fontSize: 16, fontWeight: '900' },
 });

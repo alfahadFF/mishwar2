@@ -8,6 +8,7 @@ import AdminVerify from '../components/admin/AdminVerify';
 import AdminCancels from '../components/admin/AdminCancels';
 import AdminUsers from '../components/admin/AdminUsers';
 import AdminSettings from '../components/admin/AdminSettings';
+import AdminTestMode from '../components/admin/AdminTestMode';
 
 // ⚙️ الإدارة: تظهر لحساب الأدمن فقط
 const SECTIONS = [
@@ -17,6 +18,7 @@ const SECTIONS = [
   { k: 'users', icon: '👤', t: 'البحث عن مستخدم', n: 'suspended' },
   { k: 'wallet', icon: '💳', t: 'المحفظة وبطاقات الشحن' },
   { k: 'settings', icon: '🛠️', t: 'الإعدادات' },
+  { k: 'test', icon: '🧪', t: 'تبديل نوع حسابي للاختبار' },
 ] as const;
 
 export default function AdminScreen() {
@@ -59,6 +61,7 @@ export default function AdminScreen() {
         : tab === 'verify' ? <AdminVerify onChange={load} />
         : tab === 'cancels' ? <AdminCancels onChange={load} />
         : tab === 'users' ? <AdminUsers onChange={load} />
+        : tab === 'test' ? <AdminTestMode />
         : <AdminSettings />}
     </View>
   );

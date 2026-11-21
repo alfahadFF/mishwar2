@@ -5,7 +5,7 @@ import { isTaxiDriver, hasRental, hasTravel, requestTabs } from '../utils/work';
 import { C } from './DriverUI';
 
 // أزرار التنقل في شاشات حساب العمل: يظهر منها فقط ما يخص الحساب
-type Here = 'map' | 'work' | 'bookings';
+type Here = 'map' | 'work' | 'bookings' | 'cars' | 'travel';
 export default function WorkNav({ profile, here }: { profile: any; here: Here }) {
   const router = useRouter();
   if (!profile) return null;
@@ -13,8 +13,8 @@ export default function WorkNav({ profile, here }: { profile: any; here: Here })
     isTaxiDriver(profile) && here !== 'map' && { k: 'map', t: '🗺️ الخريطة', go: '/driver' },
     requestTabs(profile).length > 0 && here !== 'work' && { k: 'work', t: '📋 الطلبات', go: '/work' },
     here !== 'bookings' && { k: 'bookings', t: '📅 حجوزاتي', go: '/bookings' },
-    hasRental(profile) && { k: 'cars', t: '🔑 مركباتي', go: '/rental-provider?only=cars' },
-    hasTravel(profile) && { k: 'travel', t: '🧭 سفرياتي', go: '/travel-provider' },
+    hasRental(profile) && here !== 'cars' && { k: 'cars', t: '🔑 مركباتي', go: '/rental-provider?only=cars' },
+    hasTravel(profile) && here !== 'travel' && { k: 'travel', t: '🧭 سفرياتي', go: '/travel-provider' },
     { k: 'order', t: '🧭 اطلب خدمة', go: '/' },
   ].filter(Boolean) as { k: string; t: string; go: string }[];
   return (

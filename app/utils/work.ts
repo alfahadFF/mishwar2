@@ -54,7 +54,7 @@ export function requestTabs(p: any): WorkTab[] {
 export const bookingTabs = (p: any): WorkTab[] => [...(isTaxiDriver(p) ? ['shared' as WorkTab] : []), ...requestTabs(p)];
 
 // أول شاشة لحساب العمل: سائق التكسي على الخريطة، والبقية على «الطلبات»
-export const workHomeOf = (p: any) => (hasTravel(p) ? '/travel-provider' : isTaxiDriver(p) ? '/driver' : '/work');
+export const workHomeOf = (p: any) => (isTaxiDriver(p) ? '/driver' : hasTravel(p) ? '/travel-provider' : '/work');
 
 // شاشة العمل بعد حفظ النموذج لأول مرة
 export function workHome(role: 'driver' | 'carrier', kind?: string | null, _events?: boolean, _contracts?: boolean) {

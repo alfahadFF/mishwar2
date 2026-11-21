@@ -73,11 +73,13 @@ export function Sheet({ visible, onClose, title, children }: { visible: boolean;
   const insets = useSafeAreaInsets();
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <Pressable style={s.shade} onPress={onClose} />
-      <View style={[s.sheet, { paddingBottom: Math.max(26, insets.bottom + 16) }]}>
-        <View style={s.grab} />
-        {!!title && <Text style={s.sheetH}>{title}</Text>}
-        {children}
+      <View style={s.sheetRoot}>
+        <Pressable style={[StyleSheet.absoluteFill, s.shade]} onPress={onClose} accessibilityRole="button" accessibilityLabel="إغلاق النافذة" />
+        <View style={[s.sheet, { paddingBottom: Math.max(26, insets.bottom + 16) }]}>
+          <View style={s.grab} />
+          {!!title && <Text style={s.sheetH}>{title}</Text>}
+          {children}
+        </View>
       </View>
     </Modal>
   );
@@ -127,7 +129,8 @@ const s = StyleSheet.create({
   btn: { flex: 1, height: 48, borderRadius: 14, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
   btnSm: { height: 38, borderRadius: 11, flex: 0 },
   btnT: { fontWeight: '900', fontSize: 14 },
-  shade: { flex: 1, backgroundColor: 'rgba(15,23,42,.45)' },
+  sheetRoot: { flex: 1, justifyContent: 'flex-end' },
+  shade: { backgroundColor: 'rgba(15,23,42,.45)' },
   sheet: { backgroundColor: '#fff', borderTopLeftRadius: 22, borderTopRightRadius: 22, padding: 16, paddingBottom: 26, maxHeight: '92%' },
   grab: { width: 42, height: 5, borderRadius: 3, backgroundColor: C.line, alignSelf: 'center', marginBottom: 10 },
   sheetH: { fontSize: 17, fontWeight: '900', textAlign: 'center', marginBottom: 10 },

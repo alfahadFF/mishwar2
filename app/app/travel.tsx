@@ -56,6 +56,7 @@ function Toggle({ label, value, onChange }: { label: string; value: boolean; onC
 export default function TravelScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const goBack = () => (router.canGoBack() ? router.back() : router.replace('/' as any));
   const { tab: tabParam } = useLocalSearchParams<{ tab?: string }>();
   const toast = useToast();
   const [tab, setTab] = useState('browse');
@@ -161,7 +162,7 @@ export default function TravelScreen() {
   const totalMine = mine.requests.length + mine.bookings.length;
   return (
     <View style={ui.page}>
-      <Header title="السفريات" onBack={() => router.back()} right={<Btn small label="📣 طلب سفر" onPress={() => setRequestOpen(true)} />} />
+      <Header title="السفريات" onBack={goBack} right={<Btn small label="📣 طلب سفر" onPress={() => setRequestOpen(true)} />} />
       {authed && ['personal','driver','business'].includes(profileType) && <View style={s.providerLink}>
         <Btn small tone="ghost" label={providerEnabled ? '🧭 لوحة مقدّم الخدمة' : '🧭 قدّم خدمة السفريات'} onPress={providerEnabled ? () => router.push('/travel-provider' as any) : startProviderRegistration} />
       </View>}
