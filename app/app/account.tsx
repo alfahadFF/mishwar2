@@ -31,23 +31,36 @@ export default function AccountScreen() {
   const [acc, setAcc] = useState<Acc | null>(null);
   const [name, setName] = useState('');
   const [savingName, setSavingName] = useState(false);
-  const [sheet, setSheet] = useState<'pass' | 'delete' | 'logout' | null>(null);
+  const [sheet, setSheet] = useState<'pass' | 'delete' | null>(null);
   const [oldP, setOldP] = useState('');
   const [newP, setNewP] = useState('');
   const [delP, setDelP] = useState('');
   const [busy, setBusy] = useState(false);
+  const [accountLoading, setAccountLoading] = useState(true);
+  const [accountError, setAccountError] = useState('');
   const [admin, setAdmin] = useState<{ on: boolean; unread: number }>({ on: false, unread: 0 });
 
   const load = useCallback(async () => {
-    supabase.rpc('my_admin_flags').then(async ({ data }) => {
-      if (!(data as any)?.is_admin) return setAdmin({ on: false, unread: 0 });
-      const h = await supabase.rpc('admin_home');
-      setAdmin({ on: true, unread: Number((h.data as any)?.unread || 0) });
-    });
-    const { data, error } = await supabase.rpc('my_account');
-    if (error || !data) { if (!error) router.replace('/' as any); return; }
-    setAcc(data as Acc);
-    setName((data as Acc).full_name || '');
+    setAccountLoading(true);
+    setAccountError('');
+    try {
+      const [accountResult, adminResult] = await Promise.all([
+        supabase.rpc('my_account'),
+        supabase.rpc('admin_home'),
+      ]);
+      setAdmin({
+        on: !adminResult.error,
+        unread: Number((adminResult.data as any)?.unread || 0),
+      });
+      if (accountResult.error) throw accountResult.error;
+      if (!accountResult.data) { router.replace('/' as any); return; }
+      setAcc(accountResult.data as Acc);
+      setName((accountResult.data as Acc).full_name || '');
+    } catch (error) {
+      setAccountError(errMsg(error, 'تعذر تحميل بيانات الحساب'));
+    } finally {
+      setAccountLoading(false);
+    }
   }, []);
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
@@ -133,15 +146,19 @@ export default function AccountScreen() {
           {/* البيانات الثابتة */}
           <View style={ui.card}>
             <Text style={s.k}>📱 رقم الهاتف</Text>
-            <Text style={[s.v, s.ltr]}>{acc?.phone || '—'}</Text>
+            <Text style={[s.v, s.ltr]}>{accountLoading ? 'جارٍ التحميل…' : acc?.phone || '—'}</Text>
             <View style={s.sep} />
             <Text style={s.k}>🆔 المعرّف</Text>
             <View style={s.idRow}>
-              <Text style={[s.v, s.ltr, { flex: 1 }]}>{acc?.wallet_id || '—'}</Text>
+              <Text style={[s.v, s.ltr, { flex: 1 }]}>{accountLoading ? 'جارٍ التحميل…' : acc?.wallet_id || '—'}</Text>
               <Pressable onPress={copyId} style={s.copy} hitSlop={6}><Text style={s.copyT}>📋 نسخ</Text></Pressable>
             </View>
             <Text style={s.hint}>يُستخدم للتحويل إليك، وهو أيضاً رمز الدعوة الخاص بك.</Text>
           </View>
+          {!!accountError && <View style={[ui.card, { borderColor: '#fecaca', backgroundColor: '#fef2f2' }]}>
+            <Text style={{ color: C.err, textAlign: 'right', fontWeight: '800' }}>{accountError}</Text>
+            <View style={{ marginTop: 10 }}><Btn small tone="err" label="إعادة تحميل بيانات الحساب" onPress={() => { void load(); }} /></View>
+          </View>}
 
           {/* الاسم */}
           <View style={ui.card}>
@@ -195,15 +212,25 @@ export default function AccountScreen() {
 
           {/* الإدارة: تظهر لحساب الأدمن فقط */}
           {admin.on && (
-            <Pressable style={[ui.card, s.rentCard, { borderColor: '#fde68a', backgroundColor: '#fffbeb' }]} onPress={() => router.push('/admin' as any)}>
-              <Text style={{ fontSize: 26 }}>⚙️</Text>
-              <View style={{ flex: 1 }}>
-                <Text style={s.rentT}>الإدارة</Text>
-                <Text style={s.hint}>التحقق، الإلغاءات، المستخدمون، المحفظة، الإعدادات</Text>
-              </View>
-              {admin.unread > 0 && <View style={{ backgroundColor: '#dc2626', borderRadius: 12, minWidth: 24, paddingHorizontal: 6, paddingVertical: 2, alignItems: 'center' }}><Text style={{ color: '#fff', fontWeight: '900', fontSize: 12 }}>{admin.unread}</Text></View>}
-              <Text style={{ color: C.mute }}>←</Text>
-            </Pressable>
+            <>
+              <Pressable style={[ui.card, s.rentCard, { borderColor: '#fde68a', backgroundColor: '#fffbeb' }]} onPress={() => router.push('/admin' as any)}>
+                <Text style={{ fontSize: 26 }}>⚙️</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={s.rentT}>الإدارة</Text>
+                  <Text style={s.hint}>التحقق، الإلغاءات، المستخدمون، المحفظة، الإعدادات</Text>
+                </View>
+                {admin.unread > 0 && <View style={{ backgroundColor: '#dc2626', borderRadius: 12, minWidth: 24, paddingHorizontal: 6, paddingVertical: 2, alignItems: 'center' }}><Text style={{ color: '#fff', fontWeight: '900', fontSize: 12 }}>{admin.unread}</Text></View>}
+                <Text style={{ color: C.mute }}>←</Text>
+              </Pressable>
+              <Pressable style={[ui.card, s.rentCard, { borderColor: '#c7d2fe', backgroundColor: '#eef2ff' }]} onPress={() => router.push('/admin?tab=test' as any)}>
+                <Text style={{ fontSize: 26 }}>🧪</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={s.rentT}>أدوات اختبار الحساب</Text>
+                  <Text style={s.hint}>تبديل نوع حساب الأدمن الحالي للاختبار</Text>
+                </View>
+                <Text style={{ color: C.mute }}>←</Text>
+              </Pressable>
+            </>
           )}
 
           {/* التأجير */}
@@ -234,7 +261,10 @@ export default function AccountScreen() {
           <View style={ui.card}>
             <Pressable style={s.row} onPress={() => setSheet('pass')}><Text style={s.rowT}>🔒 تغيير كلمة المرور</Text><Text style={{ color: C.mute }}>←</Text></Pressable>
             <View style={s.sep} />
-            <Pressable style={s.row} onPress={() => setSheet('logout')}><Text style={s.rowT}>🚪 تسجيل الخروج</Text><Text style={{ color: C.mute }}>←</Text></Pressable>
+            <Pressable style={s.row} onPress={() => { void logout(); }} disabled={busy} accessibilityRole="button" accessibilityLabel="تسجيل الخروج">
+              <Text style={s.rowT}>{busy ? 'جارٍ تسجيل الخروج…' : '🚪 تسجيل الخروج'}</Text>
+              <Text style={{ color: C.mute }}>{busy ? '…' : '←'}</Text>
+            </Pressable>
             <View style={s.sep} />
             <Pressable style={s.row} onPress={() => setSheet('delete')}><Text style={[s.rowT, { color: C.err }]}>🗑 حذف الحساب</Text><Text style={{ color: C.mute }}>←</Text></Pressable>
           </View>
@@ -247,14 +277,6 @@ export default function AccountScreen() {
         <PassInput value={newP} onChange={setNewP} placeholder="كلمة المرور الجديدة" />
         <Text style={s.hint}>8 أحرف على الأقل، بالأحرف الإنجليزية فقط.</Text>
         <View style={{ marginTop: 14 }}><Btn label="حفظ" onPress={changePass} loading={busy} /></View>
-      </Sheet>
-
-      <Sheet visible={sheet === 'logout'} onClose={close} title="تسجيل الخروج">
-        <Text style={s.body}>هل تريد تسجيل الخروج من هذا الجهاز؟</Text>
-        <View style={s.btns}>
-          <View style={{ flex: 1 }}><Btn label="إلغاء" tone="ghost" onPress={close} /></View>
-          <View style={{ flex: 1 }}><Btn label="تسجيل الخروج" tone="err" onPress={logout} loading={busy} /></View>
-        </View>
       </Sheet>
 
       <Sheet visible={sheet === 'delete'} onClose={close} title="حذف الحساب">

@@ -1,5 +1,6 @@
 import React, { forwardRef, useEffect, useId, useImperativeHandle, useRef } from 'react';
 import { View, Text } from 'react-native';
+import { OPENFREEMAP_LABEL_LAYERS } from './openfreemapLabelLayers';
 import {
   Camera,
   GeoJSONSource,
@@ -19,10 +20,12 @@ const ARCGIS_IMAGERY_TILES = ARCGIS_TOKEN
   ? `https://ibasemaps-api.arcgis.com/arcgis/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}?token=${ARCGIS_TOKEN}`
   : 'https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
 
-// Always show satellite imagery and transparent place/road-name overlays, even when
-// no ArcGIS API key is present. ArcGIS requires attribution for all three services.
+// Hybrid map: Esri satellite imagery underneath MapLibre vector labels from
+// OpenFreeMap. Vector labels render consistently on native and can prefer Arabic.
 const ARCGIS_HYBRID_STYLE: any = {
   version: 8,
+  glyphs: 'https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf',
+  sprite: 'https://tiles.openfreemap.org/sprites/ofm_f384/ofm',
   sources: {
     'arcgis-world-imagery': {
       type: 'raster',
@@ -33,27 +36,12 @@ const ARCGIS_HYBRID_STYLE: any = {
       maxzoom: 19,
       attribution: 'World Imagery © Esri, Maxar, Earthstar Geographics, and the GIS User Community',
     },
-    'arcgis-world-boundaries-places': {
-      type: 'raster',
-      tiles: [
-        'https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',
-      ],
-      tileSize: 256,
-      scheme: 'xyz',
+    'openfreemap-vector': {
+      type: 'vector',
+      url: 'https://tiles.openfreemap.org/planet',
       minzoom: 0,
-      maxzoom: 19,
-      attribution: 'Place labels © Esri, HERE, Garmin, OpenStreetMap contributors, and the GIS User Community',
-    },
-    'arcgis-world-transportation': {
-      type: 'raster',
-      tiles: [
-        'https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}',
-      ],
-      tileSize: 256,
-      scheme: 'xyz',
-      minzoom: 0,
-      maxzoom: 19,
-      attribution: 'Transportation labels © Esri, HERE, Garmin, OpenStreetMap contributors',
+      maxzoom: 14,
+      attribution: '© OpenStreetMap contributors · © OpenMapTiles · OpenFreeMap',
     },
   },
   layers: [
@@ -63,23 +51,9 @@ const ARCGIS_HYBRID_STYLE: any = {
       source: 'arcgis-world-imagery',
       minzoom: 0,
       maxzoom: 19,
-    },
-    {
-      id: 'arcgis-world-transportation',
-      type: 'raster',
-      source: 'arcgis-world-transportation',
-      minzoom: 0,
-      maxzoom: 19,
       paint: { 'raster-opacity': 1, 'raster-fade-duration': 0 },
     },
-    {
-      id: 'arcgis-world-boundaries-places',
-      type: 'raster',
-      source: 'arcgis-world-boundaries-places',
-      minzoom: 0,
-      maxzoom: 19,
-      paint: { 'raster-opacity': 1, 'raster-fade-duration': 0 },
-    },
+    ...OPENFREEMAP_LABEL_LAYERS,
   ],
 };
 

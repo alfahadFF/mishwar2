@@ -1,8 +1,8 @@
 import { View, Text, Pressable, ScrollView, StyleSheet, Image } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useToast } from '../components/Toast';
-import { useRouter, useFocusEffect } from 'expo-router';
-import React, { useCallback, useEffect, useState } from 'react';
+import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '../utils/supabase';
 import { workHomeOf } from '../utils/work';
 import { openAppDownloadUpdates } from '../utils/support';
@@ -13,6 +13,9 @@ const DARK = '#1A1A2E';
 
 export default function HomeScreen() {
   const router = useRouter();
+  const { stayHome } = useLocalSearchParams<{ stayHome?: string }>();
+  const stayHomeRef = useRef(stayHome);
+  stayHomeRef.current = stayHome;
   const insets = useSafeAreaInsets();
 
   const toast = useToast();
@@ -34,7 +37,7 @@ export default function HomeScreen() {
       // حساب العمل يفتح على شاشة شغله عند تشغيل التطبيق (مرة واحدة، فزر «اطلب خدمة» يبقى في الرئيسية)
       if (!routedOnce) {
         routedOnce = true;
-        if (['driver', 'transporter', 'business'].includes(type))
+        if (['driver', 'transporter', 'business'].includes(type) && stayHomeRef.current !== '1')
           supabase.rpc('my_work_profile').then(({ data: p }) => { if (p) router.replace(workHomeOf(p) as any); });
       }
     });
@@ -190,17 +193,7 @@ export default function HomeScreen() {
 
         </View>}
 
-        <View style={{ height: 80 + insets.bottom }} />
       </ScrollView>
-
-      {/* Tab Bar */}
-      <View style={[s.tabbar, { height: 64 + insets.bottom, paddingBottom: 6 + insets.bottom }]}>
-        <Pressable style={s.tabActive}><Text style={s.tabIcon}>🏠</Text><Text style={s.tabLabelActive}>الرئيسية</Text></Pressable>
-        <Pressable onPress={() => router.push('/my-orders' as any)} style={s.tab}><Text style={s.tabIcon}>🧾</Text><Text style={s.tabLabel}>طلباتي</Text></Pressable>
-        <Pressable onPress={() => router.push('/wallet' as any)} style={s.tab}><Text style={s.tabIcon}>👛</Text><Text style={s.tabLabel}>المحفظة</Text></Pressable>
-        <Pressable onPress={() => router.push('/loyalty' as any)} style={s.tab}><Text style={s.tabIcon}>🎁</Text><Text style={s.tabLabel}>نقاطي</Text></Pressable>
-        <Pressable onPress={() => authed ? router.push('/account' as any) : router.push('/login' as any)} style={s.tab}><Text style={s.tabIcon}>👤</Text><Text style={s.tabLabel}>حسابي</Text></Pressable>
-      </View>
       {toast.node}
     </View>
   );
@@ -272,10 +265,4 @@ const s = StyleSheet.create({
   authSub: { fontSize: 11, color: '#6B7280', marginTop: 2, textAlign: 'right' },
   btnPrimary: { height: 48, borderRadius: 14, backgroundColor: ORANGE, alignItems: 'center', justifyContent: 'center' },
   btnPrimaryText: { color: '#fff', fontWeight: '800', fontSize: 14 },
-  tabbar: { position: 'absolute', bottom: 0, left: 0, right: 0, height: 64, backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: '#E5E7EB', flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center', paddingBottom: 6 },
-  tab: { flex: 1, alignItems: 'center', gap: 3 },
-  tabActive: { flex: 1, alignItems: 'center', gap: 3 },
-  tabIcon: { fontSize: 18 },
-  tabLabel: { fontSize: 10, color: '#9CA3AF', fontWeight: '600' },
-  tabLabelActive: { fontSize: 10, color: ORANGE, fontWeight: '800' },
 });
