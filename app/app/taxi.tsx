@@ -1,7 +1,7 @@
 import Stars from '../components/Stars';
 import { fetchRatings, Rating } from '../utils/rating';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { View, Text, Pressable, ScrollView, StyleSheet, Alert } from 'react-native';
+import { View, Text, Pressable, ScrollView, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '../utils/supabase';
 import { getMyLocation } from '../utils/location';
@@ -33,15 +33,17 @@ export default function TaxiScreen(){
   const [dropoffLabel,setDropoffLabel]=useState('');
   const [picker,setPicker]=useState<'pick'|'drop'|null>(null);
   const labelReq=useRef({pick:0,drop:0});
-  const setPointLabel=(which:'pick'|'drop',ll:number[],known?:string)=>{
+  const mapRef=useRef<any>(null);
+  const defaultPickupRef=useRef<number[]|null>(null);
+  const lastActiveOrderRef=useRef<string|null>(null);
+  const setPointLabel=useCallback((which:'pick'|'drop',ll:number[],known?:string)=>{
     const token=++labelReq.current[which];
     const setter=which==='pick'?setPickupLabel:setDropoffLabel;
     if(known){ setter(known); return; }
     setter('جارٍ تحديد اسم المكان...');
     placeName(ll).then(name=>{ if(labelReq.current[which]===token) setter(name); });
-  };
+  },[]);
   const [mode,setMode]=useState<'pick'|'drop'>('pick');
-  const mapRef=useRef<any>(null);
   const [locationLoading,setLocationLoading]=useState(true);
   const [locationError,setLocationError]=useState(false);
   const [selected,setSelected]=useState('ordinary');
@@ -56,12 +58,12 @@ export default function TaxiScreen(){
   const loadActive=useCallback(async()=>{
     const { data }=await supabase.rpc('my_taxi_active');
     setActive(data||null);
+    if((data as any)?.id) lastActiveOrderRef.current=String((data as any).id);
     const accepted=!!data&&['accepted','arrived','in_progress'].includes((data as any).status);
     if(accepted && (data as any)?.id && (data as any)?.driver_name){ const m=await fetchRatings('taxi_order',[(data as any).id]); setDrvRating(m[(data as any).id]); }
     else setDrvRating(undefined);
     return data;
   },[]);
-  useFocusEffect(useCallback(()=>{ loadActive().then((a:any)=>{ if(a){ setPickup(a.pickup); setDropoff(a.dropoff); setPointLabel('pick',a.pickup,a.pickup_text||'نقطة الانطلاق'); setPointLabel('drop',a.dropoff,a.dropoff_text||'نقطة الوصول'); } }); },[loadActive]));
   useEffect(()=>{
     if(!active || active.status==='completed') return;
     const iv=setInterval(async()=>{
@@ -85,8 +87,11 @@ export default function TaxiScreen(){
     let alive=true;
     getMyLocation().then(({ll,real})=>{
       if(!alive) return;
-      if(real && ll){ setPickup(ll); setPointLabel('pick',ll,'موقعي'); setLocationError(false); }
-      else setLocationError(true);
+      if(real && ll){
+        defaultPickupRef.current=[...ll];
+        if(!lastActiveOrderRef.current){ setPickup(ll); setPointLabel('pick',ll,'موقعي'); }
+        setLocationError(false);
+      }else setLocationError(true);
       setLocationLoading(false);
     }).catch(()=>{ if(alive){ setLocationError(true); setLocationLoading(false); } });
     return ()=>{ alive=false; };
@@ -96,7 +101,7 @@ export default function TaxiScreen(){
     const {ll,real}=await getMyLocation();
     setLocationLoading(false);
     if(!real || !ll){ setLocationError(true); showToast('تعذر تحديد موقعك؛ اسمح بإذن الموقع ثم أعد المحاولة'); return; }
-    setLocationError(false); setPickup(ll); setPointLabel('pick',ll,'موقعي'); setMode('drop');
+    setLocationError(false); defaultPickupRef.current=[...ll]; setPickup(ll); setPointLabel('pick',ll,'موقعي'); setMode('drop');
     mapRef.current?.animateToRegion?.({latitude:ll[0],longitude:ll[1],latitudeDelta:0.02,longitudeDelta:0.02});
   };
   const [route,setRoute]=useState<(RouteOption & {alternatives:RouteOption[]})|null>(null);
@@ -106,6 +111,49 @@ export default function TaxiScreen(){
   const [quoteError,setQuoteError]=useState<string|null>(null);
   const [quoteLoading,setQuoteLoading]=useState(false);
   const [retry,setRetry]=useState(0);
+  const resetTaxiForm=useCallback(()=>{
+    lastActiveOrderRef.current=null;
+    labelReq.current.drop++;
+    setActive(null);
+    setHidden(null);
+    setDrvRating(undefined);
+    setDropoff(null);
+    setDropoffLabel('');
+    setMode('pick');
+    setSelected('ordinary');
+    setRadius(5);
+    setRoute(null);
+    setRouteState('idle');
+    setQuotes({});
+    setQuoteError(null);
+    setQuoteLoading(false);
+    const home=defaultPickupRef.current;
+    if(home){
+      const point=[...home];
+      setPickup(point);
+      setPointLabel('pick',point,'موقعي');
+      mapRef.current?.animateToRegion?.({latitude:point[0],longitude:point[1],latitudeDelta:0.02,longitudeDelta:0.02});
+    }else{
+      labelReq.current.pick++;
+      setPickup(null);
+      setPickupLabel('');
+    }
+  },[setPointLabel]);
+  useFocusEffect(useCallback(()=>{
+    let focused=true;
+    loadActive().then((a:any)=>{
+      if(!focused) return;
+      if(a){
+        setPickup(a.pickup);
+        setDropoff(a.dropoff);
+        setPointLabel('pick',a.pickup,a.pickup_text||'نقطة الانطلاق');
+        setPointLabel('drop',a.dropoff,a.dropoff_text||'نقطة الوصول');
+      }else if(lastActiveOrderRef.current){
+        resetTaxiForm();
+      }
+    });
+    return ()=>{ focused=false; };
+  },[loadActive,resetTaxiForm,setPointLabel]));
   useEffect(()=>{
     if(!pickup || !dropoff){ setRoute(null); setRouteState('idle'); return; }
     let alive=true; setRouteState('loading');
@@ -235,9 +283,8 @@ export default function TaxiScreen(){
     try{
       const { data, error }=await supabase.rpc('customer_taxi_cash_paid',{p_order:active.id});
       if(error || !(data as any)?.paid){ showToast(errMsg(error||'تعذر تسجيل الدفع النقدي','تعذر تسجيل الدفع النقدي')); return; }
-      setActive((cur:any)=>cur?.id===active.id?{...cur,cash_paid_at:(data as any)?.cash_paid_at||new Date().toISOString(),payment_method:'cash'}:cur);
-      await loadActive();
-      showToast('تم تسجيل الدفع النقدي للسائق');
+      resetTaxiForm();
+      showToast('تم تسجيل الدفع النقدي، يمكنك طلب رحلة جديدة');
     }catch(e:any){
       showToast(errMsg(e,'تعذر تسجيل الدفع النقدي'));
     }finally{
@@ -246,10 +293,7 @@ export default function TaxiScreen(){
   };
   const payCash=()=>{
     if(!active || active.status!=='completed' || active.cash_paid_at || cashBusy) return;
-    Alert.alert('تأكيد الدفع النقدي',`هل سلّمت أجرة الرحلة ${aFareLabel} نقداً للسائق؟ لا تؤكد إلا بعد تسليم المبلغ.`,[
-      {text:'رجوع',style:'cancel'},
-      {text:'نعم، دفعت نقداً',onPress:()=>{void confirmCashPayment();}},
-    ]);
+    void confirmCashPayment();
   };
   const showActive=!!active && active.id!==hidden;
   const moving=showActive && ['accepted','arrived','in_progress'].includes(active.status);

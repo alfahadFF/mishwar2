@@ -1,6 +1,5 @@
 import React, { forwardRef, useEffect, useId, useImperativeHandle, useRef } from 'react';
 import { View, Text } from 'react-native';
-import { OPENFREEMAP_LABEL_LAYERS } from './openfreemapLabelLayers';
 import {
   Camera,
   GeoJSONSource,
@@ -20,12 +19,10 @@ const ARCGIS_IMAGERY_TILES = ARCGIS_TOKEN
   ? `https://ibasemaps-api.arcgis.com/arcgis/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}?token=${ARCGIS_TOKEN}`
   : 'https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
 
-// Hybrid map: Esri satellite imagery underneath MapLibre vector labels from
-// OpenFreeMap. Vector labels render consistently on native and can prefer Arabic.
+// Hybrid map: satellite imagery with a transparent Arabic place-name layer.
+// Raster labels avoid missing glyph/font rendering on devices that showed imagery without names.
 const ARCGIS_HYBRID_STYLE: any = {
   version: 8,
-  glyphs: 'https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf',
-  sprite: 'https://tiles.openfreemap.org/sprites/ofm_f384/ofm',
   sources: {
     'arcgis-world-imagery': {
       type: 'raster',
@@ -36,12 +33,14 @@ const ARCGIS_HYBRID_STYLE: any = {
       maxzoom: 19,
       attribution: 'World Imagery © Esri, Maxar, Earthstar Geographics, and the GIS User Community',
     },
-    'openfreemap-vector': {
-      type: 'vector',
-      url: 'https://tiles.openfreemap.org/planet',
+    'arcgis-place-labels': {
+      type: 'raster',
+      tiles: ['https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}'],
+      tileSize: 256,
+      scheme: 'xyz',
       minzoom: 0,
-      maxzoom: 14,
-      attribution: '© OpenStreetMap contributors · © OpenMapTiles · OpenFreeMap',
+      maxzoom: 23,
+      attribution: 'Place labels © Esri, HERE, Garmin, OpenStreetMap contributors, and the GIS user community',
     },
   },
   layers: [
@@ -53,7 +52,14 @@ const ARCGIS_HYBRID_STYLE: any = {
       maxzoom: 19,
       paint: { 'raster-opacity': 1, 'raster-fade-duration': 0 },
     },
-    ...OPENFREEMAP_LABEL_LAYERS,
+    {
+      id: 'arcgis-place-labels',
+      type: 'raster',
+      source: 'arcgis-place-labels',
+      minzoom: 0,
+      maxzoom: 23,
+      paint: { 'raster-opacity': 1, 'raster-fade-duration': 0 },
+    },
   ],
 };
 

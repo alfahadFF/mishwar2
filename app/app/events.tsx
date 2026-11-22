@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '../utils/supabase';
 import { guestBlocked } from '../utils/guest';
+import { errMsgWithCode } from '../utils/errors';
 import { useToast } from '../components/Toast';
 import PointPicker from '../components/PointPicker';
 import PointRow from '../components/PointRow';
@@ -24,6 +25,18 @@ const VEH: EventVehicle[] = [
   { key:'van_11', name:'🚐 فان 11', seats:11 },
   { key:'van_8', name:'🚐 فان 8', seats:8 },
 ];
+function parseLocalDateTime(value: string): string | null | undefined {
+  const raw=value.trim();
+  if(!raw) return null;
+  const match=/^([0-9]{4})-([0-9]{2})-([0-9]{2})[ T]([0-9]{1,2}):([0-5][0-9])$/.exec(raw);
+  if(!match) return undefined;
+  const [,year,month,day,hour,minute]=match;
+  const date=new Date(Number(year),Number(month)-1,Number(day),Number(hour),Number(minute));
+  if(date.getFullYear()!==Number(year) || date.getMonth()!==Number(month)-1 || date.getDate()!==Number(day)
+      || date.getHours()!==Number(hour) || date.getMinutes()!==Number(minute)) return undefined;
+  return date.toISOString();
+}
+
 const EVENT_FORM:Record<EventType,{title:string;gather:string;routeTitle:string;routeHint:string;duration:string;detailsTitle:string;detailsHint:string}>={
   wedding:{title:'تفاصيل الزفاف',gather:'مكان التجمع (العروس/العريس)',routeTitle:'مسار الزفاف والصالة',routeHint:'حدد التجمع والصالة وأي محطات بينهما ومكان الوصول الأخير.',duration:'مدة خدمة الزفاف',detailsTitle:'ترتيبات الزفاف',detailsHint:'اسم الصالة وترتيب المراسم وأي متطلبات خاصة بنقل العروسين.'},
   family:{title:'خطة الرحلة العائلية',gather:'نقطة تجمع العائلة',routeTitle:'وجهات الرحلة العائلية',routeHint:'أضف وجهات الرحلة العائلية بالترتيب وحدد نقطة العودة.',duration:'مدة الرحلة العائلية',detailsTitle:'احتياجات العائلة',detailsHint:'أطفال، مقاعد أطفال، أمتعة أو متطلبات خاصة بالعائلة.'},
@@ -83,6 +96,13 @@ export default function EventsScreen(){
   ];
 
   const handlePublish = async()=>{
+    const gatheringAt=parseLocalDateTime(gatherTime);
+    const departureAt=parseLocalDateTime(departTime);
+    const returnAt=parseLocalDateTime(returnTime);
+    if(gatheringAt===undefined || departureAt===undefined || returnAt===undefined){
+      toast.show('اكتب المواعيد بصيغة YYYY-MM-DD HH:MM أو اتركها فارغة','err');
+      return;
+    }
     setLoading(true);
     try{
       const { data:{user}} = await supabase.auth.getUser();
@@ -98,13 +118,13 @@ export default function EventsScreen(){
         event_type_other: eventType==='other'? otherType.trim(): null,
         gathering_point: gather.label,
         gathering_lat: gather.ll![0], gathering_lng: gather.ll![1],
-        gathering_time: gatherTime||null,
-        departure_time: departTime||null,
+        gathering_time: gatheringAt,
+        departure_time: departureAt,
         destinations: dests.filter(x=>x.ll).map(x=> ({label:x.label, lat:x.ll![0], lng:x.ll![1]})),
         duration_hours: duration,
-        return_time: returnTime||null,
+        return_time: returnAt,
         wait,
-        final_point: finalPt.ll? JSON.stringify({label:finalPt.label, lat:finalPt.ll[0], lng:finalPt.ll[1]}) : null,
+        final_point: finalPt.ll? {label:finalPt.label, lat:finalPt.ll[0], lng:finalPt.ll[1]} : null,
         route_info: routeInfo,
         num_people: people,
         vehicles,
@@ -116,7 +136,7 @@ export default function EventsScreen(){
       if(error) throw error;
       toast.show('تم نشر الطلب');
       setTimeout(()=> router.replace('/my-orders?tab=events' as any), 1200);
-    } catch(e:any){ toast.show('تعذر نشر الطلب، حاول مرة أخرى','err') } finally{ setLoading(false) }
+    } catch(e:any){ console.error('[event_orders.insert] تعذر نشر الطلب',e); toast.show(errMsgWithCode(e,'تعذر نشر الطلب'),'err') } finally{ setLoading(false) }
   };
 
   return (

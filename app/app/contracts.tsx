@@ -7,6 +7,7 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '../utils/supabase';
 import { guestBlocked } from '../utils/guest';
+import { errMsgWithCode } from '../utils/errors';
 import { useToast } from '../components/Toast';
 import DatePicker from '../components/DatePicker';
 import { CT_UNITS, CtUnit, unitOf, durText, ctEndDate } from '../utils/contracts';
@@ -15,6 +16,13 @@ const VEH_S=[{key:'car',name:'🚗 سيارة 4',seats:4},{key:'van_8',name:'�
 const VEH_L=[{key:'bus_large_50',name:'🚌 باص كبير 50',seats:50},{key:'bus_mid_27',name:'🚌 باص متوسط 27',seats:27},{key:'bus_mid_21',name:'🚌 باص متوسط 21',seats:21},{key:'bus_mid_18',name:'🚌 باص متوسط 18',seats:18},{key:'bus_small_14',name:'🚐 باص صغير 14',seats:14},{key:'van_11',name:'🚐 فان 11',seats:11}] as const;
 type Pt={ll:number[]|null,label:string};
 const setAt=<T,>(arr:T[], i:number, v:Partial<T>)=> arr.map((x,idx)=> idx===i? {...x,...v}:x);
+function normalizeDbTime(value: string): string | null | undefined {
+  const raw=value.trim();
+  if(!raw) return null;
+  const match=/^([0-9]{1,2}):([0-5][0-9])(?::([0-5][0-9]))?$/.exec(raw);
+  if(!match || Number(match[1])>23) return undefined;
+  return `${match[1].padStart(2,'0')}:${match[2]}:${match[3]||'00'}`;
+}
 export default function ContractsScreen(){
   const [cat,setCat]=useState<string|null>(null);
   const [eduRole,setEduRole]=useState<'parent'|'employee'|'institution'>('parent');
@@ -40,6 +48,12 @@ export default function ContractsScreen(){
   const toggleDay=(d:number)=> setDays(s=>{ const n=new Set(s); if(n.has(d)) n.delete(d); else n.add(d); return n;});
   const chg=(k:string,d:number)=> setCounts(c=> ({...c,[k]:Math.max(0,(c[k]||0)+d)}));
   const handlePublish=async()=>{
+    const dbDepartureTime=normalizeDbTime(departTime);
+    const dbReturnTime=normalizeDbTime(returnTime);
+    if(dbDepartureTime===undefined || dbReturnTime===undefined){
+      toast.show('اكتب وقت الانطلاق والعودة بصيغة HH:MM','err');
+      return;
+    }
     setLoading(true);
     try{
       const {data:{user}}=await supabase.auth.getUser(); if(!user){ guestBlocked(); return; }
@@ -47,8 +61,8 @@ export default function ContractsScreen(){
       const roleForDB = isEdu ? eduRole : 'business';
       const payload:any={
         user_id:user.id, contract_category:cat, contract_role:roleForDB, num_people:people,
-        pickup_points: pickups.filter(x=>x.ll).map(x=>({label:x.label, lat:x.ll![0], lng:x.ll![1]})), departure_time:departTime||null,
-        destinations: dests.filter(d=>d.ll).map(d=>({label:d.label, lat:d.ll![0], lng:d.ll![1], return_time:d.rt||null})), return_time:returnTime||null,
+        pickup_points: pickups.filter(x=>x.ll).map(x=>({label:x.label, lat:x.ll![0], lng:x.ll![1]})), departure_time:dbDepartureTime,
+        destinations: dests.filter(d=>d.ll).map(d=>({label:d.label, lat:d.ll![0], lng:d.ll![1], return_time:d.rt||null})), return_time:dbReturnTime,
         drop_points: dropSame==='same'? null : drops.filter(x=>x.ll).map(x=>({label:x.label, lat:x.ll![0], lng:x.ll![1]})),
         route_info: routeInfo, days:Array.from(days),
         contract_unit:unit, unit_count:unitCount, duration_type:unit, start_date:startDate, total_seats:totalSeats, shift_type: isWork? shiftType:null,
@@ -58,7 +72,7 @@ export default function ContractsScreen(){
       const {error}=await supabase.from('contract_orders').insert(payload); if(error) throw error;
       toast.show('تم نشر الطلب');
       setTimeout(()=> router.replace('/my-orders?tab=contracts' as any), 1200);
-    }catch(e:any){ toast.show('تعذر نشر الطلب، حاول مرة أخرى','err')} finally{ setLoading(false)}
+    }catch(e:any){ console.error('[contract_orders.insert] تعذر نشر الطلب',e); toast.show(errMsgWithCode(e,'تعذر نشر الطلب'),'err')} finally{ setLoading(false)}
   };
   const P=pickups.filter(p=>p.ll).map(p=>p.ll!), D=dests.filter(d=>d.ll).map(d=>d.ll!);
   const R= (!isWork && dropSame==='different')? drops.filter(d=>d.ll).map(d=>d.ll!) : P.slice().reverse();

@@ -5,9 +5,23 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '../utils/supabase';
 import { guestBlocked } from '../utils/guest';
+import { errMsgWithCode } from '../utils/errors';
 import PointPicker from '../components/PointPicker';
 import PointRow from '../components/PointRow';
 import TripRouteMap from '../components/TripRouteMap';
+
+function isFutureSchedule(dateText: string, timeText: string) {
+  const dateParts = /^([0-9]{4})-([0-9]{2})-([0-9]{2})$/.exec(dateText.trim());
+  const timeParts = /^([01][0-9]|2[0-3]):([0-5][0-9])$/.exec(timeText.trim());
+  if (!dateParts || !timeParts) return false;
+  const [, y, m, d] = dateParts;
+  const [, h, min] = timeParts;
+  const date = new Date(Number(y), Number(m) - 1, Number(d), Number(h), Number(min));
+  return date.getFullYear() === Number(y)
+    && date.getMonth() === Number(m) - 1
+    && date.getDate() === Number(d)
+    && date.getTime() > Date.now();
+}
 
 export default function TransportScreen(){
   const router=useRouter();
@@ -49,6 +63,10 @@ export default function TransportScreen(){
 
   const handlePublish=async()=>{
     if(!canPublish) return;
+    if(timing==='scheduled' && !isFutureSchedule(schedDate,schedTime)){
+      showToast('أدخل تاريخاً ووقتاً صحيحين في المستقبل بصيغة YYYY-MM-DD و HH:MM');
+      return;
+    }
     setSubmitting(true);
     try{
       const { data:{user} } = await supabase.auth.getUser();
@@ -60,9 +78,9 @@ export default function TransportScreen(){
         vehicle_class: vehicle,
         weight: weight || null,
         weight_kg: weight ? parseFloat(weight) || null : null,
-        pickup_points: pickPoints,
-        delivery_points: dropPoints,
-        dropoff_points: dropPoints,
+        pickup_points: pickPoints.filter(p=>p.lat!=null && p.lng!=null).map(p=>({lat:p.lat,lng:p.lng,label:p.label,detail:p.detail})),
+        delivery_points: dropPoints.filter(p=>p.lat!=null && p.lng!=null).map(p=>({lat:p.lat,lng:p.lng,label:p.label,detail:p.detail})),
+        dropoff_points: dropPoints.filter(p=>p.lat!=null && p.lng!=null).map(p=>({lat:p.lat,lng:p.lng,label:p.label,detail:p.detail})),
         route_info: routeInfo, // معلومة فقط — لا تدخل في السعر
         timing_type: timing,
         scheduled_date: timing==='scheduled' ? schedDate || null : null,
@@ -89,7 +107,8 @@ export default function TransportScreen(){
       if(error) throw error;
       showToast('تم نشر الطلب'); setTimeout(()=> router.replace('/my-orders?tab=cargo' as any), 1200);
     }catch(e:any){
-      showToast('تعذر نشر الطلب، حاول مرة أخرى');
+      console.error('[cargo_orders.insert] تعذر نشر الطلب', e);
+      showToast(errMsgWithCode(e,'تعذر نشر الطلب'));
     }finally{ setSubmitting(false); }
   };
 
