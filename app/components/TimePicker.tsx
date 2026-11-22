@@ -22,8 +22,10 @@ export default function TimePicker({ visible, value, title, onClose, onPick }:
   const [m, setM] = useState(0);
   useEffect(() => {
     if (!visible) return;
-    const [vh, vm] = hm(value).split(':').map(Number);
-    setH(Number.isFinite(vh) ? vh : null);
+    const current = hm(value);
+    if (!current) { setH(null); setM(0); return; }
+    const [vh, vm] = current.split(':').map(Number);
+    setH(Number.isInteger(vh) && vh >= 0 && vh < 24 ? vh : null);
     setM(MINS.includes(vm) ? vm : 0);
   }, [visible]);
   return (

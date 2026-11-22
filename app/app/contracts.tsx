@@ -10,6 +10,7 @@ import { guestBlocked } from '../utils/guest';
 import { errMsgWithCode } from '../utils/errors';
 import { useToast } from '../components/Toast';
 import DatePicker from '../components/DatePicker';
+import TimeSelector from '../components/TimeSelector';
 import { CT_UNITS, CtUnit, unitOf, durText, ctEndDate } from '../utils/contracts';
 const CATS=[{k:'school',icon:'🏫',label:'مدارس'},{k:'kindergarten',icon:'🧸',label:'روضة'},{k:'university',icon:'🎓',label:'جامعات'},{k:'factory',icon:'🏭',label:'مصانع'},{k:'company',icon:'🏢',label:'شركة'},{k:'workers',icon:'👷',label:'عمال'}] as const;
 const VEH_S=[{key:'car',name:'🚗 سيارة 4',seats:4},{key:'van_8',name:'🚐 فان 8',seats:8},{key:'van_11',name:'🚐 فان 11',seats:11},{key:'bus_small_14',name:'🚐 باص صغير 14',seats:14}] as const;
@@ -51,7 +52,7 @@ export default function ContractsScreen(){
     const dbDepartureTime=normalizeDbTime(departTime);
     const dbReturnTime=normalizeDbTime(returnTime);
     if(dbDepartureTime===undefined || dbReturnTime===undefined){
-      toast.show('اكتب وقت الانطلاق والعودة بصيغة HH:MM','err');
+      toast.show('تحقق من وقت الانطلاق والعودة','err');
       return;
     }
     setLoading(true);
@@ -131,17 +132,17 @@ export default function ContractsScreen(){
               onPick={()=> openPick('مكان الانطلاق '+(i+1),'green',p.ll,(ll,label)=> setPickups(a=> setAt(a,i,{ll,label})))}
               onRemove={i>0? ()=> setPickups(a=> a.filter((_,idx)=> idx!==i)) : undefined}/>)}
             <Pressable onPress={()=> setPickups(a=> [...a,{ll:null,label:''}])} style={s.addPt}><Text style={s.addPtT}>＋ إضافة مكان انطلاق</Text></Pressable>
-            {!isWork && <><Text style={s.label}>ساعة الانطلاق</Text><TextInput value={departTime} onChangeText={setDepartTime} placeholder="07:30" style={s.input}/></>}
+            {!isWork && <><Text style={s.label}>ساعة الانطلاق</Text><TimeSelector value={departTime} onChange={setDepartTime} placeholder="07:30" style={s.input} accessibilityLabel="ساعة الانطلاق"/></>}
           </View>
           <View style={s.card}>
             <Text style={s.h2}>🏫 الوجهات</Text>
             {dests.map((d,i)=> <PointRow key={i} badge={'B'+(i+1)} color="#4F46E5" title={'الوجهة '+(i+1)} label={d.label} set={!!d.ll}
               onPick={()=> openPick('الوجهة '+(i+1),'indigo',d.ll,(ll,label)=> setDests(a=> setAt(a,i,{ll,label})))}
               onRemove={i>0? ()=> setDests(a=> a.filter((_,idx)=> idx!==i)) : undefined}>
-              {!isWork && <TextInput value={d.rt} onChangeText={v=> setDests(a=> setAt(a,i,{rt:v}))} placeholder="ساعة العودة 14:00" style={[s.input,{height:34,marginTop:6,fontSize:12}]}/>}
+              {!isWork && <TimeSelector value={d.rt} onChange={v=> setDests(a=> setAt(a,i,{rt:v}))} placeholder="ساعة العودة" style={[s.input,{height:38,marginTop:6}]} accessibilityLabel={`ساعة عودة ${i+1}`}/>}
             </PointRow>)}
             <Pressable onPress={()=> setDests(a=> [...a,{ll:null,label:'',rt:''}])} style={s.addPt}><Text style={s.addPtT}>＋ إضافة وجهة</Text></Pressable>
-            {!isWork && <><Text style={s.label}>ساعة العودة</Text><TextInput value={returnTime} onChangeText={setReturnTime} placeholder="14:00" style={s.input}/></>}
+            {!isWork && <><Text style={s.label}>ساعة العودة</Text><TimeSelector value={returnTime} onChange={setReturnTime} placeholder="14:00" style={s.input} accessibilityLabel="ساعة العودة"/></>}
           </View>
           {isWork && (
             <View style={s.card}>

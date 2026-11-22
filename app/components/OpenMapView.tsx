@@ -19,8 +19,10 @@ const ARCGIS_IMAGERY_TILES = ARCGIS_TOKEN
   ? `https://ibasemaps-api.arcgis.com/arcgis/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}?token=${ARCGIS_TOKEN}`
   : 'https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
 
-// Hybrid map: satellite imagery with a transparent Arabic place-name layer.
-// Raster labels avoid missing glyph/font rendering on devices that showed imagery without names.
+// Hybrid map: satellite imagery with transparent reference labels above it.
+// Keep raster source zooms within MapLibre Native's supported 0-22 range.
+const ARCGIS_PLACE_LABEL_TILES = 'https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}';
+const ARCGIS_TRANSPORT_LABEL_TILES = 'https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}';
 const ARCGIS_HYBRID_STYLE: any = {
   version: 8,
   sources: {
@@ -35,12 +37,21 @@ const ARCGIS_HYBRID_STYLE: any = {
     },
     'arcgis-place-labels': {
       type: 'raster',
-      tiles: ['https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}'],
+      tiles: [ARCGIS_PLACE_LABEL_TILES],
       tileSize: 256,
       scheme: 'xyz',
       minzoom: 0,
-      maxzoom: 23,
+      maxzoom: 22,
       attribution: 'Place labels © Esri, HERE, Garmin, OpenStreetMap contributors, and the GIS user community',
+    },
+    'arcgis-transport-labels': {
+      type: 'raster',
+      tiles: [ARCGIS_TRANSPORT_LABEL_TILES],
+      tileSize: 256,
+      scheme: 'xyz',
+      minzoom: 0,
+      maxzoom: 22,
+      attribution: 'Transportation labels © Esri, HERE, Garmin, OpenStreetMap contributors, and the GIS user community',
     },
   },
   layers: [
@@ -48,16 +59,18 @@ const ARCGIS_HYBRID_STYLE: any = {
       id: 'arcgis-world-imagery',
       type: 'raster',
       source: 'arcgis-world-imagery',
-      minzoom: 0,
-      maxzoom: 19,
       paint: { 'raster-opacity': 1, 'raster-fade-duration': 0 },
     },
     {
       id: 'arcgis-place-labels',
       type: 'raster',
       source: 'arcgis-place-labels',
-      minzoom: 0,
-      maxzoom: 23,
+      paint: { 'raster-opacity': 1, 'raster-fade-duration': 0 },
+    },
+    {
+      id: 'arcgis-transport-labels',
+      type: 'raster',
+      source: 'arcgis-transport-labels',
       paint: { 'raster-opacity': 1, 'raster-fade-duration': 0 },
     },
   ],

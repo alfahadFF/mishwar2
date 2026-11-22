@@ -55,6 +55,7 @@ export default function MyOrdersScreen() {
   const [edDateOpen, setEdDateOpen] = useState(false);
   const [edTimeOpen, setEdTimeOpen] = useState(false);
   const [cancelCargoFor, setCancelCargoFor] = useState<any>(null);
+  const [deleteFor, setDeleteFor] = useState<{ kind: 'cargo' | 'events' | 'contracts'; id: string } | null>(null);
 
   const loadPay = useCallback(async () => { const { data } = await supabase.rpc('my_payables'); setPayCount(((data || []) as any[]).length); }, []);
   const loadCargo = useCallback(async () => { const { data } = await supabase.rpc('my_cargo_orders'); setCargo((data || []) as any[]); }, []);
@@ -195,6 +196,19 @@ export default function MyOrdersScreen() {
     if (openCt) loadCtOffers(openCt.id);
     loadContracts();
   };
+  const deleteCancelledOrder = async () => {
+    if (!deleteFor) return;
+    const target = deleteFor;
+    setBusy(true);
+    const { error } = await supabase.rpc('delete_my_cancelled_order', { p_service: target.kind, p_order: target.id });
+    setBusy(false);
+    if (error) return toast.show(errMsg(error), 'err');
+    setDeleteFor(null);
+    if (target.kind === 'cargo') { setOpenCargo(null); setCargoOffers(null); await loadCargo(); }
+    else if (target.kind === 'events') { setOpenEvent(null); setEvOffers(null); await loadEvents(); }
+    else { setOpenCt(null); setCtOffers(null); await loadContracts(); }
+    toast.show('تم حذف الطلب الملغى');
+  };
   const curCt = openCt ? (contracts || []).find(c => c.id === openCt.id) || openCt : null;
   // تحديث بيانات الطلب المفتوح بعد إعادة التحميل
   const curEvent = openEvent ? (events || []).find(e => e.id === openEvent.id) || openEvent : null;
@@ -271,7 +285,7 @@ export default function MyOrdersScreen() {
       {toast.node}
 
       {/* طلب عقد */}
-      <Sheet visible={!!curCt && !confirm && !endFor} onClose={() => setOpenCt(null)} title={curCt ? `${CT_CATS[curCt.contract_category] || '📄 عقد'} • ${unitOf(curCt.contract_unit).label}` : ''}>
+      <Sheet visible={!!curCt && !confirm && !endFor && !deleteFor} onClose={() => setOpenCt(null)} title={curCt ? `${CT_CATS[curCt.contract_category] || '📄 عقد'} • ${unitOf(curCt.contract_unit).label}` : ''}>
         {curCt && <ScrollView>
           <ContractMap o={curCt} />
           <Row k="المدة" v={durText(curCt.contract_unit, curCt.unit_count)} strong />
@@ -297,6 +311,10 @@ export default function MyOrdersScreen() {
           {curCt.status === 'pending' && !(ctOffers || []).some(f => f.status === 'accepted') && (
             <View style={[ui.btns, { marginTop: 16 }]}><Btn label="إلغاء الطلب" tone="err" onPress={() => cancelCt(curCt.id)} loading={busy} /></View>
           )}
+          {curCt.status === 'cancelled' && <View style={[ui.btns, { marginTop: 16 }]}>
+            <Btn label="حذف الطلب الملغى" tone="err" onPress={() => setDeleteFor({ kind: 'contracts', id: curCt.id })} />
+          </View>}
+          {(curCt.status === 'accepted' || curCt.status === 'completed' || (ctOffers || []).some(f => f.status === 'accepted')) && <Text style={ui.note}>لحماية الاتفاق والسجل المالي، لا يمكن إلغاء أو حذف عقد بعد قبول أي عرض.</Text>}
         </ScrollView>}
         {toast.node}
       </Sheet>
@@ -314,7 +332,7 @@ export default function MyOrdersScreen() {
       </Sheet>
 
       {/* طلب نقل */}
-      <Sheet visible={!!openCargo && !confirm && !editCargo && !cancelCargoFor} onClose={() => setOpenCargo(null)} title={openCargo?.cargo_type || 'طلب نقل'}>
+      <Sheet visible={!!openCargo && !confirm && !editCargo && !cancelCargoFor && !deleteFor} onClose={() => setOpenCargo(null)} title={openCargo?.cargo_type || 'طلب نقل'}>
         {openCargo && <ScrollView>
           <Row k="المركبة" v={vName(openCargo.vehicle_class)} />
           <Row k="الانطلاق" v={openCargo.pickup_points?.[0]?.label} />
@@ -327,14 +345,15 @@ export default function MyOrdersScreen() {
             <Btn small label="تعديل الموعد والملاحظات" tone="ghost" onPress={() => startEditCargo(openCargo)} />
             {openCargo.status === 'open' && <Btn small label="إلغاء الطلب" tone="err" onPress={() => setCancelCargoFor(openCargo)} />}
           </View>}
-          {openCargo.status !== 'open' ? (<>
+          {(openCargo.status === 'accepted' || openCargo.status === 'completed') ? (<>
             <Row k="الناقل" v={openCargo.carrier_name} strong />
             <Row k="مركبة الناقل" v={vName(openCargo.carrier_vehicle)} />
             <ProviderPhotos service="cargo" refId={openCargo.id} />
             <Row k="السعر المتفق عليه" v={money(openCargo.agreed_price)} strong />
             {openCargo.status === 'accepted' && <View style={ui.btns}><CallBtn phone={openCargo.carrier_phone} /></View>}
             {openCargo.status === 'accepted' && <View style={ui.btns}><ShareTripBtn service="cargo" refId={openCargo.id} /></View>}
-          </>) : (<>
+            <Text style={ui.note}>لحماية الاتفاق والسجل المالي، لا يمكن حذف طلب بعد قبول عرض.</Text>
+          </>) : openCargo.status === 'open' ? (<>
             <Text style={ui.label}>العروض</Text>
             {!cargoOffers ? <Text style={ui.note}>جاري التحميل…</Text> : cargoOffers.length === 0 ? (
               <Empty icon="⏳" title="بانتظار عروض الناقلين" sub="تصلك العروض من الناقلين القريبين ضمن 10 كم" />
@@ -352,7 +371,10 @@ export default function MyOrdersScreen() {
               </View>
             ))}
             <Text style={ui.note}>اسم الناقل ورقمه يظهران بعد قبول العرض.</Text>
-          </>)}
+          </>) : <Text style={ui.note}>هذا الطلب ملغى.</Text>}
+          {openCargo.status === 'cancelled' && <View style={[ui.btns, { marginTop: 12 }]}>
+            <Btn label="حذف الطلب الملغى" tone="err" onPress={() => setDeleteFor({ kind: 'cargo', id: openCargo.id })} />
+          </View>}
         </ScrollView>}
         {toast.node}
       </Sheet>
@@ -396,8 +418,18 @@ export default function MyOrdersScreen() {
         </>}
       </Sheet>
 
+      <Sheet visible={!!deleteFor} onClose={() => { if (!busy) setDeleteFor(null); }} title="حذف الطلب الملغى">
+        {deleteFor && <>
+          <Text style={ui.note}>سيُحذف هذا الطلب نهائياً مع عروضه المرفوضة، ولا يمكن التراجع. لا يسمح النظام بالحذف إذا وُجد عرض مقبول أو سجل مالي أو سجل خدمة مرتبط بالطلب.</Text>
+          <View style={ui.btns}>
+            <Btn label="حذف نهائياً" tone="err" onPress={deleteCancelledOrder} loading={busy} />
+            <Btn label="رجوع" tone="ghost" onPress={() => { if (!busy) setDeleteFor(null); }} />
+          </View>
+        </>}
+      </Sheet>
+
       {/* طلب مناسبة */}
-      <Sheet visible={!!curEvent && !confirm} onClose={() => setOpenEvent(null)} title={curEvent ? eventKind(curEvent) : ''}>
+      <Sheet visible={!!curEvent && !confirm && !deleteFor} onClose={() => setOpenEvent(null)} title={curEvent ? eventKind(curEvent) : ''}>
         {curEvent && <ScrollView>
           <EventMap o={curEvent} />
           <Row k="الموعد" v={fmtDateTime(curEvent.gathering_time)} />
@@ -420,6 +452,10 @@ export default function MyOrdersScreen() {
           {curEvent.status === 'pending' && !(evOffers || []).some(f => f.status === 'accepted') && (
             <View style={[ui.btns, { marginTop: 16 }]}><Btn label="إلغاء الطلب" tone="err" onPress={() => cancelEv(curEvent.id)} loading={busy} /></View>
           )}
+          {curEvent.status === 'cancelled' && <View style={[ui.btns, { marginTop: 16 }]}>
+            <Btn label="حذف الطلب الملغى" tone="err" onPress={() => setDeleteFor({ kind: 'events', id: curEvent.id })} />
+          </View>}
+          {(curEvent.status === 'accepted' || curEvent.status === 'completed' || (evOffers || []).some(f => f.status === 'accepted')) && <Text style={ui.note}>لحماية الاتفاق والسجل المالي، لا يمكن إلغاء أو حذف طلب بعد قبول أي عرض.</Text>}
         </ScrollView>}
         {toast.node}
       </Sheet>

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, Pressable, TextInput, ScrollView, StyleSheet, Platform } from 'react-native';
+import { View, Text, Pressable, TextInput, ScrollView, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '../utils/supabase';
@@ -8,6 +8,7 @@ import { errMsgWithCode } from '../utils/errors';
 import { useToast } from '../components/Toast';
 import PointPicker from '../components/PointPicker';
 import PointRow from '../components/PointRow';
+import DateTimeSelector from '../components/DateTimeSelector';
 import TripRouteMap, { Segment, TripMarker } from '../components/TripRouteMap';
 
 type Pt={ll:number[]|null,label:string};
@@ -100,7 +101,7 @@ export default function EventsScreen(){
     const departureAt=parseLocalDateTime(departTime);
     const returnAt=parseLocalDateTime(returnTime);
     if(gatheringAt===undefined || departureAt===undefined || returnAt===undefined){
-      toast.show('اكتب المواعيد بصيغة YYYY-MM-DD HH:MM أو اتركها فارغة','err');
+      toast.show('اختر التاريخ والساعة الصحيحين أو اترك الموعد فارغاً','err');
       return;
     }
     setLoading(true);
@@ -176,8 +177,8 @@ export default function EventsScreen(){
               onPick={()=> openPick(eventForm.gather,'green',gather.ll,(ll,label)=> setGather({ll,label}))}/>
 
             <View style={{flexDirection:'row', gap:8, marginTop:8}}>
-              <View style={{flex:1}}><Text style={s.label}>موعد التجمع</Text><TextInput value={gatherTime} onChangeText={setGatherTime} placeholder="YYYY-MM-DD HH:MM" style={s.input}/></View>
-              <View style={{flex:1}}><Text style={s.label}>موعد الانطلاق</Text><TextInput value={departTime} onChangeText={setDepartTime} placeholder="YYYY-MM-DD HH:MM" style={s.input}/></View>
+              <View style={{flex:1}}><Text style={s.label}>موعد التجمع</Text><DateTimeSelector value={gatherTime} onChange={setGatherTime}/></View>
+              <View style={{flex:1}}><Text style={s.label}>موعد الانطلاق</Text><DateTimeSelector value={departTime} onChange={setDepartTime}/></View>
             </View>
             <Text style={[s.label,{marginTop:8}]}>{eventForm.routeTitle} — أكثر من محطة</Text>
             {dests.map((d,i)=> {
@@ -198,7 +199,7 @@ export default function EventsScreen(){
                 </View>
                 <Pressable onPress={()=> setWait(v=> !v)} style={{flexDirection:'row', gap:6, marginTop:6}}><Text>{wait?'☑':'☐'}</Text><Text style={{fontSize:11}}>{eventType==='wedding'?'السائق ينتظر بين محطات الزفاف':eventType==='tourist'?'السائق ينتظر بين الزيارات':'السائق ينتظر بين المحطات'}</Text></Pressable>
               </View>
-              <View style={{flex:1}}><Text style={s.label}>موعد العودة</Text><TextInput value={returnTime} onChangeText={setReturnTime} placeholder="YYYY-MM-DD HH:MM" style={s.input}/></View>
+              <View style={{flex:1}}><Text style={s.label}>موعد العودة</Text><DateTimeSelector value={returnTime} onChange={setReturnTime}/></View>
             </View>
             <PointRow badge="🏁" color="#dc2626" title={eventType==='wedding'?'الوصول الأخير (الصالة/المنزل)':eventType==='tourist'?'نهاية الجولة السياحية':'نقطة الوصول الأخيرة'} label={finalPt.label} set={!!finalPt.ll} optional
               onPick={()=> openPick(eventType==='wedding'?'الوصول الأخير للزفاف':eventType==='tourist'?'نهاية الجولة السياحية':'نقطة الوصول الأخيرة','red',finalPt.ll,(ll,label)=> setFinalPt({ll,label}))}
